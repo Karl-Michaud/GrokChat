@@ -1,0 +1,47 @@
+#!/bin/sh
+# Local half of the plane-workflow branch rules.
+#
+#   - staging and main only ever move through a merged PR: direct pushes to
+#     either are refused.
+#   - A work branch must have been cut from staging and carry only its own
+#     ticket (check-work-branch.sh, the same check branch-policy runs on the PR).
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+# Deliberate override (bootstrap / emergency only, say why in the ticket):
+#                          ALLOW_PROTECTED_PUSH=1 git push ...
+
+protected="refs/heads/main refs/heads/staging"
+hooks_dir=$(dirname "$0")
+zero=0000000000000000000000000000000000000000
+fetched=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    for p in $protected; do
+        if [ "$remote_ref" = "$p" ] && [ "${ALLOW_PROTECTED_PUSH:-0}" != "1" ]; then
+            echo "pre-push: direct push to ${p#refs/heads/} is not allowed." >&2
+            echo "          Push a work branch and open a PR (work -> staging, staging -> main)." >&2
+            exit 1
+        fi
+    done
+
+    # Deleting a remote branch: nothing to check.
+    [ "$local_sha" = "$zero" ] && continue
+
+    name=${remote_ref#refs/heads/}
+    case "$name" in
+        feature/*|fix/*|chore/*|hotfix/*)
+            if [ "$fetched" = 0 ]; then
+                git fetch --quiet origin || { echo "pre-push: could not fetch origin to check ancestry." >&2; exit 1; }
+                fetched=1
+            fi
+            "$hooks_dir/check-work-branch.sh" "$name" "$local_sha" origin/staging || exit 1
+            ;;
+        main|staging) ;;
+        *)
+            echo "pre-push: '$name' is not a work branch. Name it <feature|fix|chore|hotfix>/<TICKET>-<n>-<slug>." >&2
+            exit 1
+            ;;
+    esac
+done
+
+exit 0

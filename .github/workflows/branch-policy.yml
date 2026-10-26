@@ -1,0 +1,96 @@
+# Enforces the two-tier flow on GitHub:
+#
+#   ticket branch (feature|fix|chore|hotfix/GROKCHAT-N-slug) ──PR──▶ staging ──PR──▶ main
+#
+# PRs into staging also get an ancestry check (.githooks/check-work-branch.sh):
+# the branch must have been cut from staging and carry only its own ticket.
+#
+# The rules live in the shared plane-workflow skill (Agents/.claude/skills/plane-workflow,
+# linked into the workspace by Agents/scripts/bootstrap.sh) and in Agents/CLAUDE.md §7.2;
+# this file is the server-side half of them. Once the org can use rulesets
+# (ASTERION-10, on the Asterion board), the `staging` and `main` rulesets require this check, so a PR
+# that breaks the flow cannot merge. Until then it reports but does not block.
+#
+# Values from the PR (branch names, title) go through env vars, never straight
+# into the script, so a crafted branch name or title cannot inject shell.
+name: Branch policy
+
+on:
+  pull_request:
+    branches: [main, staging]
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-policy:
+    name: branch-policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    env:
+      BASE: ${{ github.base_ref }}
+      HEAD: ${{ github.head_ref }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      TITLE: ${{ github.event.pull_request.title }}
+      TICKET_PREFIX: GROKCHAT
+    steps:
+      - name: Check source branch and ticket
+        env:
+          # "true" once Plane's GitHub integration moves tickets on PR events
+          # (it keys on [GROKCHAT-N] in brackets). Then ticket PRs must lead with
+          # their bracketed id, and release PRs must not bracket any id, or
+          # merging a release would send shipped tickets back to On Staging.
+          # Keep in step with github_integration in .claude/plane-workflow.json.
+          REQUIRE_BRACKETED_TITLE: "false"
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          work_branch="^(feature|fix|chore|hotfix)/${TICKET_PREFIX}-[0-9]+-[a-z0-9][a-z0-9-]*$"
+
+          case "$BASE" in
+            main)
+              if [ "$HEAD" != "staging" ]; then
+                echo "::error::Only 'staging' may be merged into 'main'. '$HEAD' must go through staging first."
+                exit 1
+              fi
+              if [ "$REQUIRE_BRACKETED_TITLE" = "true" ] &&
+                 printf '%s\n%s' "$TITLE" "$BODY" | grep -Eq "\[${TICKET_PREFIX}-[0-9]+\]"; then
+                echo "::error::Release PRs must not name tickets in brackets ([${TICKET_PREFIX}-N], including Markdown link text). Plane would move them back to On Staging when this merges. Write ${TICKET_PREFIX}-N without brackets."
+                exit 1
+              fi
+              ;;
+            staging)
+              if ! printf '%s' "$HEAD" | grep -Eq "$work_branch"; then
+                echo "::error::'$HEAD' is not a ticket branch. Name it <feature|fix|chore|hotfix>/${TICKET_PREFIX}-<n>-<slug>, cut from staging."
+                exit 1
+              fi
+              ticket=$(printf '%s' "$HEAD" | sed -E "s#^[a-z]+/(${TICKET_PREFIX}-[0-9]+)-.*#\1#")
+              if [ "$REQUIRE_BRACKETED_TITLE" = "true" ]; then
+                case "$TITLE" in
+                  "[$ticket] "*) ;;
+                  *) echo "::error::PR title must start with its bracketed ticket, e.g. '[$ticket] Add the seam contract'. The brackets are what moves the ticket in Plane."
+                     exit 1 ;;
+                esac
+              elif ! printf '%s' "$TITLE" | grep -Eq "\b${ticket}\b"; then
+                echo "::error::PR title must reference its Plane ticket, e.g. '${ticket}: Add the seam contract'."
+                exit 1
+              fi
+              ;;
+          esac
+          echo "OK: $HEAD -> $BASE"
+
+      # Ticket branches only: was it cut from staging, and does it carry only its
+      # own ticket? Same script pre-push runs, so local and CI agree. Full
+      # history and every branch are needed to read ancestry.
+      - name: Fetch full history (ancestry needs every branch)
+        if: github.base_ref == 'staging'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check ancestry
+        if: github.base_ref == 'staging'
+        run: bash .githooks/check-work-branch.sh "$HEAD" "$HEAD_SHA" origin/staging

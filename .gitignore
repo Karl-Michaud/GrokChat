@@ -1,0 +1,7 @@
+# --- secrets: never committed (they live in Infisical) ---
+.env
+.env.*
+!.env.example
+
+# --- os / editor ---
+.DS_Store
