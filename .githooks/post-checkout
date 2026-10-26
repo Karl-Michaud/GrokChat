@@ -1,0 +1,27 @@
+#!/bin/sh
+# Warn the moment a work branch is created from anything but the staging tip.
+#
+# Git has no pre-branch hook, so this cannot stop the branch being made; it
+# says so immediately, while fixing it is one command. pre-push and the
+# branch-policy check are what actually refuse it.
+
+[ "${3:-0}" = "1" ] || exit 0                     # file checkouts: nothing to do
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || exit 0
+printf '%s' "$branch" | grep -Eq '^(feature|fix|chore|hotfix)/[A-Z][A-Z0-9]*-[0-9]+-' || exit 0
+
+# Only a branch that was just created: its reflog has exactly one entry.
+[ "$(git reflog show --format=%H "refs/heads/$branch" 2>/dev/null | wc -l | tr -d ' ')" = "1" ] || exit 0
+
+staging=$(git rev-parse -q --verify origin/staging) || exit 0
+head=$(git rev-parse HEAD)
+
+if [ "$head" != "$staging" ]; then
+    if git merge-base --is-ancestor "$head" "$staging"; then
+        echo "post-checkout: $branch starts behind origin/staging. Fine, but consider: git fetch && git rebase origin/staging" >&2
+    else
+        echo "post-checkout: WARNING: $branch was NOT cut from origin/staging (it starts at $(git log -1 --format='%h %s' HEAD))." >&2
+        echo "post-checkout: pre-push and the branch-policy check will refuse it. Recreate it:" >&2
+        echo "post-checkout:   git switch --detach origin/staging && git branch -D $branch && git switch --no-track -c $branch origin/staging" >&2
+    fi
+fi
+exit 0
