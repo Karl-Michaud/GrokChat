@@ -1,0 +1,68 @@
+{
+  "$comment": "Per-repo config for the shared `plane-workflow` skill (Agents/.claude/skills/plane-workflow, linked into the workspace by Agents/scripts/bootstrap.sh). IDs are Plane UUIDs in workspace project-asterion; resolve by name if one ever stops matching. GrokChat has its own Plane project (GROKCHAT), unlike the four Asterion repos, which share ASTERION.",
+  "plane": {
+    "workspace_slug": "project-asterion",
+    "project_id": "7bcea2e5-862a-47d6-894a-db30707d075d",
+    "identifier": "GROKCHAT",
+    "owner_member_id": "",
+    "states": {
+      "backlog": "6b5138bb-64ac-4978-bd42-1ef9038ac931",
+      "todo": "8b3d2c2a-5638-4edc-8f53-559312c76c43",
+      "in_progress": "4d32c754-c992-4dd6-b322-cd47bee35352",
+      "in_review": "d75e40fd-21fc-4f16-9c2e-8174ee3c2ea4",
+      "on_staging": "fb32b12c-daa0-4a1a-9090-fb407134cc98",
+      "ready_for_prod": "528cf997-22c7-4a30-b574-3efb4b0e7d82",
+      "done": "21b00a42-ead6-4ae6-a3b6-de137db07b06",
+      "cancelled": "f96c227f-e4d4-421c-99fa-4c55441135a4"
+    },
+    "labels": {
+      "ci": "ac3974b6-18bf-41bb-8c0d-fd8975e805c3",
+      "docs": "647caf77-f0c7-4f8c-8bf6-16ef1d8949e3",
+      "release-blocker": "da6dad49-4e46-4869-8406-abdd3f4052f3"
+    },
+    "release_modules": {}
+  },
+  "github_integration": {
+    "$comment": "Off: tickets are moved by hand. Turn on only after Plane's GitHub PR state mapping is configured, together with REQUIRE_BRACKETED_TITLE in .github/workflows/branch-policy.yml.",
+    "pr_state_automation": false
+  },
+  "git": {
+    "remote": "origin",
+    "repo": "Project-Asterion/GrokChat",
+    "staging_branch": "staging",
+    "production_branch": "main",
+    "work_branch_prefixes": [
+      "feature",
+      "fix",
+      "chore",
+      "hotfix"
+    ],
+    "staging_merge_method": "squash",
+    "production_merge_method": "merge"
+  },
+  "environments": {
+    "$comment": "Staging is the integration branch, tested before release; main is production.",
+    "staging": {
+      "branch": "staging",
+      "delivers_to": "",
+      "backend": ""
+    },
+    "production": {
+      "branch": "main",
+      "delivers_to": "",
+      "backend": ""
+    },
+    "shared_backend": false
+  },
+  "verify": {
+    "build": "",
+    "ui_check": "",
+    "backend_tests": ""
+  },
+  "release": {
+    "version_setting": "",
+    "build_setting": "",
+    "targets_that_must_match": [],
+    "tag_format": "v{VERSION}"
+  }
+}
