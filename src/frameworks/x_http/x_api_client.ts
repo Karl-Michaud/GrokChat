@@ -81,7 +81,7 @@ async function readResult(response: Response): Promise<XResult<unknown>> {
   } catch {
     return { ok: false, failure: { kind: "no_response" } };
   }
-  if (response.status >= 200 && response.status < 300) {
+  if (response.ok) {
     return { ok: true, value: body };
   }
   return { ok: false, failure: failureFor(response.status, response.headers, body) };

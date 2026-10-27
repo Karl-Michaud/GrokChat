@@ -4,8 +4,11 @@
  * spike responses in `docs/spikes/spike-x-oauth/`.
  */
 import type { Millis } from "../../../src/entities/time/instant";
+import { ManualClock } from "../../../src/frameworks/memory/manual_clock";
+import { XApiClient } from "../../../src/frameworks/x_http/x_api_client";
 import type { HttpTransport, TransportResult } from "../../../src/frameworks/x_http/transport";
 import type { AccessTokenResult, TokenProvider } from "../../../src/use_cases/ports/token_provider";
+import { T0 } from "../../unit/support/builders";
 
 /** One request as the transport saw it, with its body read as text. */
 export interface SeenRequest {
@@ -20,7 +23,7 @@ export interface SeenRequest {
 export type Reply = TransportResult | ((request: SeenRequest) => TransportResult);
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}): Response =>
-  new Response(JSON.stringify(body), {
+  new Response(status === 204 ? null : JSON.stringify(body), {
     status,
     headers: { "content-type": "application/json", ...headers },
   });
@@ -53,7 +56,7 @@ export class FixtureTransport implements HttpTransport {
       method: request.method,
       url: new URL(request.url),
       headers: request.headers,
-      body: isForm ? "" : await request.text(),
+      body: isForm ? "" : new TextDecoder().decode(await request.arrayBuffer()),
       form,
       timeout,
     };
@@ -164,3 +167,12 @@ export const INVALID_TOKEN = respond(400, {
   error: "invalid_request",
   error_description: "Value passed for the token was invalid.",
 });
+
+/** A client on fixtures, at `now`, with a fixed token. */
+export function clientSetup(now = T0) {
+  const clock = new ManualClock(now);
+  const transport = new FixtureTransport();
+  const tokens = new FixedTokens();
+  const client = new XApiClient(transport, tokens, clock);
+  return { clock, transport, tokens, client };
+}

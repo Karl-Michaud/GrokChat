@@ -25,19 +25,20 @@ export interface XOAuthEnv {
  * missing or the origin is not an https origin.
  */
 export function xOAuthConfig(env: XOAuthEnv): XOAuthConfig {
-  const missing = (["X_CLIENT_ID", "X_CLIENT_SECRET", "GROKCHAT_PUBLIC_ORIGIN"] as const).filter(
-    (name) => (env[name] ?? "") === "",
-  );
+  const read = (name: keyof XOAuthEnv): string => env[name] ?? "";
+  const names = ["X_CLIENT_ID", "X_CLIENT_SECRET", "GROKCHAT_PUBLIC_ORIGIN"] as const;
+  const missing = names.filter((name) => read(name) === "");
   if (missing.length > 0) {
     throw new Error(`missing configuration: ${missing.join(", ")}`);
   }
-  const origin = new URL(env.GROKCHAT_PUBLIC_ORIGIN ?? "");
-  if (origin.protocol !== "https:" || origin.origin !== env.GROKCHAT_PUBLIC_ORIGIN) {
+  const publicOrigin = read("GROKCHAT_PUBLIC_ORIGIN");
+  const origin = new URL(publicOrigin);
+  if (origin.protocol !== "https:" || origin.origin !== publicOrigin) {
     throw new Error("GROKCHAT_PUBLIC_ORIGIN must be an https origin, without a path");
   }
   return {
-    clientId: env.X_CLIENT_ID ?? "",
-    clientSecret: env.X_CLIENT_SECRET ?? "",
+    clientId: read("X_CLIENT_ID"),
+    clientSecret: read("X_CLIENT_SECRET"),
     redirectUri: `${origin.origin}${CALLBACK_PATH}`,
   };
 }
