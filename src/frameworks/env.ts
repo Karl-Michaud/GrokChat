@@ -1,4 +1,4 @@
-import type { AccountPublisher } from "./durable_objects/account_publisher";
+import type { AccountPublisherObject } from "./durable_objects/account_publisher";
 
 /**
  * The Worker's bindings, as declared in wrangler.jsonc. Secrets and vars (plan §3.6) are added
@@ -6,12 +6,13 @@ import type { AccountPublisher } from "./durable_objects/account_publisher";
  */
 export interface Env {
   readonly DB: D1Database;
-  readonly ACCOUNT: DurableObjectNamespace<AccountPublisher>;
+  readonly ACCOUNT: DurableObjectNamespace<AccountPublisherObject>;
   readonly MEDIA: R2Bucket;
-  // Secrets (`wrangler secret put`). Optional: a missing one fails closed where it is read.
+  // Secrets (`wrangler secret put`). Optional ones fail closed where they are read.
   readonly X_CLIENT_SECRET?: string;
   readonly GROKCHAT_BOT_CLIENTS?: string;
-  readonly GROKCHAT_TOKEN_KEYS?: string;
+  /** Secret: comma-separated base64 AES-256 keys, newest first (plan §3.5 token vault). */
+  readonly GROKCHAT_TOKEN_KEYS: string;
   readonly GROKCHAT_SESSION_SECRET?: string;
   readonly GROKCHAT_ADMIN_PASSWORD_HASH?: string;
   // Vars.

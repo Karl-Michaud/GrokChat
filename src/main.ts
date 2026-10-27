@@ -3,13 +3,24 @@
  * (plan §3, Agents/CLAUDE.md §7.1). It exports the Worker's handlers and the Durable Object class.
  */
 import { dispatchScheduled } from "./frameworks/cron/dispatch";
+import { TokenVault } from "./frameworks/crypto/token_vault";
+import { d1Stores } from "./frameworks/d1/d1_stores";
+import { AccountPublisherObject } from "./frameworks/durable_objects/account_publisher";
+import type { AccountServices, AccountXPorts } from "./frameworks/durable_objects/account_services";
+import { DurableTokenStore } from "./frameworks/durable_objects/durable_token_store";
+import { SystemClock } from "./frameworks/durable_objects/system_clock";
+import { X_UNAVAILABLE } from "./frameworks/durable_objects/x_unavailable";
 import type { Env } from "./frameworks/env";
 import { buildHttpApp } from "./frameworks/http/app";
 import type { ToolHandlers } from "./frameworks/mcp/mcp_server";
 import { mcpRoute } from "./frameworks/mcp/mcp_route";
 import { FakeXMediaUploader, FakeXPublisher, FakeXWorld } from "./frameworks/memory/fake_x";
-import { InProcessAccountPublisher } from "./frameworks/memory/in_process_account";
-import { MemoryLocks } from "./frameworks/memory/memory_locks";
+import {
+  InProcessAccountPublisher,
+  InProcessAccountReconciler,
+  InProcessMetricsCollector,
+} from "./frameworks/memory/in_process_account";
+import { MemoryLocks, MemorySingleFlight } from "./frameworks/memory/memory_locks";
 import {
   FnvContentHasher,
   MemoryMediaBlobStore,
@@ -32,7 +43,8 @@ import {
   MemoryPersonalityRepository,
 } from "./frameworks/memory/memory_repositories";
 import { FakeXTokenEndpoint, MemoryTokenStore } from "./frameworks/memory/memory_tokens";
-import { RandomIds, SystemClock } from "./frameworks/runtime/system_clock";
+import { R2MediaBlobStore } from "./frameworks/r2/r2_media_blob_store";
+import { RandomIds } from "./frameworks/runtime/random_ids";
 import { HealthController } from "./interface_adapters/health/health_controller";
 import { HealthPresenter } from "./interface_adapters/health/health_presenter";
 import { HealthViewModel, type HealthView } from "./interface_adapters/health/health_view_model";
@@ -74,17 +86,21 @@ import { GetPostMetricsInteractor } from "./use_cases/get_post_metrics/interacto
 import { GetPostInteractor } from "./use_cases/get_post/interactor";
 import { ListBacklogInteractor } from "./use_cases/list_backlog/interactor";
 import { MediaIntake } from "./use_cases/media/media_intake";
+import type { Clock } from "./use_cases/ports/clock";
+import type { Locks } from "./use_cases/ports/locks";
+import type { SingleFlight } from "./use_cases/ports/single_flight";
+import type { TokenStore } from "./use_cases/ports/token_store";
 import { AccountRecovery } from "./use_cases/run_services/account_recovery";
 import { AccountXGatewayService } from "./use_cases/run_services/account_x_gateway_service";
+import { CollectAccountMetrics } from "./use_cases/run_services/collect_account_metrics";
 import { GuardedTransition } from "./use_cases/run_services/guarded_transition";
 import { MediaStager } from "./use_cases/run_services/media_stager";
 import { PartSender } from "./use_cases/run_services/part_sender";
 import { PublishPost } from "./use_cases/run_services/publish_post";
+import { ReconcileAccount } from "./use_cases/run_services/reconcile_account";
 import { RefreshingTokenProvider } from "./use_cases/run_services/refreshing_token_provider";
 import { XCallRecorder } from "./use_cases/run_services/x_call_recorder";
 import { StageMediaFromUrlInteractor } from "./use_cases/stage_media_from_url/interactor";
-
-export { AccountPublisher } from "./frameworks/durable_objects/account_publisher";
 
 function handleHealth(): HealthView {
   const viewModel = new HealthViewModel();
@@ -92,7 +108,10 @@ function handleHealth(): HealthView {
   return viewModel.current();
 }
 
-/** The PR 2 in-memory stubs, one per port, until the D1, DO, R2 and X drivers are wired here. */
+/**
+ * The PR 2 in-memory stubs behind the MCP tools. The D1, DO and R2 drivers (PR 3) run the
+ * account's Durable Object below; the tools move onto them when the X drivers (PR 4) are wired.
+ */
 function stubStores() {
   const clock = new SystemClock();
   const audit = new MemoryAuditLog();
@@ -115,7 +134,7 @@ function stubStores() {
     blobs: new MemoryMediaBlobStore(),
     usage: new MemoryMediaUsage(),
     fetcher: new ScriptedMediaFetcher(),
-    locks: new MemoryLocks(clock),
+    locks: new MemoryLocks(clock, clock),
     tokenStore: new MemoryTokenStore(),
     tokenEndpoint: new FakeXTokenEndpoint(clock),
     x,
@@ -126,7 +145,7 @@ function stubStores() {
 
 type StubStores = ReturnType<typeof stubStores>;
 
-/** The run services over the stores, as the account's Durable Object will host them (PR 3). */
+/** The run services over the stub stores, as `buildAccountServices` hosts them in the object. */
 function stubPublishing(s: StubStores) {
   const recorder = new XCallRecorder(s.audit, s.costs);
   const steps = new GuardedTransition(s.writer);
@@ -166,7 +185,7 @@ type Backend = ReturnType<typeof stubBackend>;
 
 /**
  * The stub backend for this isolate. Exported so the integration tests can seed accounts until
- * the dashboard (PR 7) and the D1 drivers (PR 3) exist; it goes when the real drivers are wired.
+ * the dashboard (PR 7) exists; it goes when the tools are wired to the D1 and DO drivers (PR 4).
  */
 export const stubs: Backend = stubBackend();
 
@@ -279,3 +298,86 @@ export default {
   fetch: (request, env, ctx) => app.fetch(request, env, ctx),
   scheduled: () => dispatchScheduled(),
 } satisfies ExportedHandler<Env>;
+
+/** What an account's Durable Object runs on: its bindings, its storage, its locks, its clock. */
+export interface AccountRuntime {
+  readonly db: D1Database;
+  readonly bucket: R2Bucket;
+  readonly tokens: TokenStore;
+  /** The two ordered promise-chain mutexes (publish → token), held in the object's memory. */
+  readonly locks: Locks;
+  readonly flights: SingleFlight;
+  readonly clock: Clock;
+  readonly x: AccountXPorts;
+}
+
+/** The production runtime of one account's Durable Object. */
+export function accountRuntime(
+  ctx: DurableObjectState,
+  env: Env,
+  x: AccountXPorts,
+): AccountRuntime {
+  const clock = new SystemClock();
+  const vault = TokenVault.fromSecret(env.GROKCHAT_TOKEN_KEYS);
+  return {
+    db: env.DB,
+    bucket: env.MEDIA,
+    tokens: new DurableTokenStore(ctx.storage, vault),
+    locks: new MemoryLocks(clock, clock),
+    flights: new MemorySingleFlight(),
+    clock,
+    x,
+  };
+}
+
+/** The use-case graph inside an account's Durable Object (plan §3.5, m6). */
+export function buildAccountServices(runtime: AccountRuntime): AccountServices {
+  const { clock, locks, x } = runtime;
+  const stores = d1Stores(runtime.db);
+  const { reader, writer, accounts } = stores;
+  const recorder = new XCallRecorder(stores.audit, stores.costs);
+  const steps = new GuardedTransition(writer);
+  const tokens = new RefreshingTokenProvider(runtime.tokens, x.refresher, locks, clock);
+  const blobs = new R2MediaBlobStore(runtime.bucket);
+  const stager = new MediaStager({ ...stores, blobs, uploader: x.uploader, recorder });
+  const sender = new PartSender({
+    ...stores,
+    tokens,
+    publisher: x.publisher,
+    stager,
+    recorder,
+    steps,
+    clock,
+  });
+  const recovery = new AccountRecovery(reader, writer);
+  const publish = new PublishPost({ reader, accounts, locks, clock, recovery, steps, sender });
+  const flights = runtime.flights;
+  const shared = { reader, accounts, recorder, flights, clock };
+  return {
+    publisher: new InProcessAccountPublisher(publish),
+    reconciler: new InProcessAccountReconciler(
+      new ReconcileAccount({ ...shared, timeline: x.timeline, steps }),
+    ),
+    collector: new InProcessMetricsCollector(
+      new CollectAccountMetrics({ ...shared, metrics: stores.metrics, x: x.metrics }),
+    ),
+    gateway: new AccountXGatewayService({
+      publisher: x.publisher,
+      store: runtime.tokens,
+      locks,
+      recorder,
+      clock,
+    }),
+    tokens,
+  };
+}
+
+/**
+ * The account's Durable Object, bound as ACCOUNT. Its X ports are unavailable until the X drivers
+ * land (PR 4): nothing is sent, and every due part waits as a retryable failure.
+ */
+export class AccountPublisher extends AccountPublisherObject {
+  protected build(): AccountServices {
+    return buildAccountServices(accountRuntime(this.ctx, this.env, X_UNAVAILABLE));
+  }
+}

@@ -105,7 +105,9 @@ describe("secretsOf", () => {
   });
 
   it("skips secrets that are not set or blank", () => {
-    expect(secretsOf({ ...env, X_CLIENT_SECRET: "  " }, "tok")).toStrictEqual(["tok"]);
+    expect(
+      secretsOf({ ...env, X_CLIENT_SECRET: "  ", GROKCHAT_TOKEN_KEYS: "  " }, "tok"),
+    ).toStrictEqual(["tok"]);
   });
 });
 

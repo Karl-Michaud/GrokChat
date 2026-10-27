@@ -15,7 +15,7 @@ function jsonError(status: 401 | 503, error: string, headers: HeadersInit = {}):
  * from every tool result (I6, R8).
  */
 export function secretsOf(env: Env, token: string): readonly string[] {
-  const keys = (env.GROKCHAT_TOKEN_KEYS ?? "").split(",");
+  const keys = env.GROKCHAT_TOKEN_KEYS.split(",");
   return [
     token,
     env.X_CLIENT_SECRET,
