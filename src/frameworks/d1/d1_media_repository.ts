@@ -2,7 +2,7 @@ import type { MediaKind, StagedMedia } from "../../entities/content/staged_media
 import { accountId, postId, stagedMediaId, type StagedMediaId } from "../../entities/identity/ids";
 import type { MediaRepository } from "../../use_cases/ports/media_repository";
 
-interface MediaRow {
+export interface MediaRow {
   readonly id: string;
   readonly owner_account_id: string;
   readonly kind: string;
@@ -14,10 +14,10 @@ interface MediaRow {
   readonly attached_to: string | null;
 }
 
-const COLUMNS =
+export const COLUMNS =
   "id, owner_account_id, kind, content_type, size, storage_key, sha256, staged_at, attached_to";
 
-function fromRow(row: MediaRow): StagedMedia {
+export function fromRow(row: MediaRow): StagedMedia {
   return {
     id: stagedMediaId(row.id),
     ownerAccountId: accountId(row.owner_account_id),

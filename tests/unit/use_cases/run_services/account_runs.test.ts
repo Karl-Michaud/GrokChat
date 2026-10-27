@@ -11,6 +11,8 @@ import { METRICS_BATCH } from "../../../../src/use_cases/run_services/collect_ac
 import { ACCOUNT, aMedia, aPost, part, sentState, T0, unknownState } from "../../support/builders";
 import { makeWorld, type World } from "../../support/world";
 
+const meterUntil = (deadline: number) => new MemoryBudgetMeter(invocationBudget(deadline));
+
 const meter = (deadline = T0 + HOUR): MemoryBudgetMeter =>
   new MemoryBudgetMeter(invocationBudget(deadline));
 
@@ -403,7 +405,7 @@ describe("AccountRecovery, GuardedTransition and MediaCleanup", () => {
       ...aMedia({ id: old.id, storageKey: old.storageKey, size: old.size, stagedAt: T0 }),
     });
     world.clock.advance(2 * DAY);
-    expect(await world.cleanup.run(world.clock.now())).toBe(1);
+    expect(await world.cleanup.run(meterUntil(world.clock.now() + HOUR))).toBe(1);
     expect([...world.media.rows.keys()]).toStrictEqual([kept.id]);
     expect(await world.blobs.get(old.storageKey)).toBeNull();
     expect((await world.usage.current(world.clock.now())).storedBytes).toBe(kept.size);

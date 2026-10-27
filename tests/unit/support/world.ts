@@ -65,6 +65,7 @@ import { AccountXGatewayService } from "../../../src/use_cases/run_services/acco
 import { CollectAccountMetrics } from "../../../src/use_cases/run_services/collect_account_metrics";
 import { GuardedTransition } from "../../../src/use_cases/run_services/guarded_transition";
 import { MediaCleanup } from "../../../src/use_cases/run_services/media_cleanup";
+import { MemoryMediaCleanupCandidates } from "../../../src/frameworks/memory/memory_media_cleanup";
 import { MediaStager } from "../../../src/use_cases/run_services/media_stager";
 import { PartSender } from "../../../src/use_cases/run_services/part_sender";
 import { PublishPost } from "../../../src/use_cases/run_services/publish_post";
@@ -171,7 +172,14 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     recorder,
     clock,
   });
-  const cleanup = new MediaCleanup(media, blobs, usage, reader);
+  const cleanupCandidates = new MemoryMediaCleanupCandidates(media, reader);
+  const cleanup = new MediaCleanup({
+    media,
+    candidates: cleanupCandidates,
+    blobs,
+    usage,
+    clock,
+  });
 
   const actionAudit = new ActionAudit(audit, clock);
   const guard = new AccessGuard(actionAudit);
@@ -256,6 +264,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     collector,
     gateway,
     cleanup,
+    cleanupCandidates,
     actionAudit,
     guard,
     validator,

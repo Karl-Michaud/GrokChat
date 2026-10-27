@@ -31,7 +31,7 @@ export class MetricsTickInteractor implements MetricsTickInputBoundary {
     const run = await fanOut(work, meter, clock, (account) =>
       collector.collect(account, now, deadline),
     );
-    const mediaDeleted = await this.ports.cleanup.run(now);
+    const mediaDeleted = await this.ports.cleanup.run(meter);
     this.presenter.present({
       job: input.actor.job,
       dispatched: run.results.length,

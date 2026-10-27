@@ -524,7 +524,13 @@ export function cronJobs(ports: CronPorts): CronJobs {
   const objects = new AccountObjects(ports.accounts);
   const dispatch = (meter: BudgetMeter) => new MeteredAccountDispatch(objects, meter);
   const blobs = new R2MediaBlobStore(ports.bucket);
-  const cleanup = new MediaCleanup(stores.media, blobs, stores.usage, reader);
+  const cleanup = new MediaCleanup({
+    media: stores.media,
+    candidates: stores.cleanupCandidates,
+    blobs,
+    usage: stores.usage,
+    clock,
+  });
   return {
     publish: {
       job: "publish_due",

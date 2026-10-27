@@ -14,6 +14,8 @@ import { R2MediaBlobStore } from "../../src/frameworks/r2/r2_media_blob_store";
 import { ActionAudit } from "../../src/use_cases/access/action_audit";
 import { MediaAttachments } from "../../src/use_cases/authoring/media_attachments";
 import { MediaIntake } from "../../src/use_cases/media/media_intake";
+import { invocationBudget } from "../../src/entities/budget/budget";
+import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
 import { MediaCleanup } from "../../src/use_cases/run_services/media_cleanup";
 import { MediaStager } from "../../src/use_cases/run_services/media_stager";
 import { XCallRecorder } from "../../src/use_cases/run_services/x_call_recorder";
@@ -58,7 +60,13 @@ function media() {
     uploader: new FakeXMediaUploader(x),
     recorder: new XCallRecorder(stores.audit, stores.costs),
   });
-  const cleanup = new MediaCleanup(stores.media, blobs, stores.usage, stores.reader);
+  const cleanup = new MediaCleanup({
+    media: stores.media,
+    candidates: stores.cleanupCandidates,
+    blobs,
+    usage: stores.usage,
+    clock,
+  });
   return { clock, stores, blobs, intake, stager, cleanup };
 }
 
@@ -117,7 +125,11 @@ describe("the R2 quota guard on the real drivers", () => {
 
 describe("staged-media cleanup on the real drivers", () => {
   it("deletes unused media after 2 days and used media 7 days after its post was sent", async () => {
-    const { intake, cleanup, stores } = media();
+    const { intake, cleanup, stores, clock } = media();
+    const at = (now: number) => {
+      clock.set(now);
+      return cleanup.run(new MemoryBudgetMeter(invocationBudget(now + HOUR)));
+    };
     const unused = await intake.store(HUMAN, anAccount(), PNG);
     const used = await intake.store(HUMAN, anAccount(), PNG);
     if (!unused.ok || !used.ok) {
@@ -131,12 +143,12 @@ describe("staged-media cleanup on the real drivers", () => {
     await new MediaAttachments(stores.media).replace(post.id, [
       required(await stores.media.get(used.mediaId)),
     ]);
-    expect(await cleanup.run(T0 + 2 * DAY - 1)).toBe(0);
-    expect(await cleanup.run(T0 + 2 * DAY)).toBe(1);
+    expect(await at(T0 + 2 * DAY - 1)).toBe(0);
+    expect(await at(T0 + 2 * DAY)).toBe(1);
     expect(await stores.media.get(unused.mediaId)).toBeNull();
     expect(await objects()).toBe(1);
-    expect(await cleanup.run(T0 + HOUR + 7 * DAY - 1)).toBe(0);
-    expect(await cleanup.run(T0 + HOUR + 7 * DAY)).toBe(1);
+    expect(await at(T0 + HOUR + 7 * DAY - 1)).toBe(0);
+    expect(await at(T0 + HOUR + 7 * DAY)).toBe(1);
     expect(await objects()).toBe(0);
     expect((await stores.usage.current(T0 + 8 * DAY)).storedBytes).toBe(0);
   });

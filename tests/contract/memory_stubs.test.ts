@@ -33,6 +33,7 @@ import {
 } from "../../src/frameworks/memory/memory_repositories";
 import { ManualClock, SequentialIds } from "../../src/frameworks/memory/manual_clock";
 import { MemoryTokenStore } from "../../src/frameworks/memory/memory_tokens";
+import { MemoryMediaCleanupCandidates } from "../../src/frameworks/memory/memory_media_cleanup";
 import { xUserId } from "../../src/entities/identity/ids";
 import { T0 } from "../unit/support/builders";
 import {
@@ -42,6 +43,7 @@ import {
   locksContract,
   singleFlightContract,
 } from "./coordination.contract";
+import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import { postStoreContract } from "./post_store.contract";
 import {
   auditLogContract,
@@ -69,6 +71,19 @@ describe("memory post store", () => {
       writer: new MemoryPostWriter(table, audit, costs),
       audit,
       costs,
+    };
+  });
+});
+
+describe("memory cleanup candidates", () => {
+  mediaCleanupCandidatesContract(() => {
+    const table = new MemoryPostTable();
+    const media = new MemoryMediaRepository();
+    const reader = new MemoryPostReader(table, new MemoryMetricsRepository());
+    return {
+      candidates: new MemoryMediaCleanupCandidates(media, reader),
+      media,
+      writer: new MemoryPostWriter(table, new MemoryAuditLog(), new MemoryCostLedger()),
     };
   });
 });

@@ -3,7 +3,8 @@
  * in src/main.ts) over real local D1, R2 and Durable Objects (plan §4): R15 an inline publishNow
  * that runs out of time after part 1 of 3 is finished by the next publish tick; R16 the tick's
  * fan-out ceiling (200, oldest due first, each dispatch one Cloudflare-service call) and each
- * part's worst-case budget on the fetch drivers (U16).
+ * part's worst-case budget on the fetch drivers (U16); the metrics tick's staged-media cleanup
+ * stays inside what its meter has left, and later ticks finish the deletes.
  */
 import { listDurableObjectIds } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -11,11 +12,14 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   FANOUT_CEILING,
   INVOCATION_LIMITS,
+  MEDIA_CLEANUP_BATCH,
+  MEDIA_CLEANUP_ITEM_COST,
+  MEDIA_CLEANUP_QUERY_COST,
   partCost,
   type CallCost,
 } from "../../src/entities/budget/budget";
 import { accountId, postId, stagedMediaId, type AccountId } from "../../src/entities/identity/ids";
-import { MINUTE, SECOND } from "../../src/entities/time/instant";
+import { DAY, MINUTE, SECOND } from "../../src/entities/time/instant";
 import type { TickJob } from "../../src/frameworks/cron/tick_runner";
 import { runTick } from "../../src/frameworks/cron/tick_runner";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
@@ -236,5 +240,98 @@ describe("R16: each part's worst case on the production graph and the fetch driv
     expect(d1.calls).toBeLessThanOrEqual(worstD1 + RUN_SETUP_CALLS);
     // The GIF went chunked: INIT, one APPEND, FINALIZE, then the create.
     expect(perPart[1]).toBe(4);
+  });
+});
+
+describe("R16: the metrics tick's staged-media cleanup stays inside the tick's budget (U16)", () => {
+  /** Unused staged media, each with its R2 object, all past their 2 days. */
+  async function stageUnused(count: number): Promise<void> {
+    for (let index = 0; index < count; index += 1) {
+      const key = `cleanup-${String(index).padStart(3, "0")}`;
+      await stores().media.save(
+        aMedia({ id: stagedMediaId(key), storageKey: key, stagedAt: T0 - 3 * DAY + index }),
+      );
+      await env.MEDIA.put(key, new Uint8Array([1]));
+    }
+  }
+
+  /** The metrics tick as main.ts builds it, its meter left with `room` Cloudflare-service calls. */
+  function metricsTick(clock: ManualClock, db: D1Database, room?: number): TickJob {
+    const job = cronJobs({ db, accounts: env.TEST_ACCOUNT, bucket: env.MEDIA, clock }).metrics;
+    return {
+      ...job,
+      build: (meter, presenter) => {
+        if (room !== undefined) {
+          meter.spend({
+            cloudflareCalls: meter.remaining().cloudflareCalls - room,
+            externalSubrequests: 0,
+          });
+        }
+        return job.build(meter, presenter);
+      },
+    };
+  }
+
+  const objects = async () => (await env.MEDIA.list()).objects.length;
+
+  it("a nearly spent meter deletes what fits, never more calls than it had; later ticks finish", async () => {
+    const clock = new ManualClock(T0);
+    const total = MEDIA_CLEANUP_BATCH + 50;
+    await stageUnused(total);
+    const fits = 7;
+    const room =
+      MEDIA_CLEANUP_QUERY_COST.cloudflareCalls +
+      fits * MEDIA_CLEANUP_ITEM_COST.cloudflareCalls +
+      MEDIA_CLEANUP_ITEM_COST.cloudflareCalls -
+      1;
+    const d1 = metered(env.DB);
+    const lines: string[] = [];
+    await runTick(metricsTick(clock, d1.db, room), clock, (line) => lines.push(line));
+    expect(lines).toStrictEqual([
+      `tick metrics: dispatched=0 waiting=0 read=0 mediaDeleted=${String(fits)}`,
+    ]);
+    // The cleanup's D1 calls and one R2 delete per item; the tick's own work query is not its.
+    const cleanupCalls = d1.calls - 1 + fits;
+    expect(cleanupCalls).toBeLessThanOrEqual(room);
+    expect(await objects()).toBe(total - fits);
+
+    // A full budget takes at most the batch per tick, oldest first; the next tick takes the rest.
+    const full = metered(env.DB);
+    lines.length = 0;
+    await runTick(metricsTick(clock, full.db), clock, (line) => lines.push(line));
+    expect(full.calls - 1 + MEDIA_CLEANUP_BATCH).toBeLessThanOrEqual(
+      MEDIA_CLEANUP_QUERY_COST.cloudflareCalls +
+        MEDIA_CLEANUP_BATCH * MEDIA_CLEANUP_ITEM_COST.cloudflareCalls,
+    );
+    await runTick(metricsTick(clock, env.DB), clock, (line) => lines.push(line));
+    expect(lines).toStrictEqual([
+      `tick metrics: dispatched=0 waiting=0 read=0 mediaDeleted=${String(MEDIA_CLEANUP_BATCH)}`,
+      `tick metrics: dispatched=0 waiting=0 read=0 mediaDeleted=${String(total - fits - MEDIA_CLEANUP_BATCH)}`,
+    ]);
+    expect(await objects()).toBe(0);
+    expect(await stores().media.list()).toStrictEqual([]);
+  });
+
+  it("items not yet due cost the tick nothing and never hold back the due ones behind them", async () => {
+    const clock = new ManualClock(T0);
+    await stores().writer.add(aPost({ id: postId("waiting"), lifecycle: "SCHEDULED" }));
+    for (let index = 0; index < MEDIA_CLEANUP_BATCH + 10; index += 1) {
+      await stores().media.save(
+        aMedia({
+          id: stagedMediaId(`kept-${String(index).padStart(3, "0")}`),
+          storageKey: `kept-${String(index)}`,
+          stagedAt: T0 - 30 * DAY,
+          attachedTo: postId("waiting"),
+        }),
+      );
+    }
+    await stageUnused(2);
+    const d1 = metered(env.DB);
+    const lines: string[] = [];
+    await runTick(metricsTick(clock, d1.db), clock, (line) => lines.push(line));
+    expect(lines).toStrictEqual(["tick metrics: dispatched=0 waiting=0 read=0 mediaDeleted=2"]);
+    // The work query, the candidates query, and two D1 writes per deleted item.
+    expect(d1.calls).toBe(1 + 1 + 2 * 2);
+    expect(await stores().media.list()).toHaveLength(MEDIA_CLEANUP_BATCH + 10);
   });
 });
