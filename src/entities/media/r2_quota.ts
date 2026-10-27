@@ -16,6 +16,13 @@ export const R2_GUARDS = {
   classB: 8_000_000,
 } as const;
 
+/** Cloudflare's free R2 allowance: 10 GB stored, 1M Class A and 10M Class B a month (U17). */
+export const R2_FREE_ALLOWANCE = {
+  storedBytes: 10_000_000_000,
+  classA: 1_000_000,
+  classB: 10_000_000,
+} as const;
+
 /** The UTC month an instant falls in, `YYYY-MM`: R2 operations are counted per month. */
 export function monthKey(now: Instant): string {
   return new Date(now).toISOString().slice(0, 7);

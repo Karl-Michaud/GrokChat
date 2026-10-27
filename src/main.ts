@@ -1,3 +1,7 @@
+/* eslint-disable max-lines -- the composition root must stay the only module that names concrete
+classes (Agents/CLAUDE.md §7.1), and it now wires three surfaces: the MCP tools, the dashboard and
+the account's Durable Object. It shrinks below 400 lines when the MCP tools leave the stubs for
+the D1 and DO drivers they share with the dashboard. */
 /**
  * The composition root: the only module that names concrete classes and wires them together
  * (plan §3, Agents/CLAUDE.md §7.1). It exports the Worker's handlers and the Durable Object class.
@@ -103,6 +107,50 @@ import { TokenStep } from "./use_cases/run_services/token_step";
 import { XCallRecorder } from "./use_cases/run_services/x_call_recorder";
 import { StageMediaFromUrlInteractor } from "./use_cases/stage_media_from_url/interactor";
 
+import { AccountObjects } from "./frameworks/durable_objects/account_client";
+import type { WebControllers } from "./frameworks/web/controllers";
+import { buildWebApp } from "./frameworks/web/web_app";
+import { AuditedXAccountConnector } from "./frameworks/x_auth/recorded_oauth";
+import { XTokenEndpoint } from "./frameworks/x_auth/token_endpoint";
+import { WebCryptoPkce } from "./frameworks/x_auth/webcrypto_pkce";
+import { HttpXAccountConnector } from "./frameworks/x_auth/x_account_connector_driver";
+import { xOAuthConfig } from "./frameworks/x_auth/x_oauth_config";
+import { FetchTransport } from "./frameworks/x_http/transport";
+import { AccountsController } from "./interface_adapters/dashboard/accounts_controller";
+import { OAuthController } from "./interface_adapters/dashboard/oauth_controller";
+import { PersonalitiesController } from "./interface_adapters/dashboard/personalities_controller";
+import { PostCommandsController } from "./interface_adapters/dashboard/post_commands_controller";
+import { PostPagesController } from "./interface_adapters/dashboard/post_pages_controller";
+import { ReportsController } from "./interface_adapters/dashboard/reports_controller";
+import { SessionController } from "./interface_adapters/dashboard/session_controller";
+import type {
+  AccountUseCases,
+  OAuthUseCases,
+  PersonalityUseCases,
+  PostCommandUseCases,
+  PostPageUseCases,
+  ReportUseCases,
+} from "./interface_adapters/dashboard/use_cases";
+import { AccountCommand } from "./use_cases/admin/account_command";
+import { ApprovePostInteractor } from "./use_cases/approve_post/interactor";
+import { AuditListInteractor } from "./use_cases/audit_list/interactor";
+import { ConfirmDisclosureInteractor } from "./use_cases/confirm_disclosure/interactor";
+import { ConnectAccountBeginInteractor } from "./use_cases/connect_account_begin/interactor";
+import { ConnectAccountCompleteInteractor } from "./use_cases/connect_account_complete/interactor";
+import { CostTotalsInteractor } from "./use_cases/cost_totals/interactor";
+import { GetCalendarInteractor } from "./use_cases/get_calendar/interactor";
+import { GetMediaUsageInteractor } from "./use_cases/get_media_usage/interactor";
+import { ListAccountsInteractor } from "./use_cases/list_accounts/interactor";
+import { ListPersonalitiesInteractor } from "./use_cases/list_personalities/interactor";
+import { LoginInteractor } from "./use_cases/login/interactor";
+import type { AuditLog } from "./use_cases/ports/audit_log";
+import type { PasswordVerifier } from "./use_cases/ports/password_verifier";
+import type { XAccountConnector } from "./use_cases/ports/x_account_connector";
+import { RejectPostInteractor } from "./use_cases/reject_post/interactor";
+import { ReschedulePostInteractor } from "./use_cases/reschedule_post/interactor";
+import { SavePersonalityInteractor } from "./use_cases/save_personality/interactor";
+import { SetAccountStatusInteractor } from "./use_cases/set_account_status/interactor";
+import { SetPolicyInteractor } from "./use_cases/set_policy/interactor";
 function handleHealth(): HealthView {
   const viewModel = new HealthViewModel();
   new HealthController(new GetHealthInteractor(new HealthPresenter(viewModel))).health();
@@ -185,8 +233,10 @@ function stubBackend() {
 type Backend = ReturnType<typeof stubBackend>;
 
 /**
- * The stub backend for this isolate. Exported so the integration tests can seed accounts until
- * the dashboard (PR 7) exists; it goes when the tools are wired to the D1 and DO drivers (PR 4).
+ * The stub backend for this isolate, exported so the integration tests can seed accounts. It goes
+ * when the tools are wired to the D1 and DO drivers. Until then the MCP tools and the dashboard
+ * (below, already on D1) do not share data: an account connected in the dashboard is not visible
+ * to the tools.
  */
 export const stubs: Backend = stubBackend();
 
@@ -293,10 +343,145 @@ function toolHandlers(env: Env): ToolHandlers {
   };
 }
 
-const app = buildHttpApp({ health: handleHealth, mcp: mcpRoute(toolHandlers) });
+// ---- Dashboard (PR 7) -------------------------------------------------------------------------
+// The dashboard runs on the D1 repositories (GROKCHAT-8) and reaches X only through the account's
+// Durable Object (`AccountObjects`: deletes and storing a connect's tokens) and the X OAuth
+// connector (GROKCHAT-9). Built once per `env`, so per isolate.
+
+/** The X OAuth connector, built when a connect starts or finishes: its secrets fail loudly there. */
+function xConnector(env: Env, audit: AuditLog, clock: Clock): XAccountConnector {
+  const config = xOAuthConfig(env);
+  const transport = new FetchTransport();
+  const endpoint = new XTokenEndpoint(transport, config);
+  const http = new HttpXAccountConnector(config, endpoint, transport, clock);
+  return new AuditedXAccountConnector(http, audit, clock);
+}
+
+function dashboardBackend(env: Env) {
+  const clock = new SystemClock();
+  const stores = d1Stores(env.DB);
+  const { audit, reader, accounts } = stores;
+  const actionAudit = new ActionAudit(audit, clock);
+  const guard = new AccessGuard(actionAudit);
+  const steps = new GuardedTransition(stores.writer);
+  return {
+    ...{ ...stores, clock, actionAudit, guard, steps },
+    gateway: new AccountObjects(env.ACCOUNT),
+    connector: (): XAccountConnector => xConnector(env, audit, clock),
+    ids: new RandomIds(),
+    pkce: new WebCryptoPkce(),
+    command: new PostCommand(reader, steps, guard, actionAudit),
+    accountCommand: new AccountCommand(accounts, guard, actionAudit),
+  };
+}
+
+type DashboardBackend = ReturnType<typeof dashboardBackend>;
+
+function postUseCases(b: DashboardBackend): PostPageUseCases & PostCommandUseCases {
+  const { reader, guard, command, clock } = b;
+  const authoring = {
+    command,
+    accounts: b.accounts,
+    validator: new PartsValidator(b.media),
+    attachments: new MediaAttachments(b.media),
+  };
+  const deleting = { reader, gateway: b.gateway, steps: b.steps, guard, audit: b.actionAudit };
+  return {
+    listAccounts: (p) => new ListAccountsInteractor(b.accounts, guard, p),
+    listBacklog: (p) => new ListBacklogInteractor(reader, guard, p),
+    getCalendar: (p) => new GetCalendarInteractor(reader, guard, p),
+    getPost: (p) => new GetPostInteractor(reader, guard, p),
+    getPostMetrics: (p) => new GetPostMetricsInteractor(reader, b.metrics, guard, p),
+    editPost: (p) => new EditPostInteractor(authoring, p),
+    approvePost: (p) => new ApprovePostInteractor(command, clock, p),
+    rejectPost: (p) => new RejectPostInteractor(command, p),
+    cancelPost: (p) => new CancelPostInteractor(command, p),
+    deletePost: (p) => new DeletePostInteractor(deleting, p),
+    reschedulePost: (p) => new ReschedulePostInteractor(command, clock, p),
+  };
+}
+
+function accountUseCases(
+  b: DashboardBackend,
+): AccountUseCases & OAuthUseCases & PersonalityUseCases {
+  const { guard, accountCommand, states, ids, clock } = b;
+  const connect = { states, ids, clock, guard, audit: b.actionAudit, accounts: b.accounts };
+  return {
+    listAccounts: (p) => new ListAccountsInteractor(b.accounts, guard, p),
+    listPersonalities: (p) => new ListPersonalitiesInteractor(b.personalities, guard, p),
+    setAccountStatus: (p) => new SetAccountStatusInteractor(accountCommand, p),
+    confirmDisclosure: (p) => new ConfirmDisclosureInteractor(accountCommand, p),
+    setPolicy: (p) => new SetPolicyInteractor(accountCommand, p),
+    connectBegin: (p) =>
+      new ConnectAccountBeginInteractor(
+        { states, pkce: b.pkce, connector: b.connector(), guard, ids, clock },
+        p,
+      ),
+    connectComplete: (p) =>
+      new ConnectAccountCompleteInteractor(
+        {
+          ...connect,
+          personalities: b.personalities,
+          connector: b.connector(),
+          gateway: b.gateway,
+        },
+        p,
+      ),
+    savePersonality: (p) =>
+      new SavePersonalityInteractor(b.personalities, ids, guard, b.actionAudit, p),
+  };
+}
+
+function reportUseCases(b: DashboardBackend): ReportUseCases {
+  const { guard } = b;
+  return {
+    listAccounts: (p) => new ListAccountsInteractor(b.accounts, guard, p),
+    accountMetrics: (p) => new GetAccountMetricsInteractor(b.metrics, guard, p),
+    costTotals: (p) => new CostTotalsInteractor(b.costs, guard, p),
+    mediaUsage: (p) => new GetMediaUsageInteractor(b.usage, guard, b.clock, p),
+    auditList: (p) => new AuditListInteractor(b.audit, guard, p),
+  };
+}
+
+function dashboardControllers(b: DashboardBackend): WebControllers {
+  const posts = postUseCases(b);
+  const accounts = accountUseCases(b);
+  return {
+    session: (verifier: PasswordVerifier) =>
+      new SessionController({
+        login: (p) =>
+          new LoginInteractor(
+            { throttle: b.throttle, verifier, audit: b.actionAudit, clock: b.clock },
+            p,
+          ),
+      }),
+    postPages: new PostPagesController(posts, b.clock),
+    postCommands: new PostCommandsController(posts),
+    accounts: new AccountsController(accounts),
+    oauth: new OAuthController(accounts),
+    personalities: new PersonalitiesController(accounts),
+    reports: new ReportsController(reportUseCases(b), b.clock),
+  };
+}
+
+type WorkerApp = ReturnType<typeof buildHttpApp>;
+
+const mcp = mcpRoute(toolHandlers);
+const apps = new WeakMap<Env, WorkerApp>();
+
+/** The Worker's routes over this `env`'s bindings, built on its first request. */
+function workerApp(env: Env): WorkerApp {
+  let app = apps.get(env);
+  if (app === undefined) {
+    const web = buildWebApp(dashboardControllers(dashboardBackend(env)));
+    app = buildHttpApp({ health: handleHealth, mcp, web });
+    apps.set(env, app);
+  }
+  return app;
+}
 
 export default {
-  fetch: (request, env, ctx) => app.fetch(request, env, ctx),
+  fetch: (request, env, ctx) => workerApp(env).fetch(request, env, ctx),
   scheduled: () => dispatchScheduled(),
 } satisfies ExportedHandler<Env>;
 
