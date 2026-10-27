@@ -1,6 +1,8 @@
-import threading, time, collections, psycopg
-DSN = "postgresql://postgres:pw@localhost:16433/postgres"     # pgbouncer transaction mode, pool 4
-DSN1 = "postgresql://postgres:pw@localhost:16434/postgres"    # pgbouncer transaction mode, pool 1
+import os, threading, time, collections, psycopg
+# The probes ran against throwaway local Docker containers (Postgres + PgBouncer).
+# Pass the connection string in the environment; no credential is kept in this file.
+DSN = os.environ["PG_DSN"]     # pgbouncer transaction mode, pool 4
+DSN1 = os.environ["PG_DSN_POOL1"]    # pgbouncer transaction mode, pool 1
 def c(dsn=DSN): return psycopg.connect(dsn, prepare_threshold=None, autocommit=True)
 
 def reset(accounts=10, per=5):

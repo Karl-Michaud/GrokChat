@@ -1,10 +1,12 @@
 """Round-3 probes. All app work runs as the non-owner role grokchat_app through PgBouncer (transaction mode)."""
-import collections, datetime as dt, subprocess, sys, threading, time
+import collections, datetime as dt, os, subprocess, sys, threading, time
 import psycopg
 from psycopg_pool import ConnectionPool
 
-APP = "postgresql://grokchat_app:apppw@localhost:16435/postgres"
-OWNER = "postgresql://postgres:pw@localhost:16435/postgres"
+# The probes ran against throwaway local Docker containers (Postgres + PgBouncer).
+# Pass the connection string in the environment; no credential is kept in this file.
+APP = os.environ["PG_DSN_APP"]  # role grokchat_app, via PgBouncer on localhost:16435
+OWNER = os.environ["PG_DSN_OWNER"]  # role postgres, same PgBouncer
 KW = dict(prepare_threshold=None, autocommit=True)
 UTC = dt.timezone.utc
 LEASE = dt.timedelta(seconds=180)

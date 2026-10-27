@@ -1,5 +1,7 @@
-import sys, threading, time, collections, psycopg
-DSN = "postgresql://postgres:pw@localhost:16432/postgres"
+import os, sys, threading, time, collections, psycopg
+# The probes ran against throwaway local Docker containers (Postgres + PgBouncer).
+# Pass the connection string in the environment; no credential is kept in this file.
+DSN = os.environ["PG_DSN"]  # e.g. postgresql://postgres:...@localhost:16432/postgres
 PT = None if sys.argv[1] == "none" else int(sys.argv[1])
 
 def conn():
