@@ -1,0 +1,12 @@
+node_modules/
+coverage/
+reports/
+.stryker-tmp/
+.wrangler/
+package-lock.json
+docs/spikes/
+docs/archive/
+docs/plan-history/
+# Owned by earlier tickets; reformatting them is not this repo's gate.
+docs/PLAN.md
+.claude/
