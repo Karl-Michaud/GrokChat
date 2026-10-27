@@ -2,7 +2,7 @@
  * The Worker's production graph (plan §3, §3.5): one set of drivers and shared services over this
  * env's bindings, which the MCP tools and the dashboard both run on. D1 holds every record; the
  * account's Durable Object (`AccountObjects`) does every publish, X delete and token write; R2
- * holds the media. Nothing here is an in-memory stub (tests/architecture/production_graph.test.ts).
+ * holds the media. Nothing here is an in-memory stub (tests/integration/production_graph.test.ts).
  */
 import { WebCryptoContentHasher } from "../crypto/sha256_hasher";
 import { d1Stores } from "../d1/d1_stores";
