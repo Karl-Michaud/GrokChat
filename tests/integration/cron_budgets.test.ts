@@ -150,7 +150,9 @@ describe("R16: the publish tick's fan-out ceiling (U16)", () => {
     const oldest = String(env.TEST_ACCOUNT.idFromName(accounts[0] ?? ""));
     expect(called).not.toContain(youngest);
     expect(called).toContain(oldest);
-  });
+    // 201 posts and 200 Durable Objects: about 1 s alone, but over vitest's 5 s default when the
+    // full suite runs every workerd file in parallel (seen in GROKCHAT-13's `npm run check`).
+  }, 30_000);
 });
 
 describe("R16: each part's worst case on the production graph and the fetch drivers (A4, U16)", () => {
