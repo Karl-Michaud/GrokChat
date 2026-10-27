@@ -1,0 +1,1 @@
+{ "testRunner": "vitest", "mutate": ["src/**/*.ts"], "vitest": { "configFile": "vitest.config.ts" }, "reporters": ["clear-text"], "coverageAnalysis": "perTest", "thresholds": { "high": 100, "low": 100, "break": 100 } }

@@ -1,0 +1,10 @@
+{
+ "n": 1010,
+ "ok": 1000,
+ "failed": 10,
+ "firstFailure": 1001,
+ "errors": {
+  "Error: Too many API requests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits": 10
+ }
+}
+[http 200 time 32.208519s]

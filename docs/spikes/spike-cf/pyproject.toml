@@ -1,0 +1,8 @@
+[project]
+name = "spike-cf"
+version = "0.0.0"
+requires-python = ">=3.13"
+dependencies = ["fastapi", "mcp==2.3.0", "pg8000", "psycopg"]
+
+[dependency-groups]
+dev = ["workers-py", "workers-runtime-sdk"]

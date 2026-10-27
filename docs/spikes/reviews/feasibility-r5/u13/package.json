@@ -1,0 +1,17 @@
+{
+  "name": "u13",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "js-yaml": "5.5.0",
+    "twitter-text": "3.1.0"
+  }
+}

@@ -1,0 +1,372 @@
+{
+ "n": 60,
+ "ok": 50,
+ "failed": 10,
+ "firstFailure": 51,
+ "errors": {
+  "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits": 10
+ },
+ "attempts": [
+  {
+   "i": 1,
+   "ok": true,
+   "ms": 45,
+   "info": "200"
+  },
+  {
+   "i": 2,
+   "ok": true,
+   "ms": 124,
+   "info": "200"
+  },
+  {
+   "i": 3,
+   "ok": true,
+   "ms": 149,
+   "info": "200"
+  },
+  {
+   "i": 4,
+   "ok": true,
+   "ms": 132,
+   "info": "200"
+  },
+  {
+   "i": 5,
+   "ok": true,
+   "ms": 160,
+   "info": "200"
+  },
+  {
+   "i": 6,
+   "ok": true,
+   "ms": 116,
+   "info": "200"
+  },
+  {
+   "i": 7,
+   "ok": true,
+   "ms": 106,
+   "info": "200"
+  },
+  {
+   "i": 8,
+   "ok": true,
+   "ms": 104,
+   "info": "200"
+  },
+  {
+   "i": 9,
+   "ok": true,
+   "ms": 38,
+   "info": "200"
+  },
+  {
+   "i": 10,
+   "ok": true,
+   "ms": 146,
+   "info": "200"
+  },
+  {
+   "i": 11,
+   "ok": true,
+   "ms": 106,
+   "info": "200"
+  },
+  {
+   "i": 12,
+   "ok": true,
+   "ms": 120,
+   "info": "200"
+  },
+  {
+   "i": 13,
+   "ok": true,
+   "ms": 42,
+   "info": "200"
+  },
+  {
+   "i": 14,
+   "ok": true,
+   "ms": 128,
+   "info": "200"
+  },
+  {
+   "i": 15,
+   "ok": true,
+   "ms": 123,
+   "info": "200"
+  },
+  {
+   "i": 16,
+   "ok": true,
+   "ms": 101,
+   "info": "200"
+  },
+  {
+   "i": 17,
+   "ok": true,
+   "ms": 106,
+   "info": "200"
+  },
+  {
+   "i": 18,
+   "ok": true,
+   "ms": 148,
+   "info": "200"
+  },
+  {
+   "i": 19,
+   "ok": true,
+   "ms": 95,
+   "info": "200"
+  },
+  {
+   "i": 20,
+   "ok": true,
+   "ms": 112,
+   "info": "200"
+  },
+  {
+   "i": 21,
+   "ok": true,
+   "ms": 38,
+   "info": "200"
+  },
+  {
+   "i": 22,
+   "ok": true,
+   "ms": 118,
+   "info": "200"
+  },
+  {
+   "i": 23,
+   "ok": true,
+   "ms": 48,
+   "info": "200"
+  },
+  {
+   "i": 24,
+   "ok": true,
+   "ms": 29,
+   "info": "200"
+  },
+  {
+   "i": 25,
+   "ok": true,
+   "ms": 41,
+   "info": "200"
+  },
+  {
+   "i": 26,
+   "ok": true,
+   "ms": 121,
+   "info": "200"
+  },
+  {
+   "i": 27,
+   "ok": true,
+   "ms": 115,
+   "info": "200"
+  },
+  {
+   "i": 28,
+   "ok": true,
+   "ms": 45,
+   "info": "200"
+  },
+  {
+   "i": 29,
+   "ok": true,
+   "ms": 54,
+   "info": "200"
+  },
+  {
+   "i": 30,
+   "ok": true,
+   "ms": 143,
+   "info": "200"
+  },
+  {
+   "i": 31,
+   "ok": true,
+   "ms": 124,
+   "info": "200"
+  },
+  {
+   "i": 32,
+   "ok": true,
+   "ms": 81,
+   "info": "200"
+  },
+  {
+   "i": 33,
+   "ok": true,
+   "ms": 35,
+   "info": "200"
+  },
+  {
+   "i": 34,
+   "ok": true,
+   "ms": 35,
+   "info": "200"
+  },
+  {
+   "i": 35,
+   "ok": true,
+   "ms": 88,
+   "info": "200"
+  },
+  {
+   "i": 36,
+   "ok": true,
+   "ms": 36,
+   "info": "200"
+  },
+  {
+   "i": 37,
+   "ok": true,
+   "ms": 112,
+   "info": "200"
+  },
+  {
+   "i": 38,
+   "ok": true,
+   "ms": 151,
+   "info": "200"
+  },
+  {
+   "i": 39,
+   "ok": true,
+   "ms": 36,
+   "info": "200"
+  },
+  {
+   "i": 40,
+   "ok": true,
+   "ms": 119,
+   "info": "200"
+  },
+  {
+   "i": 41,
+   "ok": true,
+   "ms": 125,
+   "info": "200"
+  },
+  {
+   "i": 42,
+   "ok": true,
+   "ms": 84,
+   "info": "200"
+  },
+  {
+   "i": 43,
+   "ok": true,
+   "ms": 112,
+   "info": "200"
+  },
+  {
+   "i": 44,
+   "ok": true,
+   "ms": 100,
+   "info": "200"
+  },
+  {
+   "i": 45,
+   "ok": true,
+   "ms": 101,
+   "info": "200"
+  },
+  {
+   "i": 46,
+   "ok": true,
+   "ms": 105,
+   "info": "200"
+  },
+  {
+   "i": 47,
+   "ok": true,
+   "ms": 94,
+   "info": "200"
+  },
+  {
+   "i": 48,
+   "ok": true,
+   "ms": 114,
+   "info": "200"
+  },
+  {
+   "i": 49,
+   "ok": true,
+   "ms": 107,
+   "info": "200"
+  },
+  {
+   "i": 50,
+   "ok": true,
+   "ms": 40,
+   "info": "200"
+  },
+  {
+   "i": 51,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 52,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 53,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 54,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 55,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 56,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 57,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 58,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 59,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  },
+  {
+   "i": 60,
+   "ok": false,
+   "ms": 0,
+   "err": "Error: Too many subrequests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits"
+  }
+ ]
+}
+[http 200 time 4.873696s]

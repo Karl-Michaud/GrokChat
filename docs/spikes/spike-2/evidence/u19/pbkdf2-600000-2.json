@@ -1,0 +1,7 @@
+{
+ "run": "pb600000-2",
+ "iterations": 600000,
+ "ok": false,
+ "err": "NotSupportedError: Pbkdf2 failed: iteration counts above 100000 are not supported (requested 600000)."
+}
+[http 200 time 0.086096s]

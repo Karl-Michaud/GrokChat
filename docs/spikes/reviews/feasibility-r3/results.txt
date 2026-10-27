@@ -1,0 +1,22 @@
+Run 2026-10-27, Postgres 17 + PgBouncer 1.26.1 (transaction mode, pool 4, max_prepared_statements=0), app role grokchat_app (non-owner, RLS policy per table), psycopg 3.3.6, psycopg-pool 3.3.3. Passwords in pgb/userlist.txt are throwaway local-Docker values.
+
+== (a) rev-3 claim SQL as grokchat_app, 8 threads x 10 rounds, 10 accounts x (3 SCHEDULED + 1 RESUMING due + 1 RESUMING not due)
+due=40 claimed=40 max claims per id=1 calls returning rows=4 per-call duplicate account=0 not-due claimed=0 errors=[]
+max posts PUBLISHING at once for one account after all rounds = 4  (no in-flight guard: >1 across calls; AccountLease must serialise)
+[barrier, rev-3 SQL] conn1=[51, 53, 55] conn2=[] -> disjoint
+[negative control: FOR UPDATE + outer guard removed] conn1=[57, 59, 61] conn2=[57, 59, 61] -> DOUBLE CLAIM [57, 59, 61]
+
+== (b) AccountLease conditional UPDATE
+8 concurrent acquirers -> 1 acquired: ['w0']
+barrier: h1 -> ('acct1',) ; h2 after h1 commits -> None
+holder renews before expiry -> ('acct1',) ; other holder before expiry -> None ; non-holder release -> None ; other holder after expiry -> ('acct1',) ; old holder after takeover -> None
+negative control (lease WHERE removed): 8 acquirers -> 8 acquired
+
+== (c) reserve_part
+reserve -> reserved
+during send: {'tx_status_during_send': 'IDLE', 'part_seen_by_other': 'SENDING', 'idle_in_tx_app_sessions': 0}
+negative control (send inside the tx): {'tx_status_during_send': 'INTRANS', 'part_seen_by_other': 'PENDING', 'idle_in_tx_app_sessions': 1}
+
+== (d) psycopg_pool(min_size=0, max_size=4, check=check_connection, kwargs) through PgBouncer, 16 threads x 25 units
+units=400 errors=[] conns used=4 stmts in one tx share txid=True all tx ids distinct=True cross-thread overlap on one conn=0 autocommit={True} prepare_threshold={None} requests_num=402 connections_num=4 requests_waiting=0
+after PgBouncer restart, next pool.connection() works: True | connections_lost: 4
