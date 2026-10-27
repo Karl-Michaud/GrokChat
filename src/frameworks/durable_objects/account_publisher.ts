@@ -34,7 +34,7 @@ export class WrongAccountError extends Error {
  */
 export abstract class AccountPublisherObject extends DurableObject<Env> {
   private built: AccountServices | null = null;
-  private bound: AccountId | null = null;
+  private binding: Promise<AccountId> | null = null;
 
   protected abstract build(): AccountServices;
 
@@ -103,17 +103,22 @@ export abstract class AccountPublisherObject extends DurableObject<Env> {
   /**
    * One object, one account: the first account it serves is recorded, and a call for another is
    * refused, so no Worker bug can run two accounts' publishes under one lock or one under two.
+   * Concurrent first calls share one lookup, so the first of them decides.
    */
   private async bind(account: AccountId): Promise<void> {
-    if (this.bound === null) {
-      const stored = await this.ctx.storage.get<AccountId>(BOUND_ACCOUNT);
-      if (stored === undefined) {
-        await this.ctx.storage.put(BOUND_ACCOUNT, account);
-      }
-      this.bound = stored ?? account;
+    this.binding ??= this.recordBinding(account);
+    const bound = await this.binding;
+    if (bound !== account) {
+      throw new WrongAccountError(`this object serves ${bound}, not ${account}`);
     }
-    if (this.bound !== account) {
-      throw new WrongAccountError(`this object serves ${this.bound}, not ${account}`);
+  }
+
+  private async recordBinding(account: AccountId): Promise<AccountId> {
+    const stored = await this.ctx.storage.get<AccountId>(BOUND_ACCOUNT);
+    if (stored !== undefined) {
+      return stored;
     }
+    await this.ctx.storage.put(BOUND_ACCOUNT, account);
+    return account;
   }
 }

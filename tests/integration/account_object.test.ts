@@ -43,6 +43,12 @@ describe("one object, one account", () => {
       return instance.publishDue(accountId("acc-second"), T0, DEADLINE);
     });
     expect(bound.ran).toBe(false);
+    const racing = objectFor(freshAccountId());
+    const [first, second] = await Promise.all([
+      racing.publishDue(accountId("acc-a"), T0, DEADLINE),
+      racing.publishDue(accountId("acc-b"), T0, DEADLINE),
+    ]);
+    expect([first.ran, second.ran]).toStrictEqual([true, false]);
   });
 });
 
