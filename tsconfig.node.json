@@ -9,6 +9,7 @@
     "tests/unit/**/*.ts",
     "tests/invariants/**/*.ts",
     "tests/architecture/**/*.ts",
+    "tests/live/**/*.ts",
     "src/**/*.d.ts",
     "*.config.ts"
   ],

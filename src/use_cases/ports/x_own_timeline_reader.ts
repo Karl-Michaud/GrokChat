@@ -12,6 +12,11 @@ export interface XPostSummary {
 }
 
 export interface XOwnTimelineReader {
+  /**
+   * The oldest `maxResults` of the account's own posts created at or after `since`, oldest first:
+   * the posts right after an attempt, which reconcile looks for (pinned by the contract suite in
+   * `tests/contract/x_ports.contract.ts`).
+   */
   recent(
     account: AccountId,
     since: Instant,

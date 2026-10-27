@@ -54,9 +54,22 @@ describe("mapXOutcome", () => {
     });
   });
 
-  it("401 and 403 → needs reconnect, never rejected", () => {
+  it("401 and an auth 403 → needs reconnect, never rejected", () => {
     expect(mapXOutcome(http(401), T0)).toStrictEqual({ kind: "needs_reconnect" });
     expect(mapXOutcome(http(403), T0)).toStrictEqual({ kind: "needs_reconnect" });
+  });
+
+  it("no usable token → needs reconnect (nothing was sent)", () => {
+    expect(mapXOutcome({ kind: "no_token" }, T0)).toStrictEqual({ kind: "needs_reconnect" });
+  });
+
+  it("a content 403 (duplicate or forbidden content) → rejected with its detail, redacted", () => {
+    expect(
+      mapXOutcome({ kind: "content_refused", status: 403, detail: "duplicate content" }, T0),
+    ).toStrictEqual({ kind: "rejected", reason: "x_403: duplicate content" });
+    expect(
+      mapXOutcome({ kind: "content_refused", status: 400, detail: "Bearer abc" }, T0),
+    ).toStrictEqual({ kind: "rejected", reason: "x_400: Bearer [redacted]" });
   });
 
   it("any other status → rejected with the status and detail", () => {

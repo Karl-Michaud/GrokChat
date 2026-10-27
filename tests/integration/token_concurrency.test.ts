@@ -6,6 +6,7 @@ import { abortAllDurableObjects, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Account } from "../../src/entities/accounts/account";
+import { TOKEN_REFRESH_MILLIS } from "../../src/entities/budget/budget";
 import { postId, type AccountId, type PostId } from "../../src/entities/identity/ids";
 import { HOUR, MINUTE, SECOND } from "../../src/entities/time/instant";
 import { TokenVault } from "../../src/frameworks/crypto/token_vault";
@@ -22,6 +23,8 @@ beforeEach(freshStorage);
 const stores = () => d1Stores(env.DB);
 /** Tokens are issued for two hours; this is past their expiry. */
 const EXPIRED = T0 + 2 * HOUR + MINUTE;
+/** A publishNow deadline a refresh fits in: its reserved 60 s timeout, then the send (plan §3.5). */
+const REFRESH_FITS = EXPIRED + TOKEN_REFRESH_MILLIS + 10 * SECOND;
 
 function storedTokens(account: AccountId): Promise<StoredTokens | null> {
   return runInDurableObject(objectFor(account), (_instance, state) =>
@@ -90,7 +93,7 @@ describe("R18: lost tokens", () => {
     h.clock.set(EXPIRED);
     h.endpoint.failNext = "lost_response";
     const object = objectFor(account.id);
-    await object.publishNow(account.id, id, EXPIRED + 10 * SECOND);
+    await object.publishNow(account.id, id, REFRESH_FITS);
     await expectRefusedWithNothingSending(h, account, id);
     h.clock.set(EXPIRED + 10 * MINUTE);
     await object.publishDue(account.id, EXPIRED + 10 * MINUTE, EXPIRED + 11 * MINUTE);
@@ -114,7 +117,7 @@ describe("R18: lost tokens", () => {
       return result;
     };
     const inFlight = objectFor(account.id)
-      .publishNow(account.id, id, EXPIRED + 10 * SECOND)
+      .publishNow(account.id, id, REFRESH_FITS)
       .catch((error: unknown) => error);
     while (!progress.rotated) {
       await sleep(1);
@@ -122,7 +125,7 @@ describe("R18: lost tokens", () => {
     await abortAllDurableObjects();
     expect(await inFlight).toBeInstanceOf(Error);
     h.endpoint.refresh = refresh;
-    await objectFor(account.id).publishNow(account.id, id, EXPIRED + 10 * SECOND);
+    await objectFor(account.id).publishNow(account.id, id, REFRESH_FITS);
     expect(h.builds).toBe(2);
     await expectRefusedWithNothingSending(h, account, id);
     expect(h.endpoint.calls).toStrictEqual(["refresh-1"]);
@@ -164,7 +167,7 @@ describe("R19: the publish → token lock order", () => {
     const account = await seedAccount();
     const id = await duePost(account);
     h.clock.set(EXPIRED);
-    const call = objectFor(account.id).publishNow(account.id, id, EXPIRED + 10 * SECOND);
+    const call = objectFor(account.id).publishNow(account.id, id, REFRESH_FITS);
     const outcome = await Promise.race([call, sleep(2_000).then(() => "deadlock" as const)]);
     expect(outcome).toMatchObject({ ran: true, sent: 1 });
     expect(h.endpoint.calls).toStrictEqual(["refresh-1"]);
