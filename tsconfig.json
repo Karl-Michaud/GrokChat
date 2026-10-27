@@ -1,0 +1,9 @@
+{
+  "$comment": "The Workers project: frameworks/, main.ts and the tests that run in workerd. Only this project sees @cloudflare/workers-types. The inner layers are also checked on their own by tsconfig.inner.json.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types", "@cloudflare/vitest-plugin/types"],
+    "lib": ["ES2023"]
+  },
+  "include": ["src/**/*.ts", "tests/integration/**/*.ts", "tests/contract/**/*.ts"]
+}
