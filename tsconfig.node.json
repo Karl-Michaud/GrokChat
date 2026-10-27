@@ -1,9 +1,11 @@
 {
-  "$comment": "The plain-Node project: the tests of the pure layers, the architecture tests, and the tool configs.",
+  "$comment": "The plain-Node project: the tests of the pure layers, the architecture tests, the tool configs, and the scripts (checked from their JSDoc).",
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],
-    "lib": ["ES2023"]
+    "lib": ["ES2023"],
+    "allowJs": true,
+    "checkJs": true
   },
   "include": [
     "tests/unit/**/*.ts",
@@ -11,7 +13,8 @@
     "tests/architecture/**/*.ts",
     "tests/live/**/*.ts",
     "src/**/*.d.ts",
-    "*.config.ts"
+    "*.config.ts",
+    "scripts/**/*.mjs"
   ],
   "exclude": ["tests/architecture/fixtures/**"]
 }

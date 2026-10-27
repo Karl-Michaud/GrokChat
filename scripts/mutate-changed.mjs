@@ -3,9 +3,10 @@
 // `npm run check`; this is the fast loop while working (owner, 2026-10-27).
 import { execFileSync, spawnSync } from "node:child_process";
 
-const BASE = process.env.MUTATE_BASE ?? "origin/staging";
+const BASE = process.env["MUTATE_BASE"] ?? "origin/staging";
 const MUTATED = /^src\/(entities|use_cases|interface_adapters)\/.*(?<!\.d)\.ts$/;
 
+/** @param {string[]} args */
 const git = (...args) =>
   execFileSync("git", args, { encoding: "utf8" })
     .split("\n")

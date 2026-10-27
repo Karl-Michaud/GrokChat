@@ -6,6 +6,10 @@
 .dev.vars.*
 !.dev.vars.example
 .spike_token
+# The deploy scripts' local files (docs/runbook.md): token keys and bot tokens, owner-only (600).
+.token-keys.local
+.bot-tokens.local
+.bot-clients.local.json
 
 # --- dependencies and tool output ---
 node_modules/
