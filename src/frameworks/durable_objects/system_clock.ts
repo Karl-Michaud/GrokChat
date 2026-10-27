@@ -1,6 +1,6 @@
 import type { Instant } from "../../entities/time/instant";
 import type { Clock } from "../../use_cases/ports/clock";
-import type { DeadlineTimer, DeadlineWait } from "../memory/memory_locks";
+import type { DeadlineTimer, DeadlineWait } from "./object_locks";
 
 /**
  * The Workers clock. Inside a request it advances only across I/O (a timer counts), which is all

@@ -9,7 +9,8 @@ import {
   StubXAccountConnector,
 } from "../../src/frameworks/memory/memory_auth";
 import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
-import { MemoryLocks, MemorySingleFlight, NoLocks } from "../../src/frameworks/memory/memory_locks";
+import { MemoryLocks, MemorySingleFlight } from "../../src/frameworks/durable_objects/object_locks";
+import { NoLocks } from "../../src/frameworks/memory/memory_locks";
 import {
   FnvContentHasher,
   MemoryMediaBlobStore,

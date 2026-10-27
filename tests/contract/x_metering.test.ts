@@ -14,7 +14,7 @@ import {
 import { postId, xPostId, type StagedMediaId } from "../../src/entities/identity/ids";
 import { HOUR, MINUTE, SECOND } from "../../src/entities/time/instant";
 import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
-import { MemoryLocks } from "../../src/frameworks/memory/memory_locks";
+import { MemoryLocks } from "../../src/frameworks/durable_objects/object_locks";
 import { MemoryTokenStore } from "../../src/frameworks/memory/memory_tokens";
 import { XTokenEndpoint } from "../../src/frameworks/x_auth/token_endpoint";
 import { HttpXTokenRefresher } from "../../src/frameworks/x_auth/x_token_refresher_driver";

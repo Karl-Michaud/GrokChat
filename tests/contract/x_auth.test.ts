@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { xUserId } from "../../src/entities/identity/ids";
 import { HOUR, MINUTE, SECOND } from "../../src/entities/time/instant";
 import { ManualClock } from "../../src/frameworks/memory/manual_clock";
-import { MemoryLocks } from "../../src/frameworks/memory/memory_locks";
+import { MemoryLocks } from "../../src/frameworks/durable_objects/object_locks";
 import { MemoryAuditLog, MemoryCostLedger } from "../../src/frameworks/memory/memory_records";
 import { MemoryTokenStore } from "../../src/frameworks/memory/memory_tokens";
 import {

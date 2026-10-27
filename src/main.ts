@@ -34,7 +34,7 @@ import type { ToolHandlers } from "./frameworks/mcp/mcp_server";
 import { mcpRoute } from "./frameworks/mcp/mcp_route";
 import { FakeXMediaUploader, FakeXPublisher, FakeXWorld } from "./frameworks/memory/fake_x";
 import { InProcessAccountPublisher } from "./frameworks/memory/in_process_account";
-import { MemoryLocks, MemorySingleFlight } from "./frameworks/memory/memory_locks";
+import { MemoryLocks, MemorySingleFlight } from "./frameworks/durable_objects/object_locks";
 import {
   FnvContentHasher,
   MemoryMediaBlobStore,

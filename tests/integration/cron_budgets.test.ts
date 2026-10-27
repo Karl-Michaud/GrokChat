@@ -27,7 +27,7 @@ import { AccountObjects } from "../../src/frameworks/durable_objects/account_cli
 import { HttpXWiring } from "../../src/frameworks/durable_objects/http_x_wiring";
 import type { InvocationAccountPublisher } from "../../src/frameworks/durable_objects/invocation_services";
 import { ManualClock } from "../../src/frameworks/memory/manual_clock";
-import { MemoryLocks, MemorySingleFlight } from "../../src/frameworks/memory/memory_locks";
+import { MemoryLocks, MemorySingleFlight } from "../../src/frameworks/durable_objects/object_locks";
 import { MemoryAccountRepository } from "../../src/frameworks/memory/memory_repositories";
 import { MemoryTokenStore } from "../../src/frameworks/memory/memory_tokens";
 import { MemoryAuditLog, MemoryCostLedger } from "../../src/frameworks/memory/memory_records";

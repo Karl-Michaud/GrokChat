@@ -1,7 +1,7 @@
 import type { Instant, Millis } from "../../entities/time/instant";
 import type { Clock } from "../../use_cases/ports/clock";
 import type { IdGenerator } from "../../use_cases/ports/id_generator";
-import type { DeadlineTimer, DeadlineWait } from "./memory_locks";
+import type { DeadlineTimer, DeadlineWait } from "../durable_objects/object_locks";
 
 /**
  * A clock that moves only when told to: every in-memory test is deterministic. Its deadline waits
