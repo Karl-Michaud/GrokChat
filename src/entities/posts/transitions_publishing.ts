@@ -7,16 +7,13 @@ import { backToQueue, isLastPart, stateAt, withPart } from "./post_parts";
 
 type EventOf<K extends PostEvent["kind"]> = Extract<PostEvent, { kind: K }>;
 
-/** The Durable Object starts a due post (plan §3.1.1). */
+/**
+ * The Durable Object starts a due post (plan §3.1.1): SCHEDULED from max(publishAt, its
+ * not-before time) while not missed, RESUMING from resumeAt. Only those two are ever due.
+ */
 export function start(post: Post, event: EventOf<"start">): Post | null {
-  if (post.lifecycle === "SCHEDULED") {
-    const due = isDue(post, event.now) && !missed(post, event.now, event.grace);
-    return due ? { ...post, lifecycle: "PUBLISHING", resumeAt: null } : null;
-  }
-  if (post.lifecycle === "RESUMING" && post.resumeAt !== null && event.now >= post.resumeAt) {
-    return { ...post, lifecycle: "PUBLISHING", resumeAt: null };
-  }
-  return null;
+  const due = isDue(post, event.now) && !missed(post, event.now, event.grace);
+  return due ? { ...post, lifecycle: "PUBLISHING", resumeAt: null } : null;
 }
 
 export function miss(post: Post, event: EventOf<"miss">): Post | null {
