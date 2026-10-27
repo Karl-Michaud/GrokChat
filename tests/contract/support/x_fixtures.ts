@@ -3,8 +3,10 @@
  * upload, get-posts-by-ids, user-posts-timeline, rate-limits, oauth2 token) and the U1/U4/U14
  * spike responses in `docs/spikes/spike-x-oauth/`.
  */
-import type { Millis } from "../../../src/entities/time/instant";
+import { invocationBudget } from "../../../src/entities/budget/budget";
+import { HOUR, type Millis } from "../../../src/entities/time/instant";
 import { ManualClock } from "../../../src/frameworks/memory/manual_clock";
+import { MemoryBudgetMeter } from "../../../src/frameworks/memory/memory_budget";
 import { XApiClient } from "../../../src/frameworks/x_http/x_api_client";
 import type { HttpTransport, TransportResult } from "../../../src/frameworks/x_http/transport";
 import type { AccessTokenResult, TokenProvider } from "../../../src/use_cases/ports/token_provider";
@@ -168,11 +170,15 @@ export const INVALID_TOKEN = respond(400, {
   error_description: "Value passed for the token was invalid.",
 });
 
-/** A client on fixtures, at `now`, with a fixed token. */
+/** The invocation's deadline in the fixture setups: an hour after `now`. */
+export const INVOCATION = HOUR;
+
+/** A client on fixtures, at `now`, with a fixed token and an invocation meter. */
 export function clientSetup(now = T0) {
   const clock = new ManualClock(now);
   const transport = new FixtureTransport();
   const tokens = new FixedTokens();
-  const client = new XApiClient(transport, tokens, clock);
-  return { clock, transport, tokens, client };
+  const meter = new MemoryBudgetMeter(invocationBudget(now + INVOCATION));
+  const client = new XApiClient(transport, tokens, meter);
+  return { clock, transport, tokens, meter, client };
 }

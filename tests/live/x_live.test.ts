@@ -11,10 +11,13 @@
  * question (is a bare domain made clickable: one read of `entities.urls`).
  */
 import { describe, expect, it } from "vitest";
+import { invocationBudget } from "../../src/entities/budget/budget";
 import { accountId, xPostId, xUserId, type XPostId } from "../../src/entities/identity/ids";
 import { MINUTE } from "../../src/entities/time/instant";
 import { mapXOutcome } from "../../src/entities/x/x_outcome";
+import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
 import { MemoryAccountRepository } from "../../src/frameworks/memory/memory_repositories";
+import { MeteredTransport } from "../../src/frameworks/x_http/metered_transport";
 import { FetchTransport } from "../../src/frameworks/x_http/transport";
 import { XApiClient } from "../../src/frameworks/x_http/x_api_client";
 import { HttpXMediaUploader } from "../../src/frameworks/x_http/x_media_driver";
@@ -35,10 +38,11 @@ function wire() {
   const accessToken = process.env["X_LIVE_ACCESS_TOKEN"] ?? "";
   const userId = process.env["X_LIVE_USER_ID"] ?? "";
   const clock = { now: () => Date.now() };
+  const meter = new MemoryBudgetMeter(invocationBudget(clock.now() + 10 * MINUTE));
   const client = new XApiClient(
-    new FetchTransport(),
+    new MeteredTransport(new FetchTransport(), meter),
     { accessToken: () => Promise.resolve({ kind: "token", accessToken }) },
-    clock,
+    meter,
   );
   const accounts = new MemoryAccountRepository();
   accounts.rows.set(ACCOUNT, anAccount({ id: ACCOUNT, xUserId: xUserId(userId) }));

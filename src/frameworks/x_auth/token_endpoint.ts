@@ -1,3 +1,4 @@
+import { TOKEN_REFRESH_MILLIS } from "../../entities/budget/budget";
 import { SECOND, type Instant, type Millis } from "../../entities/time/instant";
 import type { TokenSet } from "../../entities/x/token_set";
 import { count, field, readJson, text } from "../x_http/json_fields";
@@ -6,9 +7,10 @@ import { TOKEN_URL, type XOAuthConfig } from "./x_oauth_config";
 
 /**
  * The token call is never cut short (plan §3.5): aborting it after X rotated the refresh token
- * would lose the account. A minute is the floor.
+ * would lose the account. A minute is the floor, and it is the refresh's reserved worst case
+ * (`TOKEN_STEP_COST.millis`), so a refresh never runs past what the deadline check allowed.
  */
-export const TOKEN_TIMEOUT: Millis = 60 * SECOND;
+export const TOKEN_TIMEOUT: Millis = TOKEN_REFRESH_MILLIS;
 
 /** What became of one token request. */
 export type TokenResponse =

@@ -11,6 +11,7 @@ import type { MetricsRepository } from "../ports/metrics_repository";
 import type { PostReader } from "../ports/post_reader";
 import type { SingleFlight } from "../ports/single_flight";
 import type { XMetricsReader } from "../ports/x_metrics_reader";
+import type { TokenStep } from "./token_step";
 import type { XCallRecorder } from "./x_call_recorder";
 
 /** X reads at most 100 posts per call (plan §3.3 #8). */
@@ -21,6 +22,7 @@ export interface CollectAccountMetricsPorts {
   readonly accounts: AccountRepository;
   readonly metrics: MetricsRepository;
   readonly x: XMetricsReader;
+  readonly tokenStep: TokenStep;
   readonly recorder: XCallRecorder;
   readonly flights: SingleFlight;
   readonly clock: Clock;
@@ -28,7 +30,10 @@ export interface CollectAccountMetricsPorts {
 
 const SKIPPED: MetricsSummary = { ran: false, read: 0 };
 
-/** Inside the account's Durable Object, single-flight (m2): reads the posts whose metrics are due. */
+/**
+ * Inside the account's Durable Object, single-flight (m2): reads the posts whose metrics are due,
+ * after the token step (N1), so a refresh that does not fit the deadline yields before any read.
+ */
 export class CollectAccountMetrics {
   constructor(private readonly ports: CollectAccountMetricsPorts) {}
 
@@ -45,6 +50,9 @@ export class CollectAccountMetrics {
       return { ran: true, read: 0 };
     }
     const due = await this.duePosts(id, this.ports.clock.now());
+    if (due.length === 0 || !(await this.ports.tokenStep.ready(id, meter))) {
+      return { ran: true, read: 0 };
+    }
     let read = 0;
     for (let start = 0; start < due.length; start += METRICS_BATCH) {
       if (!meter.fits(METRICS_READ_COST, this.ports.clock.now())) {

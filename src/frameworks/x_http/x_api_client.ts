@@ -1,7 +1,7 @@
 import type { AccountId } from "../../entities/identity/ids";
 import { SECOND, type Millis } from "../../entities/time/instant";
 import type { XResult } from "../../entities/x/x_failure";
-import type { Clock } from "../../use_cases/ports/clock";
+import type { BudgetMeter } from "../../use_cases/ports/budget_meter";
 import type { TokenProvider } from "../../use_cases/ports/token_provider";
 import { readJson } from "./json_fields";
 import type { HttpTransport } from "./transport";
@@ -11,12 +11,6 @@ export const X_API = "https://api.x.com";
 
 /** Every X API call is cut off after this (plan §3.5: ≤ 20 s), well inside xAI's 60 s. */
 export const X_CALL_TIMEOUT: Millis = 15 * SECOND;
-
-/**
- * A refresh the token provider may need before a call gets this long: the token call is never
- * cut short (plan §3.5), and the caller already refreshed before reserving the part (N1).
- */
-export const TOKEN_DEADLINE: Millis = 60 * SECOND;
 
 /** One X API request, built once the access token is known. */
 export interface XRequest {
@@ -32,16 +26,21 @@ export interface XRequest {
  * The one place an X API call is made for an account (SRP): the account's access token from
  * `TokenProvider` (inside the account's DO, A1), the request, and the mapping of what came back to
  * an `XResult` of the parsed JSON body (plan §3.5).
+ *
+ * The token is asked for against the invocation's real deadline, from its `BudgetMeter` (N1): a
+ * refresh whose worst case does not fit is refused by the provider, and the call is then not sent
+ * (`not_sent`, safe to retry). Runs take the token step first (`TokenStep`, `PartSender`), so this
+ * is the guard for any path that does not.
  */
 export class XApiClient {
   constructor(
     private readonly transport: HttpTransport,
     private readonly tokens: TokenProvider,
-    private readonly clock: Clock,
+    private readonly meter: BudgetMeter,
   ) {}
 
   async call(account: AccountId, request: XRequest): Promise<XResult<unknown>> {
-    const token = await this.tokens.accessToken(account, this.clock.now() + TOKEN_DEADLINE);
+    const token = await this.tokens.accessToken(account, this.meter.remaining().deadline);
     if (token.kind === "needs_reconnect") {
       return { ok: false, failure: { kind: "no_token" } };
     }

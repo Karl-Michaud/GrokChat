@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { postId, xPostId } from "../../../../src/entities/identity/ids";
 import type { Post } from "../../../../src/entities/posts/post";
+import { TOKEN_REFRESH_MILLIS } from "../../../../src/entities/budget/budget";
 import { STANDING_RETRY } from "../../../../src/entities/policy/publishable";
 import { HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
 import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
@@ -134,7 +135,7 @@ describe("the token step comes first (N1)", () => {
     await world.publishPost.publishNow(
       ACCOUNT,
       postId("post-1"),
-      meter(world.clock.now() + 10 * SECOND),
+      meter(world.clock.now() + TOKEN_REFRESH_MILLIS + 10 * SECOND),
     );
     expect(world.tokenEndpoint.calls).toStrictEqual(["refresh-1"]);
     expect(stored(world)?.lifecycle).toBe("DONE");
@@ -151,7 +152,7 @@ describe("the token step comes first (N1)", () => {
     const summary = await world.publishPost.publishNow(
       ACCOUNT,
       postId("post-1"),
-      meter(world.clock.now() + 4 * SECOND),
+      meter(world.clock.now() + TOKEN_REFRESH_MILLIS - 1),
     );
     expect(summary.sent).toBe(0);
     expect(world.tokenEndpoint.calls).toStrictEqual([]);

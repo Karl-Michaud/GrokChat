@@ -70,6 +70,7 @@ import { PartSender } from "../../../src/use_cases/run_services/part_sender";
 import { PublishPost } from "../../../src/use_cases/run_services/publish_post";
 import { ReconcileAccount } from "../../../src/use_cases/run_services/reconcile_account";
 import { RefreshingTokenProvider } from "../../../src/use_cases/run_services/refreshing_token_provider";
+import { TokenStep } from "../../../src/use_cases/run_services/token_step";
 import { XCallRecorder } from "../../../src/use_cases/run_services/x_call_recorder";
 import { aPersonality, anAccount, T0 } from "./builders";
 
@@ -126,6 +127,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const recorder = new XCallRecorder(audit, costs);
   const steps = new GuardedTransition(writer);
   const tokens = new RefreshingTokenProvider(tokenStore, tokenEndpoint, locks, clock);
+  const tokenStep = new TokenStep(tokens, clock);
   const stager = new MediaStager({ media, blobs, usage, uploader, recorder });
   const sender = new PartSender({
     reader,
@@ -144,6 +146,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     reader,
     accounts,
     timeline,
+    tokenStep,
     recorder,
     steps,
     flights,
@@ -155,6 +158,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     accounts,
     metrics,
     x: xMetrics,
+    tokenStep,
     recorder,
     flights,
     clock,
@@ -240,6 +244,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     recorder,
     steps,
     tokens,
+    tokenStep,
     stager,
     sender,
     recovery,

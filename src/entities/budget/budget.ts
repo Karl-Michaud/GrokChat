@@ -45,15 +45,29 @@ export const FANOUT_CEILING = 200;
 export const DISPATCH_COST: CallCost = { cloudflareCalls: 1, externalSubrequests: 0, millis: 0 };
 
 /**
+ * The token call is never cut short (plan §3.5, A2): aborting it after X rotated the refresh token
+ * would lose the account. Its timeout, a minute, is also its worst case.
+ */
+export const TOKEN_REFRESH_MILLIS: Millis = 60 * SECOND;
+
+/**
  * The token step before each part (N1): one call to X's token endpoint (the token store is the
  * DO's own storage), its audit and cost entries, and marking the account NEEDS_RECONNECT in D1
- * (load + save) if it is lost.
+ * (load + save) if it is lost. Its wall time is the refresh's un-aborted worst case, so a refresh
+ * is only started when the whole of it fits the deadline.
  */
 export const TOKEN_STEP_COST: CallCost = {
   cloudflareCalls: 4,
   externalSubrequests: 1,
-  millis: 5 * SECOND,
+  millis: TOKEN_REFRESH_MILLIS,
 };
+
+/**
+ * The token step's calls without its wall time: what a run checks before asking for a token. The
+ * wall time only applies when a refresh is needed, and `TokenProvider` checks it against the
+ * deadline itself (`refresh_does_not_fit`), so a valid token is never refused for want of a minute.
+ */
+export const TOKEN_STEP_CALLS: CallCost = { ...TOKEN_STEP_COST, millis: 0 };
 
 /**
  * One reconcile check: the timeline read, its audit and cost entries, the post's save, and the

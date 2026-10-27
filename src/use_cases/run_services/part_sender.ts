@@ -1,5 +1,5 @@
 import type { Account } from "../../entities/accounts/account";
-import { partCostForMediaCount, TOKEN_STEP_COST } from "../../entities/budget/budget";
+import { partCostForMediaCount, TOKEN_STEP_CALLS } from "../../entities/budget/budget";
 import type { AccountId, XMediaId, XPostId } from "../../entities/identity/ids";
 import { checkPublishable, nextAllowedAt, STANDING_RETRY } from "../../entities/policy/publishable";
 import { eventForOutcome } from "../../entities/posts/outcome_event";
@@ -73,7 +73,7 @@ export class PartSender {
       return { post, sent: false, stop: "done", appRateLimited: false };
     }
     const now = this.ports.clock.now();
-    if (!meter.fits(TOKEN_STEP_COST, now)) {
+    if (!meter.fits(TOKEN_STEP_CALLS, now)) {
       return this.yieldPost(post);
     }
     const token = await this.ports.tokens.accessToken(post.accountId, meter.remaining().deadline);

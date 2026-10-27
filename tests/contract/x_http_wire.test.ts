@@ -1,9 +1,9 @@
 /** The X HTTP plumbing: the transport, X's JSON and errors, and the authenticated client. */
 import { describe, expect, it } from "vitest";
-import { MINUTE, SECOND } from "../../src/entities/time/instant";
+import { SECOND } from "../../src/entities/time/instant";
 import { count, field, list, readJson, text } from "../../src/frameworks/x_http/json_fields";
 import { classifyFetchError, FetchTransport } from "../../src/frameworks/x_http/transport";
-import { TOKEN_DEADLINE, X_CALL_TIMEOUT } from "../../src/frameworks/x_http/x_api_client";
+import { X_CALL_TIMEOUT } from "../../src/frameworks/x_http/x_api_client";
 import {
   DETAIL_LIMIT,
   errorDetail,
@@ -15,6 +15,7 @@ import { ACCOUNT, T0 } from "../unit/support/builders";
 import {
   appWindowHeaders,
   clientSetup as setup,
+  INVOCATION,
   NO_RESPONSE,
   PROBLEMS,
   respond,
@@ -202,8 +203,7 @@ describe("XApiClient", () => {
     expect(seen?.body).toBe('{"k":"v"}');
     expect(seen?.timeout).toBe(X_CALL_TIMEOUT);
     expect(X_CALL_TIMEOUT).toBe(15 * SECOND);
-    expect(tokens.deadlines).toStrictEqual([T0 + TOKEN_DEADLINE]);
-    expect(TOKEN_DEADLINE).toBe(MINUTE);
+    expect(tokens.deadlines).toStrictEqual([T0 + INVOCATION]);
   });
 
   it("a request with no body sends none; a non-2xx is mapped; a 2xx is ok", async () => {

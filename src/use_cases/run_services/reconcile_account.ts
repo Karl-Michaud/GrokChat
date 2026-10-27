@@ -14,6 +14,7 @@ import type { PostReader } from "../ports/post_reader";
 import type { SingleFlight } from "../ports/single_flight";
 import type { XOwnTimelineReader, XPostSummary } from "../ports/x_own_timeline_reader";
 import type { GuardedTransition } from "./guarded_transition";
+import type { TokenStep } from "./token_step";
 import type { XCallRecorder } from "./x_call_recorder";
 
 /** Reconcile looks back from a minute before the attempt, at the five newest posts (plan §3.3 #6). */
@@ -24,6 +25,7 @@ export interface ReconcileAccountPorts {
   readonly reader: PostReader;
   readonly accounts: AccountRepository;
   readonly timeline: XOwnTimelineReader;
+  readonly tokenStep: TokenStep;
   readonly recorder: XCallRecorder;
   readonly steps: GuardedTransition;
   readonly flights: SingleFlight;
@@ -34,7 +36,8 @@ const SKIPPED: ReconcileSummary = { ran: false, found: 0, notFound: 0 };
 
 /**
  * Inside the account's Durable Object, single-flight (m2): each UNKNOWN part is looked for on the
- * account's own timeline by normalised text, and by the reply target for a thread's later part.
+ * account's own timeline by normalised text, and by the reply target for a thread's later part,
+ * after the token step (N1), so a refresh that does not fit the deadline yields before any read.
  */
 export class ReconcileAccount {
   constructor(private readonly ports: ReconcileAccountPorts) {}
@@ -52,8 +55,12 @@ export class ReconcileAccount {
       return { ran: true, found: 0, notFound: 0 };
     }
     const posts = await this.ports.reader.list({ accountIds: [id], partStates: ["UNKNOWN"] });
+    const targets = posts.flatMap(unknownParts);
     let summary: ReconcileSummary = { ran: true, found: 0, notFound: 0 };
-    for (const target of posts.flatMap(unknownParts)) {
+    if (targets.length === 0 || !(await this.ports.tokenStep.ready(id, meter))) {
+      return summary;
+    }
+    for (const target of targets) {
       if (!meter.fits(RECONCILE_CHECK_COST, this.ports.clock.now())) {
         break;
       }

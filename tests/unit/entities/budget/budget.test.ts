@@ -10,6 +10,8 @@ import {
   partCostForMediaCount,
   RECONCILE_CHECK_COST,
   spend,
+  TOKEN_REFRESH_MILLIS,
+  TOKEN_STEP_CALLS,
   TOKEN_STEP_COST,
 } from "../../../../src/entities/budget/budget";
 import { SECOND } from "../../../../src/entities/time/instant";
@@ -51,8 +53,10 @@ describe("Budget (U16)", () => {
     expect(TOKEN_STEP_COST).toStrictEqual({
       cloudflareCalls: 4,
       externalSubrequests: 1,
-      millis: 5 * SECOND,
+      millis: TOKEN_REFRESH_MILLIS,
     });
+    expect(TOKEN_REFRESH_MILLIS).toBe(60 * SECOND);
+    expect(TOKEN_STEP_CALLS).toStrictEqual({ ...TOKEN_STEP_COST, millis: 0 });
     const read = { cloudflareCalls: 3, externalSubrequests: 1, millis: 2 * SECOND };
     expect(RECONCILE_CHECK_COST).toStrictEqual({ ...read, cloudflareCalls: 4 });
     expect(METRICS_READ_COST).toStrictEqual(read);
