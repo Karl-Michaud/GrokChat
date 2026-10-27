@@ -4,6 +4,7 @@ import type { MiddlewareHandler } from "hono";
 import { checkUnsafeRequest } from "../../interface_adapters/dashboard/request_guard";
 import { webConfig } from "./config";
 import { formBody } from "./form_body";
+import { OAUTH_CALLBACK, OAUTH_FINISH } from "./oauth_routes";
 import { readSession, SESSION_COOKIE } from "./session";
 import { errorPage, loginPage } from "./views/layout";
 import type { WebBindings } from "./web_context";
@@ -38,12 +39,27 @@ const CSP = [
   "base-uri 'none'",
 ].join("; ");
 
-/** No framing, no referrer (the callback URL carries the code), no caching of pages. */
+/**
+ * The pages whose URL carries the OAuth code and state. They hold no forms, so they send no
+ * referrer at all, not even to this origin.
+ */
+const NO_REFERRER_PATHS = [OAUTH_CALLBACK, OAUTH_FINISH];
+
+/**
+ * Every other page is `same-origin`, never `no-referrer`: under the Fetch spec a plain form POST
+ * from a `no-referrer` document sends `Origin: null`, which the exact Origin check refuses. That
+ * broke "Connect on X" (a non-htmx form) and every form without JS. `same-origin` still sends
+ * nothing to x.com or any other origin.
+ */
+export const referrerPolicy = (path: string): string =>
+  NO_REFERRER_PATHS.includes(path) ? "no-referrer" : "same-origin";
+
+/** No framing, no cross-origin referrer, no caching of pages. */
 export const securityHeaders: Middleware = async (c, next) => {
   c.header("Content-Security-Policy", CSP);
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");
-  c.header("Referrer-Policy", "no-referrer");
+  c.header("Referrer-Policy", referrerPolicy(c.req.path));
   c.header("Cache-Control", "no-store");
   await next();
 };

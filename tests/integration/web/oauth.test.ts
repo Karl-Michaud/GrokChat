@@ -48,6 +48,8 @@ describe("the OAuth connect flow (plan §3.5, R11)", () => {
     const anonymous = new Browser((request) => browser.raw(request), undefined as never);
     const bounce = await anonymous.get(`/oauth/x/callback?code=code-1&state=${started.state}`);
     expect(bounce.status).toBe(200);
+    // The pages whose URL holds the code and state send no referrer, not even to this origin.
+    expect(bounce.headers.get("referrer-policy")).toBe("no-referrer");
     const html = await bounce.text();
     expect(html).toContain(
       `<meta http-equiv="refresh" content="0; url=/oauth/x/finish?code=code-1&amp;state=${started.state}" />`,
@@ -58,6 +60,9 @@ describe("the OAuth connect flow (plan §3.5, R11)", () => {
       303,
       "/dashboard/accounts?connected=%40newbie",
     ]);
+    expect(done.headers.get("referrer-policy")).toBe("no-referrer");
+    // The start form is a plain (non-htmx) POST: its page must give it a real Origin.
+    expect(started.response.headers.get("referrer-policy")).toBe("same-origin");
     expect((await world.accounts.findByXUserId(xUserId("x-user-9")))?.status).toBe("PAUSED");
     expect(browser.cookies.has(CONNECT_COOKIE)).toBe(false);
     const page = await browser.page("/dashboard/accounts?connected=%40newbie");

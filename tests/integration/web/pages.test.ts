@@ -65,7 +65,8 @@ describe("the dashboard pages (plan §3.4)", () => {
         "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self' https://x.com; frame-ancestors 'none'; base-uri 'none'",
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY",
-      "referrer-policy": "no-referrer",
+      // Not no-referrer: a form POST from a no-referrer page sends `Origin: null`, refused.
+      "referrer-policy": "same-origin",
       "cache-control": "no-store",
     });
   });
