@@ -1,6 +1,6 @@
-// GrokChat Worker (plan §3.6). Bindings are declared here; nothing is created or deployed by PR 1.
-// PR 8 creates the D1 database and the R2 bucket, replaces the placeholder database_id, adds the
-// three Cron Triggers, and deploys by hand from a release on main.
+// GrokChat Worker (plan §3.6). Bindings and the three Cron Triggers are declared here; nothing is
+// created or deployed before PR 8, which creates the D1 database and the R2 bucket, replaces the
+// placeholder database_id, and deploys by hand from a release on main.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "grokchat",
@@ -24,4 +24,7 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AccountPublisher"] }],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "grokchat-media" }],
+  // scheduled() dispatches by controller.cron (src/frameworks/cron/dispatch.ts, CRONS): publish
+  // every minute, reconcile every 10, metrics and the staged-media cleanup every 15. 3 of 5 allowed.
+  "triggers": { "crons": ["* * * * *", "*/10 * * * *", "*/15 * * * *"] },
 }

@@ -7,7 +7,7 @@
 import { env } from "cloudflare:workers";
 import type { Account } from "../../../src/entities/accounts/account";
 import { accountId, type AccountId } from "../../../src/entities/identity/ids";
-import type { AccountXPorts } from "../../../src/frameworks/durable_objects/account_services";
+import type { AccountXWiring } from "../../../src/frameworks/durable_objects/account_services";
 import { d1Stores } from "../../../src/frameworks/d1/d1_stores";
 import {
   FakeXMediaUploader,
@@ -65,13 +65,14 @@ export function harness(): Harness {
 export function testRuntime(ctx: DurableObjectState): AccountRuntime {
   const h = harness();
   h.builds += 1;
-  const x: AccountXPorts = {
+  // The fakes take no meter: every invocation gets the same scripted X.
+  const calls = {
     publisher: h.publisher,
     uploader: h.uploader,
     timeline: h.timeline,
     metrics: new FakeXMetrics(h.x),
-    refresher: h.endpoint,
   };
+  const x: AccountXWiring = { refresher: () => h.endpoint, calls: () => calls };
   return {
     ...accountRuntime(ctx, env, x),
     db: h.meter.db,

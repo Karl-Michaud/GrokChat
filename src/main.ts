@@ -6,24 +6,34 @@ the D1 and DO drivers they share with the dashboard. */
  * The composition root: the only module that names concrete classes and wires them together
  * (plan §3, Agents/CLAUDE.md §7.1). It exports the Worker's handlers and the Durable Object class.
  */
-import { dispatchScheduled } from "./frameworks/cron/dispatch";
+import type { AccountId } from "./entities/identity/ids";
+import { dispatchScheduled, type CronJobs } from "./frameworks/cron/dispatch";
+import { TICK_WINDOWS } from "./frameworks/cron/tick_runner";
 import { TokenVault } from "./frameworks/crypto/token_vault";
-import { d1Stores } from "./frameworks/d1/d1_stores";
+import { d1Stores, type D1Stores } from "./frameworks/d1/d1_stores";
+import { AccountObjects } from "./frameworks/durable_objects/account_client";
 import { AccountPublisherObject } from "./frameworks/durable_objects/account_publisher";
-import type { AccountServices, AccountXPorts } from "./frameworks/durable_objects/account_services";
+import type {
+  AccountServices,
+  AccountXWiring,
+} from "./frameworks/durable_objects/account_services";
 import { DurableTokenStore } from "./frameworks/durable_objects/durable_token_store";
+import { HttpXWiring } from "./frameworks/durable_objects/http_x_wiring";
+import {
+  InvocationAccountPublisher,
+  InvocationAccountReconciler,
+  InvocationAccountXGateway,
+  InvocationMetricsCollector,
+  InvocationTokenProvider,
+} from "./frameworks/durable_objects/invocation_services";
+import { MeteredAccountDispatch } from "./frameworks/durable_objects/metered_dispatch";
 import { SystemClock } from "./frameworks/durable_objects/system_clock";
-import { X_UNAVAILABLE } from "./frameworks/durable_objects/x_unavailable";
 import type { Env } from "./frameworks/env";
 import { buildHttpApp } from "./frameworks/http/app";
 import type { ToolHandlers } from "./frameworks/mcp/mcp_server";
 import { mcpRoute } from "./frameworks/mcp/mcp_route";
 import { FakeXMediaUploader, FakeXPublisher, FakeXWorld } from "./frameworks/memory/fake_x";
-import {
-  InProcessAccountPublisher,
-  InProcessAccountReconciler,
-  InProcessMetricsCollector,
-} from "./frameworks/memory/in_process_account";
+import { InProcessAccountPublisher } from "./frameworks/memory/in_process_account";
 import { MemoryLocks, MemorySingleFlight } from "./frameworks/memory/memory_locks";
 import {
   FnvContentHasher,
@@ -49,6 +59,7 @@ import {
 import { FakeXTokenEndpoint, MemoryTokenStore } from "./frameworks/memory/memory_tokens";
 import { R2MediaBlobStore } from "./frameworks/r2/r2_media_blob_store";
 import { RandomIds } from "./frameworks/runtime/random_ids";
+import { AccountXUserDirectory } from "./frameworks/x_http/x_user_directory";
 import { HealthController } from "./interface_adapters/health/health_controller";
 import { HealthPresenter } from "./interface_adapters/health/health_presenter";
 import { HealthViewModel, type HealthView } from "./interface_adapters/health/health_view_model";
@@ -90,6 +101,10 @@ import { GetPostMetricsInteractor } from "./use_cases/get_post_metrics/interacto
 import { GetPostInteractor } from "./use_cases/get_post/interactor";
 import { ListBacklogInteractor } from "./use_cases/list_backlog/interactor";
 import { MediaIntake } from "./use_cases/media/media_intake";
+import { MetricsTickInteractor } from "./use_cases/metrics_tick/interactor";
+import type { BudgetMeter } from "./use_cases/ports/budget_meter";
+import { PublishDueTickInteractor } from "./use_cases/publish_due_tick/interactor";
+import { ReconcileTickInteractor } from "./use_cases/reconcile_tick/interactor";
 import type { Clock } from "./use_cases/ports/clock";
 import type { Locks } from "./use_cases/ports/locks";
 import type { SingleFlight } from "./use_cases/ports/single_flight";
@@ -98,6 +113,7 @@ import { AccountRecovery } from "./use_cases/run_services/account_recovery";
 import { AccountXGatewayService } from "./use_cases/run_services/account_x_gateway_service";
 import { CollectAccountMetrics } from "./use_cases/run_services/collect_account_metrics";
 import { GuardedTransition } from "./use_cases/run_services/guarded_transition";
+import { MediaCleanup } from "./use_cases/run_services/media_cleanup";
 import { MediaStager } from "./use_cases/run_services/media_stager";
 import { PartSender } from "./use_cases/run_services/part_sender";
 import { PublishPost } from "./use_cases/run_services/publish_post";
@@ -107,14 +123,13 @@ import { TokenStep } from "./use_cases/run_services/token_step";
 import { XCallRecorder } from "./use_cases/run_services/x_call_recorder";
 import { StageMediaFromUrlInteractor } from "./use_cases/stage_media_from_url/interactor";
 
-import { AccountObjects } from "./frameworks/durable_objects/account_client";
 import type { WebControllers } from "./frameworks/web/controllers";
 import { buildWebApp } from "./frameworks/web/web_app";
 import { AuditedXAccountConnector } from "./frameworks/x_auth/recorded_oauth";
 import { XTokenEndpoint } from "./frameworks/x_auth/token_endpoint";
 import { WebCryptoPkce } from "./frameworks/x_auth/webcrypto_pkce";
 import { HttpXAccountConnector } from "./frameworks/x_auth/x_account_connector_driver";
-import { xOAuthConfig } from "./frameworks/x_auth/x_oauth_config";
+import { xClientCredentials, xOAuthConfig } from "./frameworks/x_auth/x_oauth_config";
 import { FetchTransport } from "./frameworks/x_http/transport";
 import { AccountsController } from "./interface_adapters/dashboard/accounts_controller";
 import { OAuthController } from "./interface_adapters/dashboard/oauth_controller";
@@ -482,8 +497,58 @@ function workerApp(env: Env): WorkerApp {
 
 export default {
   fetch: (request, env, ctx) => workerApp(env).fetch(request, env, ctx),
-  scheduled: () => dispatchScheduled(),
+  scheduled: (controller, env) => {
+    const clock = new SystemClock();
+    const ports = { db: env.DB, accounts: env.ACCOUNT, bucket: env.MEDIA, clock };
+    return dispatchScheduled(controller.cron, cronJobs(ports), clock);
+  },
 } satisfies ExportedHandler<Env>;
+
+/** What the cron ticks run on in the Worker: D1, the account objects, R2 and a clock. */
+export interface CronPorts {
+  readonly db: D1Database;
+  readonly accounts: DurableObjectNamespace<AccountPublisherObject>;
+  readonly bucket: R2Bucket;
+  readonly clock: Clock;
+}
+
+/**
+ * The three ticks (plan §3.3 #5, #6, #8): each dispatches to the accounts' Durable Objects through
+ * one Worker-side client, every call spending the tick's own budget (U16). Recovery runs inside
+ * each publish call; reconcile and metrics are single-flight inside each object (m2).
+ */
+export function cronJobs(ports: CronPorts): CronJobs {
+  const { clock } = ports;
+  const stores = d1Stores(ports.db);
+  const { reader } = stores;
+  const objects = new AccountObjects(ports.accounts);
+  const dispatch = (meter: BudgetMeter) => new MeteredAccountDispatch(objects, meter);
+  const blobs = new R2MediaBlobStore(ports.bucket);
+  const cleanup = new MediaCleanup(stores.media, blobs, stores.usage, reader);
+  return {
+    publish: {
+      job: "publish_due",
+      window: TICK_WINDOWS.publish,
+      build: (meter, presenter) =>
+        new PublishDueTickInteractor(reader, dispatch(meter), meter, clock, presenter),
+    },
+    reconcile: {
+      job: "reconcile",
+      window: TICK_WINDOWS.reconcile,
+      build: (meter, presenter) =>
+        new ReconcileTickInteractor(reader, dispatch(meter), meter, clock, presenter),
+    },
+    metrics: {
+      job: "metrics",
+      window: TICK_WINDOWS.metrics,
+      build: (meter, presenter) =>
+        new MetricsTickInteractor(
+          { reader, collector: dispatch(meter), cleanup, meter, clock },
+          presenter,
+        ),
+    },
+  };
+}
 
 /** What an account's Durable Object runs on: its bindings, its storage, its locks, its clock. */
 export interface AccountRuntime {
@@ -494,14 +559,15 @@ export interface AccountRuntime {
   readonly locks: Locks;
   readonly flights: SingleFlight;
   readonly clock: Clock;
-  readonly x: AccountXPorts;
+  /** The X drivers, built per invocation around its meter (plan §3.5). */
+  readonly x: AccountXWiring;
 }
 
 /** The production runtime of one account's Durable Object. */
 export function accountRuntime(
   ctx: DurableObjectState,
   env: Env,
-  x: AccountXPorts,
+  x: AccountXWiring,
 ): AccountRuntime {
   const clock = new SystemClock();
   const vault = TokenVault.fromSecret(env.GROKCHAT_TOKEN_KEYS);
@@ -516,14 +582,49 @@ export function accountRuntime(
   };
 }
 
-/** The use-case graph inside an account's Durable Object (plan §3.5, m6). */
-export function buildAccountServices(runtime: AccountRuntime): AccountServices {
-  const { clock, locks, x } = runtime;
-  const stores = d1Stores(runtime.db);
+/**
+ * The production X drivers of one account's object (plan §3.5): `fetch`, metered per invocation,
+ * with the X app's credentials for the token refresh, read at the boundary. A missing credential
+ * fails the build, so every call to the object fails loudly by the secret's name.
+ */
+export function productionX(ctx: DurableObjectState, env: Env): AccountXWiring {
+  const stores = d1Stores(env.DB);
+  return new HttpXWiring({
+    transport: new FetchTransport(),
+    credentials: xClientCredentials(env),
+    recorder: new XCallRecorder(stores.audit, stores.costs),
+    users: new AccountXUserDirectory(stores.accounts),
+    clock: new SystemClock(),
+    defer: (work) => {
+      ctx.waitUntil(work);
+    },
+  });
+}
+
+/** One invocation's token provider and X ports, every request spending from its meter (A4). */
+function invocationX(runtime: AccountRuntime, id: AccountId, meter: BudgetMeter) {
+  const refresher = runtime.x.refresher(id, meter);
+  const tokens = new RefreshingTokenProvider(
+    runtime.tokens,
+    refresher,
+    runtime.locks,
+    runtime.clock,
+  );
+  return { tokens, x: runtime.x.calls(meter, tokens) };
+}
+
+/** One invocation's use-case graph, around its meter; the runtime's state is the object's. */
+function accountGraph(
+  runtime: AccountRuntime,
+  stores: D1Stores,
+  id: AccountId,
+  meter: BudgetMeter,
+) {
+  const { clock, locks } = runtime;
   const { reader, writer, accounts } = stores;
   const recorder = new XCallRecorder(stores.audit, stores.costs);
   const steps = new GuardedTransition(writer);
-  const tokens = new RefreshingTokenProvider(runtime.tokens, x.refresher, locks, clock);
+  const { tokens, x } = invocationX(runtime, id, meter);
   const blobs = new R2MediaBlobStore(runtime.bucket);
   const stager = new MediaStager({ ...stores, blobs, uploader: x.uploader, recorder });
   const sender = new PartSender({
@@ -536,17 +637,13 @@ export function buildAccountServices(runtime: AccountRuntime): AccountServices {
     clock,
   });
   const recovery = new AccountRecovery(reader, writer);
-  const publish = new PublishPost({ reader, accounts, locks, clock, recovery, steps, sender });
   const tokenStep = new TokenStep(tokens, clock);
   const shared = { reader, accounts, recorder, flights: runtime.flights, clock, tokenStep };
   return {
-    publisher: new InProcessAccountPublisher(publish),
-    reconciler: new InProcessAccountReconciler(
-      new ReconcileAccount({ ...shared, timeline: x.timeline, steps }),
-    ),
-    collector: new InProcessMetricsCollector(
-      new CollectAccountMetrics({ ...shared, metrics: stores.metrics, x: x.metrics }),
-    ),
+    tokens,
+    publish: new PublishPost({ reader, accounts, locks, clock, recovery, steps, sender }),
+    reconcile: new ReconcileAccount({ ...shared, timeline: x.timeline, steps }),
+    collect: new CollectAccountMetrics({ ...shared, metrics: stores.metrics, x: x.metrics }),
     gateway: new AccountXGatewayService({
       publisher: x.publisher,
       store: runtime.tokens,
@@ -554,17 +651,31 @@ export function buildAccountServices(runtime: AccountRuntime): AccountServices {
       recorder,
       clock,
     }),
-    tokens,
   };
 }
 
 /**
- * The account's Durable Object, bound as ACCOUNT. Its X ports stay unavailable until the X drivers
- * (PR 4) are wired here, per invocation around its `BudgetMeter` (plan §3.5): nothing is sent, and
- * every due part waits as a retryable failure.
+ * The use-case graph inside an account's Durable Object (plan §3.5, m6). The object's state (the
+ * locks, single-flight, token storage) is built once; each call builds its X drivers and the run
+ * services over them around its own invocation budget.
  */
+export function buildAccountServices(runtime: AccountRuntime): AccountServices {
+  const stores = d1Stores(runtime.db);
+  const graph = (id: AccountId, meter: BudgetMeter) => accountGraph(runtime, stores, id, meter);
+  return {
+    publisher: new InvocationAccountPublisher((id, meter) => graph(id, meter).publish),
+    reconciler: new InvocationAccountReconciler((id, meter) => graph(id, meter).reconcile),
+    collector: new InvocationMetricsCollector((id, meter) => graph(id, meter).collect),
+    gateway: new InvocationAccountXGateway((id, meter) => graph(id, meter).gateway, runtime.clock),
+    tokens: new InvocationTokenProvider((id, meter) => graph(id, meter).tokens),
+  };
+}
+
+/** The account's Durable Object, bound as ACCOUNT, on the real X drivers. */
 export class AccountPublisher extends AccountPublisherObject {
   protected build(): AccountServices {
-    return buildAccountServices(accountRuntime(this.ctx, this.env, X_UNAVAILABLE));
+    return buildAccountServices(
+      accountRuntime(this.ctx, this.env, productionX(this.ctx, this.env)),
+    );
   }
 }

@@ -19,6 +19,9 @@ export default defineConfig(async () => {
             TEST_MIGRATIONS: migrations,
             // A fresh throwaway key per run: tests never see a real secret.
             GROKCHAT_TOKEN_KEYS: randomBytes(32).toString("base64"),
+            // Placeholder X app credentials: the X API is stubbed in every test (cron_ticks.test.ts).
+            X_CLIENT_ID: "test-client-id",
+            X_CLIENT_SECRET: "test-client-secret",
           },
           durableObjects: {
             TEST_ACCOUNT: { className: "TestAccountPublisher", useSQLite: true },
