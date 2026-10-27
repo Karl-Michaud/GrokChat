@@ -46,10 +46,11 @@ export const DISPATCH_COST: CallCost = { cloudflareCalls: 1, externalSubrequests
 
 /**
  * The token step before each part (N1): one call to X's token endpoint (the token store is the
- * DO's own storage), and marking the account NEEDS_RECONNECT in D1 (load + save) if it is lost.
+ * DO's own storage), its audit and cost entries, and marking the account NEEDS_RECONNECT in D1
+ * (load + save) if it is lost.
  */
 export const TOKEN_STEP_COST: CallCost = {
-  cloudflareCalls: 2,
+  cloudflareCalls: 4,
   externalSubrequests: 1,
   millis: 5 * SECOND,
 };

@@ -49,7 +49,7 @@ describe("Budget (U16)", () => {
     expect(FANOUT_CEILING).toBe(200);
     expect(DISPATCH_COST).toStrictEqual({ cloudflareCalls: 1, externalSubrequests: 0, millis: 0 });
     expect(TOKEN_STEP_COST).toStrictEqual({
-      cloudflareCalls: 2,
+      cloudflareCalls: 4,
       externalSubrequests: 1,
       millis: 5 * SECOND,
     });

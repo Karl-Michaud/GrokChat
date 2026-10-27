@@ -135,17 +135,26 @@ export class FakeXTimeline implements XOwnTimelineReader {
     const posts = this.world
       .postsBy(account)
       .filter((post) => post.createdAt >= since)
-      .sort((a, b) => b.createdAt - a.createdAt)
+      .sort((a, b) => a.createdAt - b.createdAt)
       .slice(0, maxResults)
       .map(({ id, text, createdAt, inReplyTo }) => ({ id, text, createdAt, inReplyTo }));
     return Promise.resolve({ ok: true, value: posts });
   }
 }
 
+/** X reads at most 100 posts per call; more is refused before anything is sent. */
+const MAX_METRICS_IDS = 100;
+
 export class FakeXMetrics implements XMetricsReader {
   constructor(private readonly world: FakeXWorld) {}
 
   read(account: AccountId, ids: readonly XPostId[]): Promise<XResult<readonly MetricsSnapshot[]>> {
+    if (ids.length > MAX_METRICS_IDS) {
+      return Promise.resolve(failed({ kind: "not_sent" }));
+    }
+    if (ids.length === 0) {
+      return Promise.resolve({ ok: true, value: [] });
+    }
     const script = this.world.take("metrics");
     if (script.kind === "fail") {
       return Promise.resolve(failed(script.failure));
