@@ -16,6 +16,7 @@
     "format:check": "prettier --check .",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs",
     "test": "vitest run --coverage",
+    "test:live": "vitest run --config vitest.live.config.ts",
     "mutation": "stryker run",
     "licenses": "npm run licenses:runtime && npm run licenses:all",
     "licenses:runtime": "license-checker-rseidelsohn --excludePrivatePackages --clarificationsFile licence-clarifications.json --clarificationsMatchAll true --production --onlyAllow \"MIT;Apache-2.0;ISC;BSD-2-Clause;BSD-3-Clause;0BSD\" --summary",
