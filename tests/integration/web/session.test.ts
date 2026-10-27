@@ -97,6 +97,13 @@ describe("login (plan §3.5, R12)", () => {
     expect((await browser.get("/dashboard/backlog")).status).toBe(303);
   });
 
+  it("refuses a form over 64 KiB before parsing it", async () => {
+    const { browser } = await dashboard();
+    const response = await browser.post("/dashboard/login", { password: "x".repeat(70_000) });
+    expect(response.status).toBe(413);
+    expect(await response.text()).toContain("the form is too large");
+  });
+
   it("answers 503 until the dashboard is configured", async () => {
     const { browser } = await dashboard({ GROKCHAT_PUBLIC_ORIGIN: "" });
     const response = await browser.get("/dashboard/login");

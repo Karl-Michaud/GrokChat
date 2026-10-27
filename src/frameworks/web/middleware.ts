@@ -1,3 +1,4 @@
+import { bodyLimit } from "hono/body-limit";
 import { getCookie } from "hono/cookie";
 import type { MiddlewareHandler } from "hono";
 import { checkUnsafeRequest } from "../../interface_adapters/dashboard/request_guard";
@@ -108,3 +109,11 @@ export const checkUnsafe: Middleware = async (c, next) => {
   await next();
   return undefined;
 };
+
+/** Forms are small: anything larger is refused before it is parsed (the login is public). */
+export const MAX_FORM_BYTES = 64 * 1024;
+
+export const limitBody: Middleware = bodyLimit({
+  maxSize: MAX_FORM_BYTES,
+  onError: (c) => c.html(errorPage("Refused: the form is too large.", null), 413),
+});

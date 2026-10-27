@@ -1,7 +1,14 @@
 import { Hono } from "hono";
 import { accountRoutes, personalityRoutes } from "./account_routes";
 import type { WebControllers } from "./controllers";
-import { checkUnsafe, configure, requestLog, requireSession, securityHeaders } from "./middleware";
+import {
+  checkUnsafe,
+  configure,
+  limitBody,
+  requestLog,
+  requireSession,
+  securityHeaders,
+} from "./middleware";
 import { oauthRoutes } from "./oauth_routes";
 import { postRoutes } from "./post_routes";
 import { reportRoutes } from "./report_routes";
@@ -19,7 +26,7 @@ const SCOPES = ["/dashboard", "/dashboard/*", "/oauth/*"];
 export function buildWebApp(controllers: WebControllers): WebApp {
   const app: WebApp = new Hono();
   for (const scope of SCOPES) {
-    app.use(scope, requestLog, securityHeaders, configure, requireSession, checkUnsafe);
+    app.use(scope, requestLog, securityHeaders, limitBody, configure, requireSession, checkUnsafe);
   }
   sessionRoutes(app, controllers);
   postRoutes(app, controllers);
