@@ -42,6 +42,14 @@ module.exports = {
       to: { path: "^src/main\\.ts$" },
     },
     {
+      name: "stubs-only-in-tests",
+      comment:
+        "The in-memory stubs in frameworks/memory are test doubles: no production module imports one, so the deployed graph cannot contain a stub (GROKCHAT-14).",
+      severity: "error",
+      from: { path: "^src/", pathNot: "^src/frameworks/memory/" },
+      to: { path: "^src/frameworks/memory/" },
+    },
+    {
       name: "vendors-only-in-frameworks",
       comment: "The MCP SDK, Hono and the Workers runtime are reached only from frameworks/.",
       severity: "error",

@@ -29,7 +29,7 @@ import {
   type AccountDispatch,
 } from "../../src/frameworks/durable_objects/metered_dispatch";
 import { ManualClock } from "../../src/frameworks/memory/manual_clock";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
 import type { BudgetMeter } from "../../src/use_cases/ports/budget_meter";
 import { T0 } from "../unit/support/builders";
 import { FixedTokens } from "./support/x_fixtures";
@@ -178,7 +178,7 @@ describe("MeteredAccountDispatch: each DO call is one of the tick's Cloudflare-s
       },
       collect: () => Promise.reject(new Error("reset")),
     };
-    const meter = new MemoryBudgetMeter(invocationBudget(T0 + MINUTE));
+    const meter = new InvocationBudgetMeter(invocationBudget(T0 + MINUTE));
     const dispatch = new MeteredAccountDispatch(inner, meter);
     expect((await dispatch.publishDue(ACCOUNT, 1, 2)).sent).toBe(1);
     expect((await dispatch.publishNow(ACCOUNT, postId("p"), 3)).ran).toBe(true);
@@ -204,7 +204,7 @@ describe("MeteredAccountDispatch, for any fan-out", () => {
     };
     await fc.assert(
       fc.asyncProperty(fc.nat({ max: FANOUT_LIMIT }), async (n) => {
-        const meter = new MemoryBudgetMeter(invocationBudget(T0));
+        const meter = new InvocationBudgetMeter(invocationBudget(T0));
         const dispatch = new MeteredAccountDispatch(inner, meter);
         for (let index = 0; index < n; index += 1) {
           await dispatch.publishDue(ACCOUNT, T0, T0);

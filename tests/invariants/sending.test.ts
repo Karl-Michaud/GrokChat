@@ -10,14 +10,14 @@ import { invocationBudget } from "../../src/entities/budget/budget";
 import { postId } from "../../src/entities/identity/ids";
 import { HOUR, MINUTE } from "../../src/entities/time/instant";
 import type { XScript } from "../../src/frameworks/memory/fake_x";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
 import type { CommandResult } from "../../src/use_cases/authoring/post_command";
 import { ReschedulePostInteractor } from "../../src/use_cases/reschedule_post/interactor";
 import { ACCOUNT, aPolicy, aPost, HUMAN, part, T0 } from "../unit/support/builders";
 import { Capture, makeWorld, type World } from "../unit/support/world";
 
-const meter = (deadline = T0 + HOUR): MemoryBudgetMeter =>
-  new MemoryBudgetMeter(invocationBudget(deadline));
+const meter = (deadline = T0 + HOUR): InvocationBudgetMeter =>
+  new InvocationBudgetMeter(invocationBudget(deadline));
 
 function textsOnX(world: World): readonly string[] {
   return [...world.x.posts.values()].map((post) => post.text);

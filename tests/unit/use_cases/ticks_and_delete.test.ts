@@ -3,7 +3,7 @@ import { invocationBudget } from "../../../src/entities/budget/budget";
 import { accountId, postId, xPostId, type AccountId } from "../../../src/entities/identity/ids";
 import type { Post } from "../../../src/entities/posts/post";
 import { DAY, HOUR, MINUTE } from "../../../src/entities/time/instant";
-import { MemoryBudgetMeter } from "../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../src/frameworks/budget/invocation_meter";
 import { DeletePostInteractor } from "../../../src/use_cases/delete_post/interactor";
 import type { DeletePostOutputData } from "../../../src/use_cases/delete_post/output_data";
 import { MetricsTickInteractor } from "../../../src/use_cases/metrics_tick/interactor";
@@ -29,8 +29,8 @@ import {
 import { Capture, makeWorld, type World } from "../support/world";
 
 const SYSTEM_ACTOR = { kind: "system", job: "cron" } as const;
-const meter = (deadline = T0 + HOUR): MemoryBudgetMeter =>
-  new MemoryBudgetMeter(invocationBudget(deadline));
+const meter = (deadline = T0 + HOUR): InvocationBudgetMeter =>
+  new InvocationBudgetMeter(invocationBudget(deadline));
 
 function work(id: string, flags: Partial<AccountWork> = {}): AccountWork {
   return {
@@ -110,7 +110,7 @@ describe("publishDueTick (plan §3.3 #5, U16)", () => {
 
   it("stops when the tick's own Cloudflare-service pool is spent", async () => {
     calls.length = 0;
-    const tight = new MemoryBudgetMeter({
+    const tight = new InvocationBudgetMeter({
       deadline: T0 + HOUR,
       cloudflareCalls: 0,
       externalSubrequests: 50,

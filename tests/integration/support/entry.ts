@@ -5,7 +5,7 @@
  */
 import { AccountPublisherObject } from "../../../src/frameworks/durable_objects/account_publisher";
 import type { AccountServices } from "../../../src/frameworks/durable_objects/account_services";
-import { buildAccountServices } from "../../../src/main";
+import { buildAccountServices } from "../../../src/frameworks/composition/account_graph";
 import { testRuntime } from "./harness";
 
 export { default, AccountPublisher } from "../../../src/main";

@@ -8,7 +8,7 @@ import { TickPresenter } from "../../interface_adapters/cron/tick_presenter";
 import { TickViewModel } from "../../interface_adapters/cron/tick_view_model";
 import type { BudgetMeter } from "../../use_cases/ports/budget_meter";
 import type { Clock } from "../../use_cases/ports/clock";
-import { MemoryBudgetMeter } from "../memory/memory_budget";
+import { InvocationBudgetMeter } from "../budget/invocation_meter";
 
 /**
  * How long each tick's Worker invocation dispatches for, from its start; every account's DO call
@@ -47,7 +47,7 @@ export async function runTick(
   clock: Clock,
   log: TickLog = consoleLog,
 ): Promise<void> {
-  const meter = new MemoryBudgetMeter(invocationBudget(clock.now() + tick.window));
+  const meter = new InvocationBudgetMeter(invocationBudget(clock.now() + tick.window));
   const view = new TickViewModel();
   await new TickController(tick.job, tick.build(meter, new TickPresenter(view))).run();
   const shown = view.current();

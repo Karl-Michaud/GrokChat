@@ -13,8 +13,8 @@ import {
 } from "../../src/entities/budget/budget";
 import { postId, xPostId, type StagedMediaId } from "../../src/entities/identity/ids";
 import { HOUR, MINUTE, SECOND } from "../../src/entities/time/instant";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
-import { MemoryLocks } from "../../src/frameworks/memory/memory_locks";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
+import { MemoryLocks } from "../../src/frameworks/durable_objects/object_locks";
 import { MemoryTokenStore } from "../../src/frameworks/memory/memory_tokens";
 import { XTokenEndpoint } from "../../src/frameworks/x_auth/token_endpoint";
 import { HttpXTokenRefresher } from "../../src/frameworks/x_auth/x_token_refresher_driver";
@@ -42,8 +42,8 @@ import {
 const CONFIG = { clientId: "id", clientSecret: "secret", redirectUri: "https://g.example/cb" };
 const noWait = (): Promise<void> => Promise.resolve();
 const external = (budget: Budget): number => budget.externalSubrequests;
-const meterUntil = (deadline: number): MemoryBudgetMeter =>
-  new MemoryBudgetMeter(invocationBudget(deadline));
+const meterUntil = (deadline: number): InvocationBudgetMeter =>
+  new InvocationBudgetMeter(invocationBudget(deadline));
 
 describe("MeteredTransport (U16)", () => {
   it("every request is one external subrequest, whatever became of it", async () => {

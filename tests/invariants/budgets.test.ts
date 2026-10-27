@@ -13,7 +13,7 @@ import { postId, type StagedMediaId } from "../../src/entities/identity/ids";
 import type { Post } from "../../src/entities/posts/post";
 import { HOUR } from "../../src/entities/time/instant";
 import type { XFailure } from "../../src/entities/x/x_failure";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
 import type { BudgetMeter } from "../../src/use_cases/ports/budget_meter";
 import type { PartStep } from "../../src/use_cases/run_services/part_sender";
 import { ACCOUNT, aPolicy, aPost, part } from "../unit/support/builders";
@@ -105,7 +105,7 @@ async function perPart(
   };
   await world.publishPost.publishDue(
     ACCOUNT,
-    new MemoryBudgetMeter(invocationBudget(world.clock.now() + HOUR)),
+    new InvocationBudgetMeter(invocationBudget(world.clock.now() + HOUR)),
   );
   return parts;
 }

@@ -1,10 +1,12 @@
 /**
- * The MCP server through main.ts (plan §6 integration, R6): the SDK client lists the 13 tools,
- * creates a post that the in-memory publisher sends, and is refused without the right token.
+ * The MCP server through main.ts (plan §6 integration, R6) on the production graph: the SDK client
+ * lists the 13 tools, creates posts that the account's Durable Object sends through the real X
+ * drivers (X faked at `fetch` only), stages media through the real https fetcher into R2, and is
+ * refused without the right token.
  */
-import { describe, expect, it } from "vitest";
+import { env } from "cloudflare:workers";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../../src/frameworks/env";
-import { stubs } from "../../src/main";
 import {
   BOT_TOKEN,
   body,
@@ -16,6 +18,24 @@ import {
   OTHER_BOT_TOKEN,
   seedAccount,
 } from "./support/mcp_client";
+import { stubX, type XWire } from "./support/x_wire";
+
+let x: XWire;
+beforeEach(() => {
+  x = stubX();
+});
+afterEach(() => {
+  x.restore();
+});
+
+/** The posts on (emulated) X, oldest first. */
+const onX = () => [...x.emulator.posts.values()];
+
+/** The JSON bodies of every create X received. */
+const creates = () =>
+  x.seen
+    .filter((request) => request.method === "POST" && request.url.pathname === "/2/tweets")
+    .map((request) => JSON.parse(request.body) as { media?: { media_ids: string[] } });
 
 const TOOLS = [
   "cancel_post",
@@ -110,7 +130,7 @@ describe("bot auth", () => {
   });
 });
 
-describe("create_post → published by the in-memory publisher (stub X)", () => {
+describe("create_post → published by the account's Durable Object on the real X drivers", () => {
   it("publishes now, and get_post shows the part SENT with its X id", async () => {
     const account = await seedAccount();
     const client = await connect(await botEnv([account.id]));
@@ -121,8 +141,8 @@ describe("create_post → published by the in-memory publisher (stub X)", () => 
     expect(isError(created)).toBe(false);
     const { post_id: postId, status } = body(created) as { post_id: string; status: string };
     expect(status).toBe("PUBLISHED");
-    const onX = stubs.x.postsBy(account.id);
-    expect(onX.map((post) => post.text)).toStrictEqual(["hello from a bot"]);
+    const sent = onX();
+    expect(sent.map((post) => post.text)).toStrictEqual(["hello from a bot"]);
 
     const fetched = body(
       await client.callTool({ name: "get_post", arguments: { post_id: postId } }),
@@ -131,7 +151,7 @@ describe("create_post → published by the in-memory publisher (stub X)", () => 
       post: {
         post_id: postId,
         status: "PUBLISHED",
-        parts: [{ state: "SENT", x_post_id: onX[0]?.id }],
+        parts: [{ state: "SENT", x_post_id: sent[0]?.id }],
       },
     });
   });
@@ -149,7 +169,7 @@ describe("create_post → published by the in-memory publisher (stub X)", () => 
     });
     expect(isError(changed)).toBe(true);
     expect(body(changed)).toStrictEqual({ error: "idempotency_mismatch", part: null });
-    expect(stubs.x.postsBy(account.id)).toHaveLength(1);
+    expect(onX()).toHaveLength(1);
   });
 
   it("publishes a thread in order, each part replying to the one before", async () => {
@@ -164,7 +184,7 @@ describe("create_post → published by the in-memory publisher (stub X)", () => 
       },
     });
     expect(body(created)).toMatchObject({ status: "PUBLISHED" });
-    const [first, second] = stubs.x.postsBy(account.id);
+    const [first, second] = onX();
     expect([first?.text, second?.text]).toStrictEqual(["one", "two"]);
     expect(second?.inReplyTo).toBe(first?.id);
   });
@@ -197,7 +217,8 @@ describe("create_post → published by the in-memory publisher (stub X)", () => 
       arguments: { post_id: created.post_id },
     });
     expect(body(cancelled)).toMatchObject({ post: { status: "CANCELLED" } });
-    expect(stubs.x.postsBy(account.id)).toHaveLength(0);
+    expect(onX()).toHaveLength(0);
+    expect(x.calls()).toStrictEqual([]);
   });
 
   it("deletes a published post from X", async () => {
@@ -215,17 +236,18 @@ describe("create_post → published by the in-memory publisher (stub X)", () => 
       incomplete: false,
       post: { status: "DELETED" },
     });
-    expect(stubs.x.postsBy(account.id)).toHaveLength(0);
+    expect(onX()).toHaveLength(0);
+    expect(x.calls().filter((line) => line.startsWith("DELETE "))).toHaveLength(1);
   });
 });
 
-describe("stage_media_from_url → create_post with the media", () => {
+describe("stage_media_from_url → R2 → create_post with the media", () => {
   const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 
   it("stages from an allowed host and posts with the staged photo", async () => {
     const account = await seedAccount();
     const url = `https://media.example/${account.id}.png`;
-    stubs.fetcher.responses.set(url, { ok: true, bytes: PNG, contentType: "image/png" });
+    x.web.set(url, () => new Response(PNG, { headers: { "content-type": "image/png" } }));
     const client = await connect(await botEnv([account.id]));
     const staged = await client.callTool({
       name: "stage_media_from_url",
@@ -243,7 +265,40 @@ describe("stage_media_from_url → create_post with the media", () => {
       },
     });
     expect(body(created)).toMatchObject({ status: "PUBLISHED" });
-    expect(stubs.x.postsBy(account.id)[0]?.media).toHaveLength(1);
+    expect(creates()[0]?.media?.media_ids).toHaveLength(1);
+    const stored = await env.MEDIA.list({ prefix: "media/" });
+    expect(stored.objects.map((object) => object.size)).toContain(PNG.length);
+  });
+
+  it.each([
+    [
+      "a redirect off the allowlist",
+      () =>
+        new Response(null, { status: 302, headers: { location: "https://evil.example/a.png" } }),
+      "host_not_allowed",
+    ],
+    [
+      "Cloudflare's 403 for a private address",
+      () => new Response("error code: 1003", { status: 403 }),
+      "host_not_allowed",
+    ],
+    ["a page that is not media", () => new Response("<html></html>"), "bad_type"],
+  ])("refuses %s through the real fetcher, storing nothing", async (_name, answer, code) => {
+    const account = await seedAccount();
+    const url = `https://media.example/${account.id}-refused.png`;
+    x.web.set(url, answer);
+    const client = await connect(await botEnv([account.id]));
+    const staged = await client.callTool({
+      name: "stage_media_from_url",
+      arguments: { account_id: account.id, url },
+    });
+    expect(body(staged)).toStrictEqual({ error: code, part: null });
+    const rows = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM staged_media WHERE owner_account_id = ?",
+    )
+      .bind(account.id)
+      .first<{ n: number }>();
+    expect(rows?.n).toBe(0);
   });
 
   it("refuses every host when GROKCHAT_MEDIA_HOSTS is not set", async () => {
@@ -261,7 +316,7 @@ describe("stage_media_from_url → create_post with the media", () => {
   it("reads the allowlist case-insensitively, trimming spaces and empty entries", async () => {
     const account = await seedAccount();
     const url = `https://cdn.example/${account.id}.png`;
-    stubs.fetcher.responses.set(url, { ok: true, bytes: PNG, contentType: "image/png" });
+    x.web.set(url, () => new Response(PNG));
     const workerEnv = await botEnv([account.id], [], {
       GROKCHAT_MEDIA_HOSTS: " other.example, ,CDN.Example ",
     });

@@ -5,12 +5,12 @@ import type { PartState } from "../../../src/entities/posts/part_state";
 import type { Post } from "../../../src/entities/posts/post";
 import { HOUR } from "../../../src/entities/time/instant";
 import type { XFailure } from "../../../src/entities/x/x_failure";
-import { MemoryBudgetMeter } from "../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../src/frameworks/budget/invocation_meter";
 import { aPost, T0 } from "./builders";
 import type { World } from "./world";
 
-export const meter = (deadline = T0 + HOUR): MemoryBudgetMeter =>
-  new MemoryBudgetMeter(invocationBudget(deadline));
+export const meter = (deadline = T0 + HOUR): InvocationBudgetMeter =>
+  new InvocationBudgetMeter(invocationBudget(deadline));
 
 export const http = (
   status: number,

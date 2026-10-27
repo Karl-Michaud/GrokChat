@@ -1,6 +1,8 @@
 /**
  * Drives the Worker's default export (src/main.ts) with the MCP SDK's own client, as xAI's client
- * does: a fresh initialize, then the request, over stateless streamable HTTP (U9).
+ * does: a fresh initialize, then the request, over stateless streamable HTTP (U9). The Worker runs
+ * its production graph: real local D1 and R2, the production account Durable Object, the real X
+ * and media fetch drivers; only `fetch` is stubbed (support/x_wire.ts).
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -14,7 +16,10 @@ import {
   type AccountId,
 } from "../../../src/entities/identity/ids";
 import type { Env } from "../../../src/frameworks/env";
-import worker, { stubs } from "../../../src/main";
+import { d1Stores } from "../../../src/frameworks/d1/d1_stores";
+import { AccountObjects } from "../../../src/frameworks/durable_objects/account_client";
+import worker from "../../../src/main";
+import { HOUR } from "../../../src/entities/time/instant";
 import { aPersonality, anAccount } from "../../unit/support/builders";
 
 /** 32 random bytes as hex, as a deployment would mint them (plan §3.5). */
@@ -63,20 +68,30 @@ export async function connect(workerEnv: Env, token = BOT_TOKEN, path = "/mcp"):
 }
 
 let accounts = 0;
+/** Per test file, so a Durable Object named after an account never carries over between files. */
+const RUN = crypto.randomUUID().slice(0, 8);
 
-/** A fresh, active, disclosed account in the stub backend, with tokens and a personality. */
+/**
+ * A fresh, active, disclosed account in D1 with a personality, and tokens sealed in its production
+ * Durable Object, as the dashboard's connect leaves it.
+ */
 export async function seedAccount(overrides: Partial<Account> = {}): Promise<Account> {
   accounts += 1;
-  const id: AccountId = accountId(`it-acc-${String(accounts)}`);
+  const id: AccountId = accountId(`it-acc-${RUN}-${String(accounts)}`);
   const account = anAccount({
     id,
-    xUserId: xUserId(`it-x-${String(accounts)}`),
-    personalityId: personalityId(`it-pers-${String(accounts)}`),
+    xUserId: xUserId(`it-x-${RUN}-${String(accounts)}`),
+    personalityId: personalityId(`it-pers-${RUN}-${String(accounts)}`),
     ...overrides,
   });
-  await stubs.accounts.save(account);
-  await stubs.personalities.save(aPersonality({ id: account.personalityId }));
-  await stubs.tokenStore.commitRotated(account.id, stubs.tokenEndpoint.issue());
+  const stores = d1Stores(env.DB);
+  await stores.accounts.save(account);
+  await stores.personalities.save(aPersonality({ id: account.personalityId }));
+  await new AccountObjects(env.ACCOUNT).storeConnectedTokens(account.id, {
+    accessToken: "access-1",
+    refreshToken: "refresh-1",
+    accessExpiresAt: Date.now() + 2 * HOUR,
+  });
   return account;
 }
 

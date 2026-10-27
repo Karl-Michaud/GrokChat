@@ -8,11 +8,11 @@ import {
 } from "../../../../src/entities/budget/budget";
 import { stagedMediaId } from "../../../../src/entities/identity/ids";
 import { DAY, HOUR } from "../../../../src/entities/time/instant";
-import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../../src/frameworks/budget/invocation_meter";
 import { aMedia, T0 } from "../../support/builders";
 import { makeWorld, type World } from "../../support/world";
 
-const meterUntil = (deadline: number) => new MemoryBudgetMeter(invocationBudget(deadline));
+const meterUntil = (deadline: number) => new InvocationBudgetMeter(invocationBudget(deadline));
 
 describe("MediaCleanup inside the tick's budget (U16)", () => {
   const QUERY = MEDIA_CLEANUP_QUERY_COST.cloudflareCalls;
@@ -62,7 +62,7 @@ describe("MediaCleanup inside the tick's budget (U16)", () => {
   it("a nearly spent meter deletes only what fits and never overspends", async () => {
     const world = makeWorld();
     await dueItems(world, 5);
-    const meter = new MemoryBudgetMeter({
+    const meter = new InvocationBudgetMeter({
       deadline: world.clock.now() + HOUR,
       cloudflareCalls: QUERY + 2 * ITEM + ITEM - 1,
       externalSubrequests: 0,
@@ -75,7 +75,7 @@ describe("MediaCleanup inside the tick's budget (U16)", () => {
   it("exactly one item's room deletes one; less runs no query at all", async () => {
     const world = makeWorld();
     await dueItems(world, 2);
-    const exact = new MemoryBudgetMeter({
+    const exact = new InvocationBudgetMeter({
       deadline: world.clock.now() + HOUR,
       cloudflareCalls: QUERY + ITEM,
       externalSubrequests: 0,
@@ -87,7 +87,7 @@ describe("MediaCleanup inside the tick's budget (U16)", () => {
       queried = true;
       return Promise.resolve([]);
     };
-    const short = new MemoryBudgetMeter({
+    const short = new InvocationBudgetMeter({
       deadline: world.clock.now() + HOUR,
       cloudflareCalls: QUERY + ITEM - 1,
       externalSubrequests: 0,

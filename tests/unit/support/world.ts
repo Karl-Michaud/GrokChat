@@ -28,8 +28,8 @@ import {
 import {
   MemoryLocks,
   MemorySingleFlight,
-  NoLocks,
-} from "../../../src/frameworks/memory/memory_locks";
+} from "../../../src/frameworks/durable_objects/object_locks";
+import { NoLocks } from "../../../src/frameworks/memory/memory_locks";
 import {
   FnvContentHasher,
   MemoryMediaBlobStore,

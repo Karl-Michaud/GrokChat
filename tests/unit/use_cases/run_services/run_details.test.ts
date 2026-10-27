@@ -7,7 +7,7 @@ import {
 } from "../../../../src/entities/budget/budget";
 import { accountId, postId, xPostId, xUserId } from "../../../../src/entities/identity/ids";
 import { DAY, HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
-import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../../src/frameworks/budget/invocation_meter";
 import {
   ACCOUNT,
   aPolicy,
@@ -90,7 +90,7 @@ describe("PartSender reports why it stopped", () => {
     await world.seedAccount();
     world.clock.advance(2 * HOUR - 5 * MINUTE);
     const post = put(world, aPost({ lifecycle: "PUBLISHING" }));
-    const noCalls = new MemoryBudgetMeter({
+    const noCalls = new InvocationBudgetMeter({
       deadline: T0 + DAY,
       cloudflareCalls: TOKEN_STEP_CALLS.cloudflareCalls - 1,
       externalSubrequests: 50,
@@ -341,7 +341,7 @@ describe("recovery, gateway, metrics and reconcile details", () => {
 
   it("an unknown account id is a no-op for the in-process stand-ins too", async () => {
     const world = makeWorld();
-    const tight = new MemoryBudgetMeter({
+    const tight = new InvocationBudgetMeter({
       deadline: T0 + DAY,
       cloudflareCalls: 10,
       externalSubrequests: 1,
@@ -367,7 +367,7 @@ describe("the shared test helper", () => {
       asked.push(id);
       return Promise.resolve(null);
     };
-    await world.cleanup.run(new MemoryBudgetMeter(invocationBudget(T0 + DAY)));
+    await world.cleanup.run(new InvocationBudgetMeter(invocationBudget(T0 + DAY)));
     expect(asked).toStrictEqual([]);
   });
 });

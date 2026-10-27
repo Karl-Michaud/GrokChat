@@ -13,7 +13,7 @@ import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { AccountObjects } from "../../src/frameworks/durable_objects/account_client";
 import { SystemClock } from "../../src/frameworks/durable_objects/system_clock";
 import { ManualClock } from "../../src/frameworks/memory/manual_clock";
-import { MemoryLocks, MemorySingleFlight } from "../../src/frameworks/memory/memory_locks";
+import { MemoryLocks, MemorySingleFlight } from "../../src/frameworks/durable_objects/object_locks";
 import { aPost, part, T0 } from "../unit/support/builders";
 import {
   lockDeadlineContract,

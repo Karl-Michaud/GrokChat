@@ -9,12 +9,12 @@ import {
 import { postId, xPostId } from "../../../../src/entities/identity/ids";
 import type { Post } from "../../../../src/entities/posts/post";
 import { DAY, HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
-import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../../src/frameworks/budget/invocation_meter";
 import { ACCOUNT, aPost, part, sentState, T0, unknownState } from "../../support/builders";
 import { makeWorld, type World } from "../../support/world";
 
-const meter = (deadline = T0 + HOUR): MemoryBudgetMeter =>
-  new MemoryBudgetMeter(invocationBudget(deadline));
+const meter = (deadline = T0 + HOUR): InvocationBudgetMeter =>
+  new InvocationBudgetMeter(invocationBudget(deadline));
 
 function put(world: World, post: Post): Post {
   world.table.rows.set(post.id, post);
@@ -50,7 +50,7 @@ describe("the token step before reconcile and metrics (N1, A2, R18)", () => {
     const world = makeWorld();
     await work(world);
     expiring(world);
-    const short = (): MemoryBudgetMeter => meter(world.clock.now() + TOKEN_REFRESH_MILLIS - 1);
+    const short = (): InvocationBudgetMeter => meter(world.clock.now() + TOKEN_REFRESH_MILLIS - 1);
     expect(await world.reconcileAccount.reconcile(ACCOUNT, short())).toStrictEqual({
       ran: true,
       found: 0,
@@ -70,7 +70,8 @@ describe("the token step before reconcile and metrics (N1, A2, R18)", () => {
     const world = makeWorld();
     await work(world);
     expiring(world);
-    const enough = (): MemoryBudgetMeter => meter(world.clock.now() + TOKEN_REFRESH_MILLIS + HOUR);
+    const enough = (): InvocationBudgetMeter =>
+      meter(world.clock.now() + TOKEN_REFRESH_MILLIS + HOUR);
     expect((await world.reconcileAccount.reconcile(ACCOUNT, enough())).notFound).toBe(1);
     expect((await world.collectMetrics.collect(ACCOUNT, enough())).read).toBe(1);
     expect(world.tokenEndpoint.calls).toStrictEqual(["refresh-1"]);
@@ -89,8 +90,8 @@ describe("the token step before reconcile and metrics (N1, A2, R18)", () => {
     const world = makeWorld();
     await work(world);
     world.clock.advance(HOUR);
-    const cramped = (): MemoryBudgetMeter =>
-      new MemoryBudgetMeter({
+    const cramped = (): InvocationBudgetMeter =>
+      new InvocationBudgetMeter({
         deadline: T0 + DAY,
         cloudflareCalls: 1_000,
         externalSubrequests: TOKEN_STEP_CALLS.externalSubrequests - 1,
@@ -109,7 +110,7 @@ describe("the token step before reconcile and metrics (N1, A2, R18)", () => {
     await work(world);
     world.clock.advance(HOUR);
     expect(METRICS_READ_COST.cloudflareCalls).toBeLessThan(TOKEN_STEP_CALLS.cloudflareCalls);
-    const between = new MemoryBudgetMeter({
+    const between = new InvocationBudgetMeter({
       deadline: T0 + DAY,
       cloudflareCalls: TOKEN_STEP_CALLS.cloudflareCalls - 1,
       externalSubrequests: 50,
@@ -125,7 +126,7 @@ describe("the token step before reconcile and metrics (N1, A2, R18)", () => {
     const world = makeWorld();
     await work(world);
     world.clock.advance(HOUR);
-    const late = (): MemoryBudgetMeter => meter(world.clock.now() + SECOND);
+    const late = (): InvocationBudgetMeter => meter(world.clock.now() + SECOND);
     expect(await world.reconcileAccount.reconcile(ACCOUNT, late())).toStrictEqual({
       ran: true,
       found: 0,

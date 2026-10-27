@@ -15,7 +15,7 @@ import { ActionAudit } from "../../src/use_cases/access/action_audit";
 import { MediaAttachments } from "../../src/use_cases/authoring/media_attachments";
 import { MediaIntake } from "../../src/use_cases/media/media_intake";
 import { invocationBudget } from "../../src/entities/budget/budget";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
 import { MediaCleanup } from "../../src/use_cases/run_services/media_cleanup";
 import { MediaStager } from "../../src/use_cases/run_services/media_stager";
 import { XCallRecorder } from "../../src/use_cases/run_services/x_call_recorder";
@@ -128,7 +128,7 @@ describe("staged-media cleanup on the real drivers", () => {
     const { intake, cleanup, stores, clock } = media();
     const at = (now: number) => {
       clock.set(now);
-      return cleanup.run(new MemoryBudgetMeter(invocationBudget(now + HOUR)));
+      return cleanup.run(new InvocationBudgetMeter(invocationBudget(now + HOUR)));
     };
     const unused = await intake.store(HUMAN, anAccount(), PNG);
     const used = await intake.store(HUMAN, anAccount(), PNG);

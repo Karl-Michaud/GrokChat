@@ -1,3 +1,4 @@
+import { checkFetchedMedia } from "../../entities/media/fetched_media";
 import { monthKey, usageAt, type MediaUsage } from "../../entities/media/r2_quota";
 import type { Instant } from "../../entities/time/instant";
 import type { ContentHasher } from "../../use_cases/ports/content_hasher";
@@ -48,13 +49,26 @@ export class MemoryMediaUsage implements MediaUsageRepository {
   }
 }
 
-/** Answers each URL from a table; an unknown URL is unreachable. */
+/**
+ * Answers each URL from a table: `responses` scripts a result as given; `files` serves bytes that
+ * pass the same `checkFetchedMedia` as the real driver. An unknown URL is unreachable.
+ */
 export class ScriptedMediaFetcher implements MediaFetcher {
   readonly responses = new Map<string, FetchResult>();
+  readonly files = new Map<string, Uint8Array>();
   readonly requests: { readonly url: string; readonly maxBytes: number }[] = [];
 
-  fetch(url: string, maxBytes: number): Promise<FetchResult> {
+  fetch(url: string, maxBytes: number, allowedTypes: readonly string[] = []): Promise<FetchResult> {
     this.requests.push({ url, maxBytes });
+    const file = this.files.get(url);
+    if (file !== undefined) {
+      const checked = checkFetchedMedia(file, maxBytes, allowedTypes);
+      return Promise.resolve(
+        checked.allowed
+          ? { ok: true, bytes: file, contentType: checked.media.contentType }
+          : { ok: false, reason: checked.reason },
+      );
+    }
     return Promise.resolve(this.responses.get(url) ?? { ok: false, reason: "unreachable" });
   }
 }
