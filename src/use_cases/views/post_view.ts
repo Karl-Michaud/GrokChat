@@ -1,5 +1,5 @@
 import { actorLabel } from "../../entities/identity/actor";
-import type { AccountId, PostId, XPostId } from "../../entities/identity/ids";
+import type { AccountId, PostId, StagedMediaId, XPostId } from "../../entities/identity/ids";
 import type { PartStateKind } from "../../entities/posts/part_state";
 import { derivedStatus, type DerivedStatus } from "../../entities/posts/derived_status";
 import type { Lifecycle, Post } from "../../entities/posts/post";
@@ -7,6 +7,8 @@ import type { Instant } from "../../entities/time/instant";
 
 export interface PartView {
   readonly text: string;
+  /** The staged media attached, so an edit can keep it. */
+  readonly media: readonly StagedMediaId[];
   readonly state: PartStateKind;
   readonly xPostId: XPostId | null;
 }
@@ -34,6 +36,7 @@ export function toPostView(post: Post): PostView {
     resumeAt: post.resumeAt,
     parts: post.parts.map((part) => ({
       text: part.text,
+      media: part.media,
       state: part.state.kind,
       xPostId:
         part.state.kind === "SENT" || part.state.kind === "DELETED" ? part.state.xPostId : null,

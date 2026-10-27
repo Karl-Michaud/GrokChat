@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { accountId, postId, xPostId } from "../../../src/entities/identity/ids";
+import { accountId, postId, stagedMediaId, xPostId } from "../../../src/entities/identity/ids";
+import { PENDING } from "../../../src/entities/posts/part_state";
 import type { MetricsSnapshot } from "../../../src/entities/metrics/metrics_snapshot";
 import { DAY, HOUR } from "../../../src/entities/time/instant";
 import { AuditListInteractor } from "../../../src/use_cases/audit_list/interactor";
@@ -99,14 +100,14 @@ describe("getPost", () => {
         parts: [
           part("a", sentState("x-1")),
           part("b", { kind: "DELETED", xPostId: xPostId("x-2") }),
-          part("c"),
+          part("c", PENDING, [stagedMediaId("m-1")]),
         ],
       }),
     );
     expect(view.parts).toStrictEqual([
-      { text: "a", state: "SENT", xPostId: xPostId("x-1") },
-      { text: "b", state: "DELETED", xPostId: xPostId("x-2") },
-      { text: "c", state: "PENDING", xPostId: null },
+      { text: "a", media: [], state: "SENT", xPostId: xPostId("x-1") },
+      { text: "b", media: [], state: "DELETED", xPostId: xPostId("x-2") },
+      { text: "c", media: [stagedMediaId("m-1")], state: "PENDING", xPostId: null },
     ]);
     expect(JSON.stringify(view)).not.toContain("hash-1");
   });
