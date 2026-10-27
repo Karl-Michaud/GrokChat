@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DAY, HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
+import { TOKEN_REFRESH_MILLIS } from "../../../../src/entities/budget/budget";
+import { DAY, HOUR, MINUTE } from "../../../../src/entities/time/instant";
 import { REFRESH_MARGIN } from "../../../../src/use_cases/run_services/refreshing_token_provider";
 import { ACCOUNT, T0 } from "../../support/builders";
 import { makeWorld } from "../../support/world";
@@ -40,10 +41,12 @@ describe("RefreshingTokenProvider (A1, A2, U1, U14)", () => {
     await world.seedAccount();
     world.clock.advance(2 * HOUR);
     const now = world.clock.now();
-    expect(await world.tokens.accessToken(ACCOUNT, now + 5 * SECOND - 1)).toStrictEqual({
+    expect(await world.tokens.accessToken(ACCOUNT, now + TOKEN_REFRESH_MILLIS - 1)).toStrictEqual({
       kind: "refresh_does_not_fit",
     });
-    expect((await world.tokens.accessToken(ACCOUNT, now + 5 * SECOND)).kind).toBe("token");
+    expect((await world.tokens.accessToken(ACCOUNT, now + TOKEN_REFRESH_MILLIS)).kind).toBe(
+      "token",
+    );
   });
 
   it("five concurrent callers with an expired token: one refresh, the same rotated token (R3)", async () => {

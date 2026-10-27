@@ -2,7 +2,9 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { fromBase64Url, randomToken, toBase64Url } from "../../../src/frameworks/web/base64url";
 import { validOrigin, webConfig } from "../../../src/frameworks/web/config";
-import { RandomIds, SystemClock, WebCryptoPkce } from "../../../src/frameworks/web/crypto_ids";
+import { SystemClock } from "../../../src/frameworks/durable_objects/system_clock";
+import { RandomIds } from "../../../src/frameworks/web/crypto_ids";
+import { WebCryptoPkce } from "../../../src/frameworks/x_auth/webcrypto_pkce";
 import {
   hashPassword,
   parsePasswordHash,

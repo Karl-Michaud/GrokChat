@@ -16,17 +16,35 @@ export type XOutcome =
 /** A retry without a `retry-at` from X waits one minute (plan §3.1.1). */
 export const DEFAULT_RETRY = MINUTE;
 
+const rejected = (status: number, detail: string): XOutcome => ({
+  kind: "rejected",
+  reason: redactCredentials(`x_${String(status)}: ${detail}`),
+});
+
 /**
  * Not sent → retryable; sent without a response or a 5xx → unknown (never re-sent); 429 →
- * rate-limited, for the user or the whole app; 401/403 → the token was revoked, so the account
- * needs a reconnect and the post goes back as a gate refusal, never FAILED; any other status →
+ * rate-limited, for the user or the whole app; 401, an auth 403 or no usable token → the token was
+ * revoked, so the account needs a reconnect and the post goes back as a gate refusal, never
+ * FAILED; a content refusal (a 403 for duplicate or forbidden content) and any other status →
  * rejected, its detail redacted.
  */
 export function mapXOutcome(failure: XFailure, now: Instant): XOutcome {
-  if (failure.kind === "not_sent") {
-    return { kind: "retryable", retryAt: now + DEFAULT_RETRY };
+  switch (failure.kind) {
+    case "not_sent":
+      return { kind: "retryable", retryAt: now + DEFAULT_RETRY };
+    case "no_token":
+      return { kind: "needs_reconnect" };
+    case "content_refused":
+      return rejected(failure.status, failure.detail);
+    case "no_response":
+      return { kind: "unknown" };
+    case "http":
+      return mapHttpStatus(failure, now);
   }
-  if (failure.kind === "no_response" || failure.status >= 500) {
+}
+
+function mapHttpStatus(failure: Extract<XFailure, { kind: "http" }>, now: Instant): XOutcome {
+  if (failure.status >= 500) {
     return { kind: "unknown" };
   }
   if (failure.status === 429) {
@@ -38,8 +56,5 @@ export function mapXOutcome(failure: XFailure, now: Instant): XOutcome {
   if (failure.status === 401 || failure.status === 403) {
     return { kind: "needs_reconnect" };
   }
-  return {
-    kind: "rejected",
-    reason: redactCredentials(`x_${String(failure.status)}: ${failure.detail}`),
-  };
+  return rejected(failure.status, failure.detail);
 }

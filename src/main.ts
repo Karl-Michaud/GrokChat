@@ -3,39 +3,36 @@
  * (plan §3, Agents/CLAUDE.md §7.1). It exports the Worker's handlers and the Durable Object class.
  */
 import { dispatchScheduled } from "./frameworks/cron/dispatch";
+import { TokenVault } from "./frameworks/crypto/token_vault";
+import { d1Stores } from "./frameworks/d1/d1_stores";
+import { AccountPublisherObject } from "./frameworks/durable_objects/account_publisher";
+import type { AccountServices, AccountXPorts } from "./frameworks/durable_objects/account_services";
+import { DurableTokenStore } from "./frameworks/durable_objects/durable_token_store";
+import { SystemClock } from "./frameworks/durable_objects/system_clock";
+import { X_UNAVAILABLE } from "./frameworks/durable_objects/x_unavailable";
 import type { Env } from "./frameworks/env";
 import { buildHttpApp } from "./frameworks/http/app";
+import {
+  InProcessAccountPublisher,
+  InProcessAccountReconciler,
+  InProcessMetricsCollector,
+} from "./frameworks/memory/in_process_account";
+import { MemoryLocks, MemorySingleFlight } from "./frameworks/memory/memory_locks";
+import { R2MediaBlobStore } from "./frameworks/r2/r2_media_blob_store";
 import { HealthController } from "./interface_adapters/health/health_controller";
 import { HealthPresenter } from "./interface_adapters/health/health_presenter";
 import { HealthViewModel, type HealthView } from "./interface_adapters/health/health_view_model";
 import { GetHealthInteractor } from "./use_cases/get_health/interactor";
-import { FakeXPublisher, FakeXWorld } from "./frameworks/memory/fake_x";
-import { MemoryLocks } from "./frameworks/memory/memory_locks";
-import {
-  MemoryLoginThrottle,
-  MemoryOAuthStateStore,
-  StubXAccountConnector,
-} from "./frameworks/memory/memory_auth";
-import { MemoryMediaUsage } from "./frameworks/memory/memory_media";
-import {
-  MemoryPostReader,
-  MemoryPostTable,
-  MemoryPostWriter,
-} from "./frameworks/memory/memory_post_store";
-import {
-  MemoryAuditLog,
-  MemoryCostLedger,
-  MemoryMetricsRepository,
-} from "./frameworks/memory/memory_records";
-import {
-  MemoryAccountRepository,
-  MemoryMediaRepository,
-  MemoryPersonalityRepository,
-} from "./frameworks/memory/memory_repositories";
-import { MemoryTokenStore } from "./frameworks/memory/memory_tokens";
+import { AccountObjects } from "./frameworks/durable_objects/account_client";
 import type { WebControllers } from "./frameworks/web/controllers";
-import { RandomIds, SystemClock, WebCryptoPkce } from "./frameworks/web/crypto_ids";
+import { RandomIds } from "./frameworks/web/crypto_ids";
 import { buildWebApp } from "./frameworks/web/web_app";
+import { AuditedXAccountConnector } from "./frameworks/x_auth/recorded_oauth";
+import { XTokenEndpoint } from "./frameworks/x_auth/token_endpoint";
+import { WebCryptoPkce } from "./frameworks/x_auth/webcrypto_pkce";
+import { HttpXAccountConnector } from "./frameworks/x_auth/x_account_connector_driver";
+import { xOAuthConfig } from "./frameworks/x_auth/x_oauth_config";
+import { FetchTransport } from "./frameworks/x_http/transport";
 import { AccountsController } from "./interface_adapters/dashboard/accounts_controller";
 import { OAuthController } from "./interface_adapters/dashboard/oauth_controller";
 import { PersonalitiesController } from "./interface_adapters/dashboard/personalities_controller";
@@ -75,17 +72,29 @@ import { ListAccountsInteractor } from "./use_cases/list_accounts/interactor";
 import { ListBacklogInteractor } from "./use_cases/list_backlog/interactor";
 import { ListPersonalitiesInteractor } from "./use_cases/list_personalities/interactor";
 import { LoginInteractor } from "./use_cases/login/interactor";
+import type { AuditLog } from "./use_cases/ports/audit_log";
+import type { Clock } from "./use_cases/ports/clock";
+import type { Locks } from "./use_cases/ports/locks";
 import type { PasswordVerifier } from "./use_cases/ports/password_verifier";
+import type { SingleFlight } from "./use_cases/ports/single_flight";
+import type { TokenStore } from "./use_cases/ports/token_store";
+import type { XAccountConnector } from "./use_cases/ports/x_account_connector";
 import { RejectPostInteractor } from "./use_cases/reject_post/interactor";
 import { ReschedulePostInteractor } from "./use_cases/reschedule_post/interactor";
-import { GuardedTransition } from "./use_cases/run_services/guarded_transition";
+import { AccountRecovery } from "./use_cases/run_services/account_recovery";
 import { AccountXGatewayService } from "./use_cases/run_services/account_x_gateway_service";
+import { CollectAccountMetrics } from "./use_cases/run_services/collect_account_metrics";
+import { GuardedTransition } from "./use_cases/run_services/guarded_transition";
+import { MediaStager } from "./use_cases/run_services/media_stager";
+import { PartSender } from "./use_cases/run_services/part_sender";
+import { PublishPost } from "./use_cases/run_services/publish_post";
+import { ReconcileAccount } from "./use_cases/run_services/reconcile_account";
+import { RefreshingTokenProvider } from "./use_cases/run_services/refreshing_token_provider";
+import { TokenStep } from "./use_cases/run_services/token_step";
 import { XCallRecorder } from "./use_cases/run_services/x_call_recorder";
 import { SavePersonalityInteractor } from "./use_cases/save_personality/interactor";
 import { SetAccountStatusInteractor } from "./use_cases/set_account_status/interactor";
 import { SetPolicyInteractor } from "./use_cases/set_policy/interactor";
-
-export { AccountPublisher } from "./frameworks/durable_objects/account_publisher";
 
 function handleHealth(): HealthView {
   const viewModel = new HealthViewModel();
@@ -94,52 +103,38 @@ function handleHealth(): HealthView {
 }
 
 // ---- Dashboard (PR 7) -------------------------------------------------------------------------
-// Until PR 3 (D1 + DO) and PR 4 (X) land, the dashboard runs on the in-memory stub backend, kept
-// per isolate (Agents/CLAUDE.md §7.2: the stub backend keeps a full run working). Those PRs swap
-// the stubs below for their drivers; the controllers and use cases do not change.
+// The dashboard runs on the D1 repositories (GROKCHAT-8) and reaches X only through the account's
+// Durable Object (`AccountObjects`: deletes and storing a connect's tokens) and the X OAuth
+// connector (GROKCHAT-9). Built once per `env`, so per isolate.
 
-function stubStores(clock: SystemClock) {
-  const audit = new MemoryAuditLog();
-  const costs = new MemoryCostLedger();
-  const metrics = new MemoryMetricsRepository();
-  const table = new MemoryPostTable();
-  return {
-    ...{ clock, audit, costs, metrics },
-    reader: new MemoryPostReader(table, metrics),
-    writer: new MemoryPostWriter(table, audit, costs),
-    accounts: new MemoryAccountRepository(),
-    media: new MemoryMediaRepository(),
-    personalities: new MemoryPersonalityRepository(),
-    usage: new MemoryMediaUsage(),
-    states: new MemoryOAuthStateStore(),
-    throttle: new MemoryLoginThrottle(),
-    connector: new StubXAccountConnector(),
-    ids: new RandomIds(),
-    pkce: new WebCryptoPkce(),
-  };
+/** The X OAuth connector, built when a connect starts or finishes: its secrets fail loudly there. */
+function xConnector(env: Env, audit: AuditLog, clock: Clock): XAccountConnector {
+  const config = xOAuthConfig(env);
+  const transport = new FetchTransport();
+  const endpoint = new XTokenEndpoint(transport, config);
+  const http = new HttpXAccountConnector(config, endpoint, transport, clock);
+  return new AuditedXAccountConnector(http, audit, clock);
 }
 
-function stubBackend() {
-  const stores = stubStores(new SystemClock());
-  const { clock, audit, costs, reader, accounts } = stores;
+function dashboardBackend(env: Env) {
+  const clock = new SystemClock();
+  const stores = d1Stores(env.DB);
+  const { audit, reader, accounts } = stores;
   const actionAudit = new ActionAudit(audit, clock);
   const guard = new AccessGuard(actionAudit);
   const steps = new GuardedTransition(stores.writer);
-  const gateway = new AccountXGatewayService({
-    publisher: new FakeXPublisher(new FakeXWorld(clock)),
-    store: new MemoryTokenStore(),
-    locks: new MemoryLocks(clock),
-    recorder: new XCallRecorder(audit, costs),
-    clock,
-  });
   return {
-    ...{ ...stores, actionAudit, guard, steps, gateway },
+    ...{ ...stores, clock, actionAudit, guard, steps },
+    gateway: new AccountObjects(env.ACCOUNT),
+    connector: (): XAccountConnector => xConnector(env, audit, clock),
+    ids: new RandomIds(),
+    pkce: new WebCryptoPkce(),
     command: new PostCommand(reader, steps, guard, actionAudit),
     accountCommand: new AccountCommand(accounts, guard, actionAudit),
   };
 }
 
-type Backend = ReturnType<typeof stubBackend>;
+type Backend = ReturnType<typeof dashboardBackend>;
 
 function postUseCases(b: Backend): PostPageUseCases & PostCommandUseCases {
   const { reader, guard, command, clock } = b;
@@ -166,9 +161,8 @@ function postUseCases(b: Backend): PostPageUseCases & PostCommandUseCases {
 }
 
 function accountUseCases(b: Backend): AccountUseCases & OAuthUseCases & PersonalityUseCases {
-  const { guard, accountCommand, states, connector, ids, clock } = b;
-  const completing = { ...{ states, connector, ids, clock, guard }, audit: b.actionAudit };
-  const connect = { ...completing, accounts: b.accounts, personalities: b.personalities };
+  const { guard, accountCommand, states, ids, clock } = b;
+  const connect = { states, ids, clock, guard, audit: b.actionAudit, accounts: b.accounts };
   return {
     listAccounts: (p) => new ListAccountsInteractor(b.accounts, guard, p),
     listPersonalities: (p) => new ListPersonalitiesInteractor(b.personalities, guard, p),
@@ -176,9 +170,20 @@ function accountUseCases(b: Backend): AccountUseCases & OAuthUseCases & Personal
     confirmDisclosure: (p) => new ConfirmDisclosureInteractor(accountCommand, p),
     setPolicy: (p) => new SetPolicyInteractor(accountCommand, p),
     connectBegin: (p) =>
-      new ConnectAccountBeginInteractor({ states, pkce: b.pkce, connector, guard, ids, clock }, p),
+      new ConnectAccountBeginInteractor(
+        { states, pkce: b.pkce, connector: b.connector(), guard, ids, clock },
+        p,
+      ),
     connectComplete: (p) =>
-      new ConnectAccountCompleteInteractor({ ...connect, gateway: b.gateway }, p),
+      new ConnectAccountCompleteInteractor(
+        {
+          ...connect,
+          personalities: b.personalities,
+          connector: b.connector(),
+          gateway: b.gateway,
+        },
+        p,
+      ),
     savePersonality: (p) =>
       new SavePersonalityInteractor(b.personalities, ids, guard, b.actionAudit, p),
   };
@@ -216,12 +221,106 @@ function dashboardControllers(b: Backend): WebControllers {
   };
 }
 
-const app = buildHttpApp({
-  health: handleHealth,
-  web: buildWebApp(dashboardControllers(stubBackend())),
-});
+type WorkerApp = ReturnType<typeof buildHttpApp>;
+
+const apps = new WeakMap<Env, WorkerApp>();
+
+/** The Worker's routes over this `env`'s bindings, built on its first request. */
+function workerApp(env: Env): WorkerApp {
+  let app = apps.get(env);
+  if (app === undefined) {
+    const web = buildWebApp(dashboardControllers(dashboardBackend(env)));
+    app = buildHttpApp({ health: handleHealth, web });
+    apps.set(env, app);
+  }
+  return app;
+}
 
 export default {
-  fetch: (request, env, ctx) => app.fetch(request, env, ctx),
+  fetch: (request, env, ctx) => workerApp(env).fetch(request, env, ctx),
   scheduled: () => dispatchScheduled(),
 } satisfies ExportedHandler<Env>;
+
+/** What an account's Durable Object runs on: its bindings, its storage, its locks, its clock. */
+export interface AccountRuntime {
+  readonly db: D1Database;
+  readonly bucket: R2Bucket;
+  readonly tokens: TokenStore;
+  /** The two ordered promise-chain mutexes (publish → token), held in the object's memory. */
+  readonly locks: Locks;
+  readonly flights: SingleFlight;
+  readonly clock: Clock;
+  readonly x: AccountXPorts;
+}
+
+/** The production runtime of one account's Durable Object. */
+export function accountRuntime(
+  ctx: DurableObjectState,
+  env: Env,
+  x: AccountXPorts,
+): AccountRuntime {
+  const clock = new SystemClock();
+  const vault = TokenVault.fromSecret(env.GROKCHAT_TOKEN_KEYS);
+  return {
+    db: env.DB,
+    bucket: env.MEDIA,
+    tokens: new DurableTokenStore(ctx.storage, vault),
+    locks: new MemoryLocks(clock, clock),
+    flights: new MemorySingleFlight(),
+    clock,
+    x,
+  };
+}
+
+/** The use-case graph inside an account's Durable Object (plan §3.5, m6). */
+export function buildAccountServices(runtime: AccountRuntime): AccountServices {
+  const { clock, locks, x } = runtime;
+  const stores = d1Stores(runtime.db);
+  const { reader, writer, accounts } = stores;
+  const recorder = new XCallRecorder(stores.audit, stores.costs);
+  const steps = new GuardedTransition(writer);
+  const tokens = new RefreshingTokenProvider(runtime.tokens, x.refresher, locks, clock);
+  const blobs = new R2MediaBlobStore(runtime.bucket);
+  const stager = new MediaStager({ ...stores, blobs, uploader: x.uploader, recorder });
+  const sender = new PartSender({
+    ...stores,
+    tokens,
+    publisher: x.publisher,
+    stager,
+    recorder,
+    steps,
+    clock,
+  });
+  const recovery = new AccountRecovery(reader, writer);
+  const publish = new PublishPost({ reader, accounts, locks, clock, recovery, steps, sender });
+  const tokenStep = new TokenStep(tokens, clock);
+  const shared = { reader, accounts, recorder, flights: runtime.flights, clock, tokenStep };
+  return {
+    publisher: new InProcessAccountPublisher(publish),
+    reconciler: new InProcessAccountReconciler(
+      new ReconcileAccount({ ...shared, timeline: x.timeline, steps }),
+    ),
+    collector: new InProcessMetricsCollector(
+      new CollectAccountMetrics({ ...shared, metrics: stores.metrics, x: x.metrics }),
+    ),
+    gateway: new AccountXGatewayService({
+      publisher: x.publisher,
+      store: runtime.tokens,
+      locks,
+      recorder,
+      clock,
+    }),
+    tokens,
+  };
+}
+
+/**
+ * The account's Durable Object, bound as ACCOUNT. Its X ports stay unavailable until the X drivers
+ * (PR 4) are wired here, per invocation around its `BudgetMeter` (plan §3.5): nothing is sent, and
+ * every due part waits as a retryable failure.
+ */
+export class AccountPublisher extends AccountPublisherObject {
+  protected build(): AccountServices {
+    return buildAccountServices(accountRuntime(this.ctx, this.env, X_UNAVAILABLE));
+  }
+}

@@ -16,10 +16,11 @@ import { makeWorld, type World } from "../../unit/support/world";
 export const ORIGIN = "https://grokchat.test";
 export const PASSWORD = "correct horse battery staple";
 export const SESSION_SECRET = "test-session-secret-0123456789abcdef";
+export const X_CLIENT_ID = "test-x-client-id";
 
 let hash: Promise<string> | undefined;
 
-/** The Worker's env with the dashboard's secrets and var set (test values only). */
+/** The Worker's env with the dashboard's and the X app's secrets and var set (test values only). */
 export async function webEnv(overrides: Partial<Env> = {}): Promise<Env> {
   hash ??= hashPassword(PASSWORD, new Uint8Array(16).fill(7));
   return {
@@ -27,6 +28,8 @@ export async function webEnv(overrides: Partial<Env> = {}): Promise<Env> {
     GROKCHAT_SESSION_SECRET: SESSION_SECRET,
     GROKCHAT_ADMIN_PASSWORD_HASH: await hash,
     GROKCHAT_PUBLIC_ORIGIN: ORIGIN,
+    X_CLIENT_ID: X_CLIENT_ID,
+    X_CLIENT_SECRET: "test-x-client-secret",
     ...overrides,
   };
 }
