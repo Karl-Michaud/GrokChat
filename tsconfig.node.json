@@ -9,6 +9,7 @@
     "tests/unit/**/*.ts",
     "tests/invariants/**/*.ts",
     "tests/architecture/**/*.ts",
+    "src/**/*.d.ts",
     "*.config.ts"
   ],
   "exclude": ["tests/architecture/fixtures/**"]

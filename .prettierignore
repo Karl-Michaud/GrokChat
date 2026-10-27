@@ -10,3 +10,5 @@ docs/plan-history/
 # Owned by earlier tickets; reformatting them is not this repo's gate.
 docs/PLAN.md
 .claude/
+# Upstream twitter-text conformance files, kept byte for byte (their SHA-256 is tested).
+tests/unit/entities/text/fixtures/
