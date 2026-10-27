@@ -104,7 +104,7 @@ describe("a read's token refresh, against the invocation's deadline (N1, A2)", (
     const provider = new RefreshingTokenProvider(
       store,
       new HttpXTokenRefresher(endpoint, world.clock),
-      new MemoryLocks(world.clock),
+      new MemoryLocks(world.clock, world.clock),
       world.clock,
     );
     const client = new XApiClient(new MeteredTransport(xWire, meter), provider, meter);

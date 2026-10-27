@@ -167,7 +167,7 @@ describe("HttpXTokenRefresher (U1, U14)", () => {
     const provider = new RefreshingTokenProvider(
       store,
       new HttpXTokenRefresher(endpoint, clock),
-      new MemoryLocks(clock),
+      new MemoryLocks(clock, clock),
       clock,
     );
     const deadline = T0 + HOUR;

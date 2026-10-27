@@ -110,7 +110,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const usage = new MemoryMediaUsage();
   const fetcher = new ScriptedMediaFetcher();
   const hasher = new FnvContentHasher();
-  const locks: Locks = options.locks === "none" ? new NoLocks() : new MemoryLocks(clock);
+  const locks: Locks = options.locks === "none" ? new NoLocks() : new MemoryLocks(clock, clock);
   const flights = new MemorySingleFlight();
   const tokenStore = new MemoryTokenStore();
   const tokenEndpoint = new FakeXTokenEndpoint(clock);

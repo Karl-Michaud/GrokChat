@@ -97,11 +97,21 @@ export function postStoreContract(make: () => PostStore): void {
       parts: [part("a", sentState("x"))],
       version: 6,
     } as const;
-    expect(await writer.commitPart(done, 4, AUDIT, COST)).toStrictEqual({
+    expect(await writer.commitPart(done, 4, "PUBLISHING", AUDIT, COST)).toStrictEqual({
       kind: "version_conflict",
     });
+    expect(await writer.commitPart(done, 5, "SCHEDULED", AUDIT, COST)).toStrictEqual({
+      kind: "version_conflict",
+    });
+    expect(
+      await writer.commitPart({ ...done, id: postId("ghost") }, 5, "PUBLISHING", AUDIT, COST),
+    ).toStrictEqual({ kind: "version_conflict" });
+    expect(await reader.get(post.id)).toStrictEqual(post);
     expect(await audit.list({})).toStrictEqual([]);
-    expect(await writer.commitPart(done, 5, AUDIT, COST)).toStrictEqual({ kind: "ok" });
+    expect((await costs.totals({ from: T0, to: T0 + 1 }, null)).calls).toBe(0);
+    expect(await writer.commitPart(done, 5, "PUBLISHING", AUDIT, COST)).toStrictEqual({
+      kind: "ok",
+    });
     expect(await reader.get(post.id)).toStrictEqual(done);
     expect(await audit.list({})).toStrictEqual([AUDIT]);
     expect((await costs.totals({ from: T0, to: T0 + 1 }, null)).calls).toBe(1);

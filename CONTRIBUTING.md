@@ -34,7 +34,7 @@ It runs, in order, and stops at the first failure:
 | `npm run licenses`     | Runtime licences against a strict allowlist (with the `twitter-text` override in `licence-clarifications.json`), then every installed package against the wider development list                                                                                        |
 | `npm run audit`        | `npm audit --omit=dev`                                                                                                                                                                                                                                                  |
 
-Run a single project while working: `npx vitest run --project unit` (or `architecture`, `workers`). `npm run format` rewrites files with Prettier.
+Run a single project while working: `npx vitest run --project unit` (or `architecture`, `workers`). `npm run mutate:changed` runs Stryker only on the files of its mutate set that differ from `origin/staging` (set `MUTATE_BASE` to compare with another ref); the full `npm run mutation` stays in `npm run check`. `npm run format` rewrites files with Prettier.
 
 ## Where code goes
 
