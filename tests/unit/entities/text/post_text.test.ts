@@ -132,4 +132,19 @@ describe("normalisePostText", () => {
     expect(normalisePostText("é")).toBe("é");
     expect(normalisePostText("&quot;kept&quot; &amp;amp;")).toBe("&quot;kept&quot; &amp;");
   });
+
+  it("marks every URL alike, so a t.co rewrite equals the URL sent", () => {
+    const mark = "\uFFFC";
+    expect(normalisePostText("a https://example.com/x b")).toBe(`a ${mark} b`);
+    expect(normalisePostText("a example.com b")).toBe(`a ${mark} b`);
+    expect(normalisePostText("a https://t.co/Zz9 b")).toBe(`a ${mark} b`);
+    expect(normalisePostText("a x.co b https://t.co/1 c")).toBe(`a ${mark} b ${mark} c`);
+  });
+
+  it("drops trailing URLs (X's media link, a final URL) and nothing before them", () => {
+    expect(normalisePostText("hello https://t.co/m1")).toBe("hello");
+    expect(normalisePostText("hello https://a.com  https://t.co/m1 ")).toBe("hello");
+    expect(normalisePostText("https://t.co/m1")).toBe("");
+    expect(normalisePostText("hello")).toBe("hello");
+  });
 });

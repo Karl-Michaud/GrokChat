@@ -5,6 +5,7 @@ import type { XResult } from "../../entities/x/x_failure";
 /** One of the account's own posts, text with t.co links expanded from its entities (rev 4 M4). */
 export interface XPostSummary {
   readonly id: XPostId;
+  /** X's v2 `text` as returned: URLs as t.co links, a t.co link appended for media. */
   readonly text: string;
   readonly createdAt: Instant;
   readonly inReplyTo: XPostId | null;
