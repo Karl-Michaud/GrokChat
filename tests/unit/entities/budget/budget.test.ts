@@ -54,7 +54,7 @@ describe("Budget (U16)", () => {
       millis: 5 * SECOND,
     });
     const read = { cloudflareCalls: 3, externalSubrequests: 1, millis: 2 * SECOND };
-    expect(RECONCILE_CHECK_COST).toStrictEqual(read);
+    expect(RECONCILE_CHECK_COST).toStrictEqual({ ...read, cloudflareCalls: 4 });
     expect(METRICS_READ_COST).toStrictEqual(read);
   });
 

@@ -54,9 +54,12 @@ export const TOKEN_STEP_COST: CallCost = {
   millis: 5 * SECOND,
 };
 
-/** One reconcile check: the timeline read, its audit and cost entries, and the post's save. */
+/**
+ * One reconcile check: the timeline read, its audit and cost entries, the post's save, and the
+ * account's X user id, which the timeline driver needs for `GET /2/users/:id/tweets`.
+ */
 export const RECONCILE_CHECK_COST: CallCost = {
-  cloudflareCalls: 3,
+  cloudflareCalls: 4,
   externalSubrequests: 1,
   millis: 2 * SECOND,
 };
