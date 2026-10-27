@@ -88,3 +88,27 @@ export function body(result: unknown): Record<string, unknown> {
 export function isError(result: unknown): boolean {
   return (result as { isError?: boolean }).isError === true;
 }
+
+/** The `initialize` request xAI's client sends first (U9). */
+const INITIALIZE = {
+  jsonrpc: "2.0",
+  id: 1,
+  method: "initialize",
+  params: {
+    protocolVersion: "2025-11-25",
+    capabilities: {},
+    clientInfo: { name: "rmcp", version: "0" },
+  },
+};
+
+export function initialize(path: string, headers: Record<string, string>): Request {
+  return new Request(`https://grokchat.test${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      ...headers,
+    },
+    body: JSON.stringify(INITIALIZE),
+  });
+}
