@@ -11,7 +11,8 @@ GROKCHAT_SESSION_SECRET=
 # Format: pbkdf2-sha256$100000$<salt>$<hash>, base64url (src/frameworks/web/password.ts).
 GROKCHAT_ADMIN_PASSWORD_HASH=
 
-# Vars
-# Exactly as browsers send Origin: https://grokchat.<subdomain>.workers.dev, or http://localhost:8787.
+# Vars: wrangler.jsonc sets the production values; a value here overrides it for `wrangler dev`.
+# Exactly as browsers send Origin: http://localhost:8787 for `wrangler dev`.
 GROKCHAT_PUBLIC_ORIGIN=
+# Comma-separated hosts stage_media_from_url may fetch from; empty refuses every media URL.
 GROKCHAT_MEDIA_HOSTS=

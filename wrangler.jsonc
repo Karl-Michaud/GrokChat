@@ -1,6 +1,6 @@
-// GrokChat Worker (plan §3.6). Bindings and the three Cron Triggers are declared here; nothing is
-// created or deployed before PR 8, which creates the D1 database and the R2 bucket, replaces the
-// placeholder database_id, and deploys by hand from a release on main.
+// GrokChat Worker (plan §3.6): https://grokchat.grokchat.workers.dev. Bindings, vars and the three
+// Cron Triggers are declared here; secrets are set with `wrangler secret put` (docs/runbook.md).
+// Deployed by hand (`wrangler deploy`) from a release on main.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "grokchat",
@@ -14,8 +14,8 @@
     {
       "binding": "DB",
       "database_name": "grokchat",
-      // Placeholder until PR 8 runs `wrangler d1 create grokchat`. Local tests use a local D1.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // The production database (GROKCHAT-13). Tests and `wrangler dev` use a local D1.
+      "database_id": "833a92d1-8773-431f-b1d7-48218e731d93",
       "migrations_dir": "migrations",
     },
   ],
@@ -24,6 +24,14 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AccountPublisher"] }],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "grokchat-media" }],
+  "vars": {
+    // Exactly as browsers send Origin: the dashboard's Origin check and the OAuth callback
+    // (<origin>/oauth/x/callback, registered on the X app). `.dev.vars` overrides it for `wrangler dev`.
+    "GROKCHAT_PUBLIC_ORIGIN": "https://grokchat.grokchat.workers.dev",
+    // Comma-separated hosts `stage_media_from_url` may fetch from (plan §3.5, U18). Empty: every
+    // media-by-URL request is refused (`host_not_allowed`) until hosts are listed here.
+    "GROKCHAT_MEDIA_HOSTS": "",
+  },
   // scheduled() dispatches by controller.cron (src/frameworks/cron/dispatch.ts, CRONS): publish
   // every minute, reconcile every 10, metrics and the staged-media cleanup every 15. 3 of 5 allowed.
   "triggers": { "crons": ["* * * * *", "*/10 * * * *", "*/15 * * * *"] },

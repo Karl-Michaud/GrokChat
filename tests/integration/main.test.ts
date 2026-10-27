@@ -1,6 +1,8 @@
 import { createExecutionContext, createScheduledController } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import { mediaHosts } from "../../src/frameworks/composition/worker_graph";
+import { validOrigin } from "../../src/frameworks/web/config";
 import worker from "../../src/main";
 
 describe("GET /health through the deployed entry point (wrangler.jsonc main)", () => {
@@ -48,5 +50,12 @@ describe("the declared bindings", () => {
     expect(env.ACCOUNT.idFromName("account-1").toString()).toMatch(/^[0-9a-f]{64}$/);
     await env.MEDIA.put("probe", "x");
     expect(await (await env.MEDIA.get("probe"))?.text()).toBe("x");
+  });
+
+  it("declares the production vars: the public origin, and no media host until one is listed", () => {
+    expect(env.GROKCHAT_PUBLIC_ORIGIN).toBe("https://grokchat.grokchat.workers.dev");
+    expect(validOrigin(env.GROKCHAT_PUBLIC_ORIGIN ?? "")).toBe(true);
+    expect(env.GROKCHAT_MEDIA_HOSTS).toBe("");
+    expect(mediaHosts(env)).toStrictEqual([]);
   });
 });
