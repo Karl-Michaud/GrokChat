@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { fromBase64Url, randomToken, toBase64Url } from "../../../src/frameworks/web/base64url";
 import { validOrigin, webConfig } from "../../../src/frameworks/web/config";
 import { SystemClock } from "../../../src/frameworks/durable_objects/system_clock";
-import { RandomIds } from "../../../src/frameworks/web/crypto_ids";
+import { RandomIds } from "../../../src/frameworks/runtime/random_ids";
 import { WebCryptoPkce } from "../../../src/frameworks/x_auth/webcrypto_pkce";
 import {
   hashPassword,
@@ -32,9 +32,11 @@ describe("base64url", () => {
 });
 
 describe("ids, clock and PKCE (WebCrypto)", () => {
-  it("ids are 128 random bits; the clock is the system's", () => {
+  it("ids are random v4 UUIDs; the clock is the system's", () => {
     const ids = new RandomIds();
-    expect(ids.newId()).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(ids.newId()).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
     expect(ids.newId()).not.toBe(ids.newId());
     const before = Date.now();
     expect(new SystemClock().now()).toBeGreaterThanOrEqual(before);

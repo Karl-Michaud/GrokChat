@@ -28,7 +28,7 @@ describe("the dashboard through main.ts", () => {
     expect(saved.status).toBe(303);
     const personalities = await browser.page("/dashboard/personalities");
     expect(personalities.html).toContain("Main Muse (version 1)");
-    const id = /name="id" value="([A-Za-z0-9_-]{22})"/.exec(personalities.html)?.[1] ?? "";
+    const id = /name="id" value="([0-9a-f-]{36})"/.exec(personalities.html)?.[1] ?? "";
     const started = await browser.post("/oauth/x/start", { personality: id });
     expect(started.status).toBe(303);
     const location = new URL(started.headers.get("location") ?? "");
@@ -36,7 +36,7 @@ describe("the dashboard through main.ts", () => {
     expect(location.searchParams.get("client_id")).toBe(X_CLIENT_ID);
     expect(location.searchParams.get("redirect_uri")).toBe(`${ORIGIN}/oauth/x/callback`);
     expect(location.searchParams.get("code_challenge_method")).toBe("S256");
-    expect(location.searchParams.get("state")).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(location.searchParams.get("state")).toMatch(/^[0-9a-f-]{36}$/);
     expect(location.searchParams.get("code_challenge")).toMatch(/^[A-Za-z0-9_-]{43}$/);
     for (const page of ["calendar", "accounts", "metrics", "costs", "media", "audit"]) {
       expect((await browser.page(`/dashboard/${page}`)).status).toBe(200);
@@ -66,7 +66,7 @@ describe("the dashboard through main.ts", () => {
       .first<{ n: number }>();
     expect(row?.n).toBe(1);
     const personalities = await browser.page("/dashboard/personalities");
-    const id = /name="id" value="([A-Za-z0-9_-]{22})"/.exec(personalities.html)?.[1] ?? "";
+    const id = /name="id" value="([0-9a-f-]{36})"/.exec(personalities.html)?.[1] ?? "";
     expect((await browser.post("/oauth/x/start", { personality: id })).status).toBe(500);
   });
 
