@@ -6,6 +6,18 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ### Added
 
+- **The production deploy: config, secret scripts, runbook** (GROKCHAT-13, plan §3.6, §7.1 PR 8):
+  - `wrangler.jsonc` names the production D1 database (`833a92d1-…`) and declares the vars `GROKCHAT_PUBLIC_ORIGIN=https://grokchat.grokchat.workers.dev` and `GROKCHAT_MEDIA_HOSTS` (empty: media by URL is refused until hosts are listed);
+  - `/health` reports `publishing`, the number of posts PUBLISHING now, so a deploy waits for 0 (m7). It comes from a new `PublishingCount` port, implemented by the D1 post reader with one `COUNT` on the lifecycle index and by the stub, and both pass the post store contract;
+  - three plain-Node ESM scripts with no new dependency, typed by JSDoc and checked by `tsconfig.node.json`, each with `--dry-run`:
+    - `npm run provision-secrets` sets the token keys, the session secret and the X app's credentials from `--env-file`, each only when unset; `--rotate` puts a new token key in front of the current ones, kept in the gitignored `.token-keys.local`; `--drop-old-token-keys` keeps only the newest;
+    - `npm run set-admin-password` asks twice with no echo, refuses passwords under 12 characters, and sets the PBKDF2 hash;
+    - `npm run add-bot` makes a 32-byte bot token, adds its SHA-256 to the gitignored `.bot-clients.local.json` and puts the list as `GROKCHAT_BOT_CLIENTS`, and writes the token only to the gitignored `.bot-tokens.local` (mode 600);
+    - every value goes to `wrangler secret put` over stdin and is never printed. `tests/integration/deploy_secret_formats.test.ts` checks each value against the Worker's own parsers in workerd;
+  - the accounts page shows each account's id, which `add-bot` takes;
+  - `docs/runbook.md`: first deploy, connecting an X account (callback URL, bio, X's automation label, disclosure, review mode first), adding and configuring a Grok bot and testing it with `get_policy`, key rotation, the kill switch, costs and R2 usage, deploying when quiet, rollback;
+  - tests: an end-to-end test through `main.ts` in workerd covers the dashboard's edit, cancel, reject, reschedule (of a MISSED post, then published) and delete on D1. The delete goes through `AccountObjects` to the account's Durable Object, with X faked (carried from GROKCHAT-14);
+  - **Why:** these are what the owner needs to put GrokChat on Cloudflare and run it, with no secret in a file the repo tracks, in a log, or on screen.
 - **One production graph for the MCP tools and the dashboard** (GROKCHAT-14, plan §3, §3.5, §6):
   - the 13 MCP tools leave the in-memory stubs and run on the dashboard's graph: the D1 repositories, the account Durable Object for publishing, X deletes and tokens, R2 for media; built once per env, so a bot can use an account the dashboard connected. The stubs are now test doubles only: nothing in production imports `src/frameworks/memory` (new dependency-cruiser rule `stubs-only-in-tests`, with a fixture), and `tests/integration/production_graph.test.ts` walks the Worker's graph, each cron tick's use case and an account object's per-invocation graph for any stub instance (with a control that finds them in the unit tests' world);
   - graph assembly moves out of `main.ts` into factories in `src/frameworks/composition` (`worker_graph`, `mcp_tools`, `dashboard_controllers`, `cron_jobs`, `account_graph`); `main.ts` is 80 lines and its `max-lines` disable is gone. The account object's real mutexes and the invocation budget meter leave the stub folder (`durable_objects/object_locks.ts`, `budget/invocation_meter.ts`, renamed `InvocationBudgetMeter`), as do the login limits (`runtime/login_limits.ts`);
