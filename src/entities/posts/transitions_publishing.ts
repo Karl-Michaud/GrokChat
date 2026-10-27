@@ -1,3 +1,4 @@
+import { isDue } from "./due";
 import { missed } from "./missed";
 import { anyPartIn, currentPartIndex, type Post } from "./post";
 import type { PostEvent } from "./post_event";
@@ -9,8 +10,8 @@ type EventOf<K extends PostEvent["kind"]> = Extract<PostEvent, { kind: K }>;
 /** The Durable Object starts a due post (plan §3.1.1). */
 export function start(post: Post, event: EventOf<"start">): Post | null {
   if (post.lifecycle === "SCHEDULED") {
-    const due = event.now >= post.publishAt && !missed(post, event.now, event.grace);
-    return due ? { ...post, lifecycle: "PUBLISHING" } : null;
+    const due = isDue(post, event.now) && !missed(post, event.now, event.grace);
+    return due ? { ...post, lifecycle: "PUBLISHING", resumeAt: null } : null;
   }
   if (post.lifecycle === "RESUMING" && post.resumeAt !== null && event.now >= post.resumeAt) {
     return { ...post, lifecycle: "PUBLISHING", resumeAt: null };

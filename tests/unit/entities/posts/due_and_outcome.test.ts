@@ -6,8 +6,10 @@ import { MINUTE } from "../../../../src/entities/time/instant";
 import { aPost, T0 } from "../../support/builders";
 
 describe("dueAt and isDue", () => {
-  it("SCHEDULED is due at publishAt, RESUMING at resumeAt, everything else never", () => {
-    expect(dueAt(aPost({ lifecycle: "SCHEDULED", publishAt: T0, resumeAt: T0 + 9 }))).toBe(T0);
+  it("SCHEDULED at max(publishAt, resumeAt), RESUMING at resumeAt, everything else never", () => {
+    expect(dueAt(aPost({ lifecycle: "SCHEDULED", publishAt: T0, resumeAt: null }))).toBe(T0);
+    expect(dueAt(aPost({ lifecycle: "SCHEDULED", publishAt: T0, resumeAt: T0 + 9 }))).toBe(T0 + 9);
+    expect(dueAt(aPost({ lifecycle: "SCHEDULED", publishAt: T0, resumeAt: T0 - 9 }))).toBe(T0);
     expect(dueAt(aPost({ lifecycle: "RESUMING", publishAt: T0, resumeAt: T0 + 9 }))).toBe(T0 + 9);
     expect(dueAt(aPost({ lifecycle: "RESUMING", resumeAt: null }))).toBeNull();
     for (const lifecycle of LIFECYCLES.filter((l) => l !== "SCHEDULED" && l !== "RESUMING")) {

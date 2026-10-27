@@ -44,9 +44,13 @@ export interface Post {
   readonly accountId: AccountId;
   readonly parts: readonly PostPart[];
   readonly lifecycle: Lifecycle;
-  /** The original publish time: `missed` is always measured from it (rev 4 M3). */
+  /** The original publish time; a deferral or a retry never moves it (rev 4 M3). */
   readonly publishAt: Instant;
-  /** When a partly sent thread resumes (RESUMING only). */
+  /**
+   * RESUMING: when the partly sent thread resumes. SCHEDULED: the not-before time a part-1
+   * deferral or retry set (null: none); the post is due, and `missed` counts, from
+   * max(publishAt, resumeAt). Cleared when the post starts.
+   */
   readonly resumeAt: Instant | null;
   readonly idempotencyKey: IdempotencyKey | null;
   readonly requestHash: string;

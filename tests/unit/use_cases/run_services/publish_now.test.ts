@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { postId, xPostId } from "../../../../src/entities/identity/ids";
 import type { Post } from "../../../../src/entities/posts/post";
+import { STANDING_RETRY } from "../../../../src/entities/policy/publishable";
 import { HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
 import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
 import { ACCOUNT, aPolicy, aPost, part, sentState, T0 } from "../../support/builders";
@@ -238,7 +239,10 @@ describe("ReservePart: the gate under the lock", () => {
       status: "PAUSED",
     });
     await world.publishPost.publishNow(ACCOUNT, postId("post-1"), meter());
-    expect(stored(world)).toMatchObject({ lifecycle: "SCHEDULED", resumeAt: null });
+    expect(stored(world)).toMatchObject({
+      lifecycle: "SCHEDULED",
+      resumeAt: world.clock.now() + STANDING_RETRY,
+    });
   });
 
   it("a later part refused by the gate resumes when the gate next allows it", async () => {

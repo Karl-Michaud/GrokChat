@@ -144,6 +144,17 @@ describe("starting and missing", () => {
     expect(transition(post, { kind: "start", now: T0 + GRACE + 1, grace: GRACE }).ok).toBe(false);
   });
 
+  it("start a deferred SCHEDULED post only from its not-before time, clearing it", () => {
+    const post = aPost({ lifecycle: "SCHEDULED", publishAt: T0, resumeAt: T0 + HOUR });
+    expect(transition(post, { kind: "start", now: T0 + HOUR - 1, grace: GRACE }).ok).toBe(false);
+    expect(apply(post, { kind: "start", now: T0 + HOUR, grace: GRACE })).toStrictEqual(
+      bumped(post, { lifecycle: "PUBLISHING", resumeAt: null }),
+    );
+    expect(transition(post, { kind: "start", now: T0 + HOUR + GRACE, grace: GRACE }).ok).toBe(true);
+    const late = { kind: "start", now: T0 + HOUR + GRACE + 1, grace: GRACE } as const;
+    expect(transition(post, late).ok).toBe(false);
+  });
+
   it("start a RESUMING post at or after resumeAt, clearing resumeAt", () => {
     const post = thread("RESUMING", sentState("x-1"), PENDING, { resumeAt: T0 + HOUR });
     expect(apply(post, { kind: "start", now: T0 + HOUR, grace: GRACE })).toStrictEqual(
@@ -161,6 +172,16 @@ describe("starting and missing", () => {
       bumped(post, { lifecycle: "MISSED" }),
     );
   });
+
+  it("a deferred post is missed only after the grace from its not-before time", () => {
+    const post = aPost({ lifecycle: "SCHEDULED", publishAt: T0, resumeAt: T0 + HOUR });
+    const at = (now: number) => transition(post, { kind: "miss", now, grace: GRACE }).ok;
+    expect([at(T0 + GRACE + 1), at(T0 + HOUR + GRACE), at(T0 + HOUR + GRACE + 1)]).toStrictEqual([
+      false,
+      false,
+      true,
+    ]);
+  });
 });
 
 describe("publishing a part", () => {
@@ -173,9 +194,9 @@ describe("publishing a part", () => {
     );
   });
 
-  it("defer: first part → SCHEDULED; later part → RESUMING at resumeAt", () => {
+  it("defer: first part → SCHEDULED not before resumeAt; later part → RESUMING at resumeAt", () => {
     expect(apply(first, { kind: "defer", part: 0, resumeAt: T0 + HOUR })).toStrictEqual(
-      bumped(first, { lifecycle: "SCHEDULED", resumeAt: null }),
+      bumped(first, { lifecycle: "SCHEDULED", resumeAt: T0 + HOUR }),
     );
     expect(apply(second, { kind: "defer", part: 1, resumeAt: T0 + HOUR })).toStrictEqual(
       bumped(second, { lifecycle: "RESUMING", resumeAt: T0 + HOUR }),
@@ -224,7 +245,7 @@ describe("publishing a part", () => {
     expect(apply(sendingFirst, { kind: "retry", part: 0, resumeAt: T0 + HOUR })).toStrictEqual(
       bumped(sendingFirst, {
         lifecycle: "SCHEDULED",
-        resumeAt: null,
+        resumeAt: T0 + HOUR,
         parts: [part("one"), part("two")],
       }),
     );
@@ -243,7 +264,7 @@ describe("yield and recovery", () => {
   it("yield: nothing sent → SCHEDULED; some sent → RESUMING at now", () => {
     const first = thread("PUBLISHING", PENDING, PENDING);
     expect(apply(first, { kind: "yield", now: T0 + 9 })).toStrictEqual(
-      bumped(first, { lifecycle: "SCHEDULED", resumeAt: null }),
+      bumped(first, { lifecycle: "SCHEDULED", resumeAt: T0 + 9 }),
     );
     const second = thread("PUBLISHING", sentState("x-1"), PENDING);
     expect(apply(second, { kind: "yield", now: T0 + 9 })).toStrictEqual(
@@ -264,7 +285,7 @@ describe("yield and recovery", () => {
   it("recover with nothing SENDING re-queues like a yield", () => {
     const first = thread("PUBLISHING", PENDING, PENDING);
     expect(apply(first, { kind: "recover", now: T0 + 9 })).toStrictEqual(
-      bumped(first, { lifecycle: "SCHEDULED", resumeAt: null }),
+      bumped(first, { lifecycle: "SCHEDULED", resumeAt: T0 + 9 }),
     );
     const second = thread("PUBLISHING", sentState("x-1"), PENDING);
     expect(apply(second, { kind: "recover", now: T0 + 9 })).toStrictEqual(

@@ -111,7 +111,7 @@ src/main.ts             composition root: `export default { fetch, scheduled }` 
 - Content: `Personality(id, name, voiceGuide, topics, dos, donts, examples, version)`; `StagedMedia(id, ownerAccountId, kind: PHOTO|GIF, contentType, size, storageKey, sha256)`; `PostPart(index, text, media)`; `validatePart` (280 weighted chars; ≤ 4 photos or 1 GIF); `containsUrl` (U13).
 - Accounts: `Account(id, xUserId, handle, personalityId, status: ACTIVE|PAUSED|DISCONNECTED|NEEDS_RECONNECT, disclosure(bioConfirmed, automatedLabelConfirmed), policy, isAppOwner)`; `PostingPolicy(mode: AUTO|REVIEW, dailyCap, minGap, quietHours?, tz, linkPolicy, grace)`.
 - `checkPublishable(account, post, now, recent) → Allowed | Refused(reason)`: ACTIVE (so PAUSED, DISCONNECTED and NEEDS_RECONNECT refuse), disclosure, link policy, quiet hours, cap and min-gap over every post with a part SENDING, SENT or UNKNOWN in the account's tz day.
-- Posts: `PartState = PENDING | SENDING(attemptAt) | SENT(xPostId) | UNKNOWN(attemptAt) | NOT_FOUND | REJECTED(reason) | DELETED`; `Post(id, accountId, parts, lifecycle, publishAt, resumeAt?, idempotencyKey, requestHash, createdBy, provenance(botId?, personalityVersion, policySnapshot), version)`; `Lifecycle = DRAFT | PENDING_REVIEW | SCHEDULED | RESUMING | PUBLISHING | DONE | CANCELLED | MISSED`; `derivedStatus`; `transition(post, event) → Post | Refused` (§3.1.1); `mapXOutcome(error) → PartEvent` (a 401/403 auth error from `create` means the token was revoked: account → NEEDS_RECONNECT and the post goes back as a gate refusal, never REJECTED/FAILED); `missed(post, now)` measured from the original `publishAt`; `metricsDue`; `estimateCost`; `redact`.
+- Posts: `PartState = PENDING | SENDING(attemptAt) | SENT(xPostId) | UNKNOWN(attemptAt) | NOT_FOUND | REJECTED(reason) | DELETED`; `Post(id, accountId, parts, lifecycle, publishAt, resumeAt?, idempotencyKey, requestHash, createdBy, provenance(botId?, personalityVersion, policySnapshot), version)`; `Lifecycle = DRAFT | PENDING_REVIEW | SCHEDULED | RESUMING | PUBLISHING | DONE | CANCELLED | MISSED`; `derivedStatus`; `transition(post, event) → Post | Refused` (§3.1.1); `mapXOutcome(error) → PartEvent` (a 401/403 auth error from `create` means the token was revoked: account → NEEDS_RECONNECT and the post goes back as a gate refusal, never REJECTED/FAILED); `missed(post, now)` measured from max(`publishAt`, the not-before time a part-1 deferral or retry set), so a post held back by the gate or by X's `retryAt` is never missed for waiting, and `publishAt` itself never moves; `metricsDue`; `estimateCost`; `redact`.
 - `refreshOutcome(result) → Rotated | RetryableBeforeSend | Lost` (U1/U14). Refresh tokens are single-use and X returns the same 400 `invalid_request` for stale and revoked tokens (U14), so anything other than a success or a failure **before** the request left (connect error) is `Lost` — but only after the DO, under `Locks.token`, confirms the stored refresh token is still the one it sent (if it changed, retry once with the stored one; U1 showed a stale replay does not revoke newer tokens). Then: the account goes to **`NEEDS_RECONNECT`** (publishing refused, shown on the dashboard, cleared only by reconnecting) and the old token is never retried (A2).
 
 #### 3.1.1 Transition table (exhaustive-test spec; any pair not listed is Refused)
@@ -126,22 +126,22 @@ Rev 4's lease rows are replaced by **ownership by the account's Durable Object**
 | DRAFT, PENDING_REVIEW, SCHEDULED (all parts PENDING) | cancel | CANCELLED |
 | PENDING_REVIEW | approve | SCHEDULED (past publishAt → now) |
 | PENDING_REVIEW | reject | CANCELLED |
-| SCHEDULED | DO starts it (now ≥ publishAt, not missed) | PUBLISHING (version+1) |
+| SCHEDULED | DO starts it (now ≥ max(publishAt, resumeAt), not missed) | PUBLISHING (version+1; resumeAt cleared) |
 | RESUMING | DO starts it (now ≥ resumeAt) | PUBLISHING (version+1) |
-| SCHEDULED (all parts PENDING) | missed (now > publishAt + grace) | MISSED |
+| SCHEDULED (all parts PENDING) | missed (now > max(publishAt, resumeAt) + grace) | MISSED |
 | PUBLISHING | ReservePart k Allowed | part k SENDING (D1 write awaited **before** the X call) |
-| PUBLISHING | ReservePart k Refused (paused, undisclosed, cap, gap, quiet hours) | k = 1: SCHEDULED; k > 1: RESUMING (resumeAt = next allowed) |
+| PUBLISHING | ReservePart k Refused (paused, undisclosed, cap, gap, quiet hours) | k = 1: SCHEDULED, not before the next allowed time (resumeAt = next allowed; publishAt kept); k > 1: RESUMING (resumeAt = next allowed) |
 | PUBLISHING | part k sent(xId) | part SENT; last part → DONE (PUBLISHED) |
 | PUBLISHING | part k unknown | part UNKNOWN; DONE (UNKNOWN_OUTCOME) |
 | PUBLISHING | part k rejected | k = 1: DONE (FAILED); k > 1: DONE (PARTIALLY_PUBLISHED) |
-| PUBLISHING | part k retryable or 429(user) | part PENDING; k = 1: SCHEDULED; k > 1: RESUMING (resumeAt = retryAt or now + 1 min) |
+| PUBLISHING | part k retryable or 429(user) | part PENDING; k = 1: SCHEDULED, not before resumeAt; k > 1: RESUMING (resumeAt = retryAt or now + 1 min) |
 | PUBLISHING | 429(app) | as retryable; the tick stops dispatching |
 | PUBLISHING | VersionConflict on any step | stop this post, send nothing more; the next publish call's recovery resolves it |
 | PUBLISHING | token `NeedsReconnect` (obtained **before** ReservePart, so no part is SENDING) | account → NEEDS_RECONNECT; k = 1: SCHEDULED; k > 1: RESUMING (as a gate refusal) |
 | PUBLISHING | a needed refresh does not fit the remaining deadline | yield (as the budget-yield row), before calling X |
 | SCHEDULED | `publishNow` could not get `publishLock` before its deadline | unchanged; the MCP call returns the derived status (the tick publishes it) |
-| PUBLISHING | worker yields (budget) | nothing SENT → SCHEDULED; some SENT → RESUMING (resumeAt = now) |
-| PUBLISHING (found under `publishLock`), no part SENDING, none SENT | recover | SCHEDULED (version+1) |
+| PUBLISHING | worker yields (budget) | nothing SENT → SCHEDULED (resumeAt = now); some SENT → RESUMING (resumeAt = now) |
+| PUBLISHING (found under `publishLock`), no part SENDING, none SENT | recover | SCHEDULED (resumeAt = now, version+1) |
 | PUBLISHING (found under `publishLock`), no part SENDING, some SENT | recover | RESUMING (resumeAt = now) |
 | PUBLISHING (found under `publishLock`), a part SENDING | recover | that part UNKNOWN; DONE (UNKNOWN_OUTCOME); never re-sent |
 | (part) UNKNOWN | reconcile found | part SENT; later parts PENDING → RESUMING; else DONE (PUBLISHED) |

@@ -20,12 +20,11 @@ export function isLastPart(post: Post, part: number): boolean {
 }
 
 /**
- * Back to the queue: nothing sent yet → SCHEDULED (publishAt kept, so `missed` applies); some
- * part sent → RESUMING at `resumeAt` (plan §3.1.1).
+ * Back to the queue at `resumeAt` (the gate's next allowed time, X's retryAt, or now): nothing
+ * sent yet → SCHEDULED, not before `resumeAt` (publishAt kept; `missed` counts from the later of
+ * the two); some part sent → RESUMING at `resumeAt` (plan §3.1.1).
  */
 export function backToQueue(post: Post, resumeAt: Instant): Post {
-  if (anyPartIn(post, "SENT")) {
-    return { ...post, lifecycle: "RESUMING", resumeAt };
-  }
-  return { ...post, lifecycle: "SCHEDULED", resumeAt: null };
+  const lifecycle = anyPartIn(post, "SENT") ? "RESUMING" : "SCHEDULED";
+  return { ...post, lifecycle, resumeAt };
 }

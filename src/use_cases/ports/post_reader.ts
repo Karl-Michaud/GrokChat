@@ -12,7 +12,10 @@ export interface PostFilter {
   readonly partStates?: readonly PartStateKind[];
   /** Posts whose publishAt falls in the window. */
   readonly publishWindow?: TimeWindow;
-  /** Waiting posts due by then: SCHEDULED with publishAt, RESUMING with resumeAt, at or before it. */
+  /**
+   * Waiting posts due by then (entities/posts/due): SCHEDULED with max(publishAt, resumeAt),
+   * RESUMING with resumeAt, at or before it.
+   */
   readonly dueBy?: Instant;
 }
 
