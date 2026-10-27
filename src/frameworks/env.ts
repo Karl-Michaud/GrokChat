@@ -8,4 +8,6 @@ export interface Env {
   readonly DB: D1Database;
   readonly ACCOUNT: DurableObjectNamespace<AccountPublisher>;
   readonly MEDIA: R2Bucket;
+  /** Secret: comma-separated base64 AES-256 keys, newest first (plan §3.5 token vault). */
+  readonly GROKCHAT_TOKEN_KEYS: string;
 }
