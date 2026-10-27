@@ -41,6 +41,7 @@ function account(row: AccountRowView, csrf: string): Html {
   return html`<section>
     <h2>${row.handle} (${row.personality})</h2>
     <p>Status: <strong>${row.status}</strong></p>
+    <p>Account id (for <code>npm run add-bot</code>): <code>${row.id}</code></p>
     ${
       row.needsReconnect
         ? html`<p role="alert">Publishing is refused until this account is reconnected on X.</p>`
