@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { postId } from "../../../../src/entities/identity/ids";
 import { HOUR, MINUTE } from "../../../../src/entities/time/instant";
 import type { XFailure } from "../../../../src/entities/x/x_failure";
-import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../../src/frameworks/budget/invocation_meter";
 import { ACCOUNT, aPolicy, aPost, part, sendingState, sentState, T0 } from "../../support/builders";
 import { PartSender } from "../../../../src/use_cases/run_services/part_sender";
 import { makeWorld } from "../../support/world";
@@ -292,7 +292,7 @@ describe("publishDue: recovery, then every due post, oldest first", () => {
     await world.seedAccount();
     put(world, aPost({ id: postId("p-1"), publishAt: T0 - 2 }));
     put(world, aPost({ id: postId("p-2"), publishAt: T0 - 1 }));
-    const oneTokenStep = new MemoryBudgetMeter({
+    const oneTokenStep = new InvocationBudgetMeter({
       deadline: T0 + HOUR,
       cloudflareCalls: 2,
       externalSubrequests: 50,

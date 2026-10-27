@@ -15,7 +15,7 @@ import type { AccessTokenResult, TokenProvider } from "../../use_cases/ports/tok
 import type { CollectAccountMetrics } from "../../use_cases/run_services/collect_account_metrics";
 import type { PublishPost } from "../../use_cases/run_services/publish_post";
 import type { ReconcileAccount } from "../../use_cases/run_services/reconcile_account";
-import { MemoryBudgetMeter } from "../memory/memory_budget";
+import { InvocationBudgetMeter } from "../budget/invocation_meter";
 
 /**
  * One invocation's piece of the account's use-case graph, built around that invocation's meter
@@ -24,8 +24,8 @@ import { MemoryBudgetMeter } from "../memory/memory_budget";
  */
 export type PerInvocation<T> = (account: AccountId, meter: BudgetMeter) => T;
 
-const meterUntil = (deadline: Instant): MemoryBudgetMeter =>
-  new MemoryBudgetMeter(invocationBudget(deadline));
+const meterUntil = (deadline: Instant): InvocationBudgetMeter =>
+  new InvocationBudgetMeter(invocationBudget(deadline));
 
 /**
  * The account Durable Object's methods: each call gets a fresh invocation budget, as each DO
@@ -33,7 +33,7 @@ const meterUntil = (deadline: Instant): MemoryBudgetMeter =>
  */
 export class InvocationAccountPublisher implements AccountPublisher {
   /** Every meter handed out, oldest first, so tests can read each call's budget. */
-  readonly meters: MemoryBudgetMeter[] = [];
+  readonly meters: InvocationBudgetMeter[] = [];
 
   constructor(private readonly build: PerInvocation<PublishPost>) {}
 
@@ -47,7 +47,7 @@ export class InvocationAccountPublisher implements AccountPublisher {
     return this.build(account, meter).publishNow(account, post, meter);
   }
 
-  private meter(deadline: Instant): MemoryBudgetMeter {
+  private meter(deadline: Instant): InvocationBudgetMeter {
     const meter = meterUntil(deadline);
     this.meters.push(meter);
     return meter;

@@ -8,7 +8,7 @@ import {
   SequentialPkce,
   StubXAccountConnector,
 } from "../../src/frameworks/memory/memory_auth";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
 import { MemoryLocks, MemorySingleFlight } from "../../src/frameworks/durable_objects/object_locks";
 import { NoLocks } from "../../src/frameworks/memory/memory_locks";
 import {
@@ -127,7 +127,7 @@ describe("memory coordination", () => {
     };
   });
   singleFlightContract(() => new MemorySingleFlight());
-  budgetMeterContract(() => new MemoryBudgetMeter(invocationBudget(T0 + HOUR)));
+  budgetMeterContract(() => new InvocationBudgetMeter(invocationBudget(T0 + HOUR)));
   clockAndIdsContract(() => ({ clock: new ManualClock(T0), ids: new SequentialIds() }));
 });
 

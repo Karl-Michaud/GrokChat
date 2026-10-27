@@ -34,7 +34,8 @@ import { MemoryAuditLog, MemoryCostLedger } from "../../src/frameworks/memory/me
 import { AccountXUserDirectory } from "../../src/frameworks/x_http/x_user_directory";
 import type { BudgetMeter } from "../../src/use_cases/ports/budget_meter";
 import { XCallRecorder } from "../../src/use_cases/run_services/x_call_recorder";
-import { buildAccountServices, cronJobs } from "../../src/main";
+import { buildAccountServices } from "../../src/frameworks/composition/account_graph";
+import { cronJobs } from "../../src/frameworks/composition/cron_jobs";
 import { XEmulator } from "../contract/support/x_emulator";
 import { FixtureTransport } from "../contract/support/x_fixtures";
 import {

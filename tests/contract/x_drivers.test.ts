@@ -12,7 +12,7 @@ import {
   FakeXWorld,
 } from "../../src/frameworks/memory/fake_x";
 import { ManualClock } from "../../src/frameworks/memory/manual_clock";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
 import { MemoryAccountRepository } from "../../src/frameworks/memory/memory_repositories";
 import type { TransportResult } from "../../src/frameworks/x_http/transport";
 import { XApiClient } from "../../src/frameworks/x_http/x_api_client";
@@ -102,7 +102,7 @@ function drivers(now = T0 + HOUR) {
   const clock = new ManualClock(now);
   const emulator = new XEmulator(() => clock.now());
   const transport = new FixtureTransport(emulator.handle);
-  const meter = new MemoryBudgetMeter(invocationBudget(now + HOUR));
+  const meter = new InvocationBudgetMeter(invocationBudget(now + HOUR));
   const client = new XApiClient(transport, new FixedTokens(), meter);
   const accounts = new MemoryAccountRepository();
   accounts.rows.set(ACCOUNT, anAccount());

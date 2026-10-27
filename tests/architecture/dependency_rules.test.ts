@@ -37,6 +37,7 @@ describe("dependency-cruiser rules each fire on the layers fixture", () => {
     ["ports-import-only-entities", "src/use_cases/ports/post_reader.ts"],
     ["interface-adapters-point-inward", "src/interface_adapters/presenter.ts"],
     ["nothing-imports-main", "src/frameworks/route.ts"],
+    ["stubs-only-in-tests", "src/frameworks/composition/wires_stub.ts"],
     ["vendors-only-in-frameworks", "src/interface_adapters/uses_hono.ts"],
     ["vendors-only-in-frameworks", "src/use_cases/uses_cloudflare.ts"],
     ["zod-only-at-boundaries", "src/use_cases/uses_zod.ts"],

@@ -20,7 +20,10 @@ import { ManualClock } from "../../../src/frameworks/memory/manual_clock";
 import { MemoryLocks } from "../../../src/frameworks/durable_objects/object_locks";
 import { NoLocks } from "../../../src/frameworks/memory/memory_locks";
 import { FakeXTokenEndpoint } from "../../../src/frameworks/memory/memory_tokens";
-import { accountRuntime, type AccountRuntime } from "../../../src/main";
+import {
+  accountRuntime,
+  type AccountRuntime,
+} from "../../../src/frameworks/composition/account_graph";
 import { aPersonality, anAccount, T0 } from "../../unit/support/builders";
 import { metered, type Meter } from "./metered_d1";
 

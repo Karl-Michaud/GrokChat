@@ -1,15 +1,20 @@
 /**
- * I2 / R7 through the whole MCP stack (main.ts, bot auth, SDK, controllers, interactors): every
- * tool aimed at another account's account id, post id or media id is refused with isError and a
- * code, writes nothing, and the scope refusal is audited. Unknown ids fail closed.
+ * I2 / R7 through the whole MCP stack (main.ts, bot auth, SDK, controllers, interactors) on the
+ * production graph (D1, the account's Durable Object, X faked at `fetch` only): every tool aimed
+ * at another account's account id, post id or media id is refused with isError and a code, writes
+ * nothing to D1 or X, and the scope refusal is audited. Unknown ids fail closed.
  */
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { beforeAll, describe, expect, it } from "vitest";
+import { env } from "cloudflare:workers";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Account } from "../../src/entities/accounts/account";
 import { stagedMediaId } from "../../src/entities/identity/ids";
-import { stubs } from "../../src/main";
+import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { aMedia } from "../unit/support/builders";
 import { body, botEnv, connect, isError, OTHER_BOT_TOKEN, seedAccount } from "./support/mcp_client";
+import { stubX, type XWire } from "./support/x_wire";
+
+let x: XWire;
 
 interface World {
   readonly mine: Account;
@@ -45,7 +50,7 @@ async function setUp(): Promise<World> {
     },
   });
   const media = aMedia({ id: stagedMediaId(`media-of-${theirs.id}`), ownerAccountId: theirs.id });
-  await stubs.media.save(media);
+  await d1Stores(env.DB).media.save(media);
   // The fixtures exist as intended, so a refusal below is not an accident of a missing row.
   expect(body(published)).toMatchObject({ status: "PUBLISHED" });
   expect(body(scheduled)).toMatchObject({ status: "SCHEDULED" });
@@ -127,23 +132,52 @@ const UNKNOWN_IDS: readonly Case[] = [
   ["delete_post", () => ({ post_id: "no-such-post" }), "not_found"],
 ];
 
-function snapshot(): string {
+async function rows(sql: string): Promise<unknown[]> {
+  return (await env.DB.prepare(sql).all()).results;
+}
+
+/** Everything a tool could have written: D1's posts, parts, media and costs, and X. */
+async function snapshot(): Promise<string> {
   return JSON.stringify({
-    posts: [...stubs.table.rows],
-    media: [...stubs.media.rows],
-    x: [...stubs.x.posts],
-    costs: stubs.costs.entries.length,
+    posts: await rows("SELECT * FROM posts ORDER BY id"),
+    parts: await rows("SELECT * FROM post_parts ORDER BY post_id, idx"),
+    media: await rows("SELECT * FROM staged_media ORDER BY id"),
+    costs: await rows("SELECT COUNT(*) AS n FROM cost_entries"),
+    x: [...x.emulator.posts.values()],
+    calls: x.calls().length,
   });
 }
 
+interface AuditRow {
+  readonly actor: string;
+  readonly action: string;
+  readonly detail: string;
+}
+
+async function auditAfter(seq: number): Promise<readonly AuditRow[]> {
+  const result = await env.DB.prepare(
+    "SELECT actor, action, detail FROM audit_events WHERE seq > ? ORDER BY seq",
+  )
+    .bind(seq)
+    .all<AuditRow>();
+  return result.results;
+}
+
+async function lastAuditSeq(): Promise<number> {
+  const row = await env.DB.prepare("SELECT COALESCE(MAX(seq), 0) AS seq FROM audit_events").first<{
+    seq: number;
+  }>();
+  return row?.seq ?? 0;
+}
+
 async function expectRefused(tool: string, args: Record<string, unknown>, code: string) {
-  const before = snapshot();
-  const audited = stubs.audit.events.length;
+  const before = await snapshot();
+  const audited = await lastAuditSeq();
   const result = await world.client.callTool({ name: tool, arguments: args });
   expect(isError(result)).toBe(true);
   expect(body(result)).toMatchObject({ error: code });
-  expect(snapshot()).toBe(before);
-  const written = stubs.audit.events.slice(audited);
+  expect(await snapshot()).toBe(before);
+  const written = await auditAfter(audited);
   if (code === "scope") {
     expect(
       written.map((event) => [event.actor, event.action.startsWith("refused."), event.detail]),
@@ -154,7 +188,12 @@ async function expectRefused(tool: string, args: Record<string, unknown>, code: 
 }
 
 beforeAll(async () => {
+  x = stubX();
   world = await setUp();
+});
+
+afterAll(() => {
+  x.restore();
 });
 
 describe("I2 / R7 over MCP: every tool × account, post and media id of another account", () => {

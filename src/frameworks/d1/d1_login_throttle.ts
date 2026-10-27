@@ -1,6 +1,6 @@
 import type { Instant } from "../../entities/time/instant";
 import type { LoginThrottle } from "../../use_cases/ports/login_throttle";
-import { LOGIN_FAILURES, LOGIN_WINDOW } from "../memory/memory_auth";
+import { LOGIN_FAILURES, LOGIN_WINDOW } from "../runtime/login_limits";
 
 interface CountRow {
   readonly failures: number;

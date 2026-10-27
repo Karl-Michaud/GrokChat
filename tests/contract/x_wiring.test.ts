@@ -9,14 +9,14 @@ import { accountId, xPostId } from "../../src/entities/identity/ids";
 import { MINUTE } from "../../src/entities/time/instant";
 import { HttpXWiring } from "../../src/frameworks/durable_objects/http_x_wiring";
 import { ManualClock } from "../../src/frameworks/memory/manual_clock";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
 import { MemoryAuditLog, MemoryCostLedger } from "../../src/frameworks/memory/memory_records";
 import { MemoryAccountRepository } from "../../src/frameworks/memory/memory_repositories";
 import { basicAuth } from "../../src/frameworks/x_auth/token_endpoint";
 import { TOKEN_URL, xClientCredentials } from "../../src/frameworks/x_auth/x_oauth_config";
 import { AccountXUserDirectory } from "../../src/frameworks/x_http/x_user_directory";
 import { XCallRecorder } from "../../src/use_cases/run_services/x_call_recorder";
-import { productionX } from "../../src/main";
+import { productionX } from "../../src/frameworks/composition/account_graph";
 import { anAccount, T0 } from "../unit/support/builders";
 import { created, FixedTokens, FixtureTransport, respond, tokenBody } from "./support/x_fixtures";
 
@@ -39,7 +39,7 @@ describe("HttpXWiring: the fetch drivers, around one invocation's meter (plan §
       defer: (work) => deferred.push(work),
       wait: () => Promise.resolve(),
     });
-    const meter = new MemoryBudgetMeter(invocationBudget(T0 + 10 * MINUTE));
+    const meter = new InvocationBudgetMeter(invocationBudget(T0 + 10 * MINUTE));
     return { clock, transport, audit, costs, accounts, deferred, wiring, meter };
   }
 
@@ -101,8 +101,8 @@ describe("HttpXWiring: the fetch drivers, around one invocation's meter (plan §
 
   it("two invocations' meters stay apart", async () => {
     const { transport, wiring } = setup();
-    const first = new MemoryBudgetMeter(invocationBudget(T0 + MINUTE));
-    const second = new MemoryBudgetMeter(invocationBudget(T0 + MINUTE));
+    const first = new InvocationBudgetMeter(invocationBudget(T0 + MINUTE));
+    const second = new InvocationBudgetMeter(invocationBudget(T0 + MINUTE));
     transport.script(created("1", "a"), created("2", "b"), created("3", "c"));
     await wiring.calls(first, new FixedTokens()).publisher.create(ACCOUNT, "a", [], null);
     const other = wiring.calls(second, new FixedTokens()).publisher;

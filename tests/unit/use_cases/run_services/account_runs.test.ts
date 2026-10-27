@@ -3,7 +3,7 @@ import { invocationBudget } from "../../../../src/entities/budget/budget";
 import { postId, xPostId } from "../../../../src/entities/identity/ids";
 import type { Post } from "../../../../src/entities/posts/post";
 import { DAY, HOUR, MINUTE } from "../../../../src/entities/time/instant";
-import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../../src/frameworks/budget/invocation_meter";
 import type { PostReader } from "../../../../src/use_cases/ports/post_reader";
 import { AccountRecovery } from "../../../../src/use_cases/run_services/account_recovery";
 import { LOOKBACK, TIMELINE_PAGE } from "../../../../src/use_cases/run_services/reconcile_account";
@@ -11,10 +11,10 @@ import { METRICS_BATCH } from "../../../../src/use_cases/run_services/collect_ac
 import { ACCOUNT, aMedia, aPost, part, sentState, T0, unknownState } from "../../support/builders";
 import { makeWorld, type World } from "../../support/world";
 
-const meterUntil = (deadline: number) => new MemoryBudgetMeter(invocationBudget(deadline));
+const meterUntil = (deadline: number) => new InvocationBudgetMeter(invocationBudget(deadline));
 
-const meter = (deadline = T0 + HOUR): MemoryBudgetMeter =>
-  new MemoryBudgetMeter(invocationBudget(deadline));
+const meter = (deadline = T0 + HOUR): InvocationBudgetMeter =>
+  new InvocationBudgetMeter(invocationBudget(deadline));
 
 function put(world: World, post: Post): Post {
   world.table.rows.set(post.id, post);
@@ -155,7 +155,7 @@ describe("ReconcileAccount (plan §3.3 #6, R2)", () => {
     const world = makeWorld();
     await world.seedAccount();
     unknownPost(world);
-    const empty = new MemoryBudgetMeter({
+    const empty = new InvocationBudgetMeter({
       deadline: T0 + HOUR,
       cloudflareCalls: 2,
       externalSubrequests: 1,
@@ -290,7 +290,7 @@ describe("CollectAccountMetrics (plan §3.3 #8)", () => {
     const world = makeWorld();
     await published(world, 1);
     world.clock.advance(HOUR);
-    const empty = new MemoryBudgetMeter({
+    const empty = new InvocationBudgetMeter({
       deadline: T0 + DAY,
       cloudflareCalls: 2,
       externalSubrequests: 1,

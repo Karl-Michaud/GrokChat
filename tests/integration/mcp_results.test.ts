@@ -1,10 +1,12 @@
 /**
- * Tool results through main.ts and the MCP SDK client: refusals and schema checks, log content,
- * redaction, and every read tool (plan §3.4, I6, m3).
+ * Tool results through main.ts and the MCP SDK client, on the production graph (D1, the account's
+ * Durable Object, X faked at `fetch` only): refusals and schema checks, log content, redaction,
+ * and every read tool (plan §3.4, I6, m3).
  */
-import { describe, expect, it, vi } from "vitest";
+import { env } from "cloudflare:workers";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { xPostId } from "../../src/entities/identity/ids";
-import { stubs } from "../../src/main";
+import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { aPersonality } from "../unit/support/builders";
 import {
   BOT_TOKEN,
@@ -17,6 +19,25 @@ import {
   isError,
   seedAccount,
 } from "./support/mcp_client";
+import { stubX, type XWire } from "./support/x_wire";
+
+let x: XWire;
+beforeEach(() => {
+  x = stubX();
+});
+afterEach(() => {
+  x.restore();
+});
+
+const stores = () => d1Stores(env.DB);
+
+/** A D1 binding that fails every statement with a message carrying the bot's token. */
+const brokenDb = (): D1Database =>
+  ({
+    prepare: () => {
+      throw new Error(`boom ${BOT_TOKEN}`);
+    },
+  }) as unknown as D1Database;
 
 describe("tool refusals and boundary checks", () => {
   it("refuses an over-long part as isError with the use case's code and the part index", async () => {
@@ -45,26 +66,20 @@ describe("tool refusals and boundary checks", () => {
       arguments: { account_id: account.id, text: "x", idempotency_key: "k-schema", ...change },
     });
     expect(isError(result)).toBe(true);
-    expect(stubs.x.postsBy(account.id)).toHaveLength(0);
-    expect(await stubs.reader.list({ accountIds: [account.id] })).toHaveLength(0);
+    expect(x.calls()).toStrictEqual([]);
+    expect(await stores().reader.list({ accountIds: [account.id] })).toHaveLength(0);
   });
 
   it("answers a failing use case with code internal, never the error's message", async () => {
     const account = await seedAccount();
-    const client = await connect(await botEnv([account.id]));
-    const original = stubs.accounts.get.bind(stubs.accounts);
-    stubs.accounts.get = () => Promise.reject(new Error(`boom ${BOT_TOKEN}`));
-    try {
-      const result = await client.callTool({
-        name: "get_policy",
-        arguments: { account_id: account.id },
-      });
-      expect(isError(result)).toBe(true);
-      expect(body(result)).toStrictEqual({ error: "internal", part: null });
-      expect(JSON.stringify(result)).not.toContain(BOT_TOKEN);
-    } finally {
-      stubs.accounts.get = original;
-    }
+    const client = await connect(await botEnv([account.id], [], { DB: brokenDb() }));
+    const result = await client.callTool({
+      name: "get_policy",
+      arguments: { account_id: account.id },
+    });
+    expect(isError(result)).toBe(true);
+    expect(body(result)).toStrictEqual({ error: "internal", part: null });
+    expect(JSON.stringify(result)).not.toContain(BOT_TOKEN);
   });
 });
 
@@ -85,14 +100,8 @@ describe("logging (m3)", () => {
         { ...workerEnv, GROKCHAT_BOT_CLIENTS: `[${BOT_TOKEN}` },
         initialize("/mcp", { authorization: `Bearer ${BOT_TOKEN}` }),
       );
-      const client = await connect(workerEnv);
-      const original = stubs.accounts.get.bind(stubs.accounts);
-      stubs.accounts.get = () => Promise.reject(new Error(`boom ${BOT_TOKEN}`));
-      try {
-        await client.callTool({ name: "get_policy", arguments: { account_id: account.id } });
-      } finally {
-        stubs.accounts.get = original;
-      }
+      const client = await connect({ ...workerEnv, DB: brokenDb() });
+      await client.callTool({ name: "get_policy", arguments: { account_id: account.id } });
       expect(lines).toContain("grokchat mcp: GROKCHAT_BOT_CLIENTS refused (not_json)");
       expect(lines).toContain("grokchat mcp: tool get_policy failed");
       const all = lines.join("\n");
@@ -110,7 +119,7 @@ describe("logging (m3)", () => {
 describe("presenters redact secrets (I6, R8)", () => {
   it("removes the caller's token and the deployment's secrets from every string", async () => {
     const account = await seedAccount();
-    await stubs.personalities.save(
+    await stores().personalities.save(
       aPersonality({
         id: account.personalityId,
         voiceGuide: `never print ${BOT_TOKEN}`,
@@ -145,9 +154,9 @@ describe("the read tools", () => {
         arguments: { account_id: account.id, text: "measured", idempotency_key: "k-m" },
       }),
     ) as { post_id: string };
-    const sent = stubs.x.postsBy(account.id)[0];
+    const [sent] = x.emulator.posts.values();
     const now = Date.now();
-    await stubs.metrics.addSnapshots([
+    await stores().metrics.addSnapshots([
       {
         xPostId: xPostId(sent?.id ?? ""),
         accountId: account.id,

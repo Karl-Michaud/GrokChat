@@ -3,7 +3,7 @@ import type { LoginThrottle } from "../../use_cases/ports/login_throttle";
 import type { OAuthState, OAuthStateStore } from "../../use_cases/ports/oauth_state_store";
 import type { PkceGenerator, PkcePair } from "../../use_cases/ports/pkce_generator";
 import type { ConnectedXUser, XAccountConnector } from "../../use_cases/ports/x_account_connector";
-import { MINUTE } from "../../entities/time/instant";
+import { LOGIN_FAILURES, LOGIN_WINDOW } from "../runtime/login_limits";
 
 export class MemoryOAuthStateStore implements OAuthStateStore {
   readonly records = new Map<string, OAuthState>();
@@ -20,10 +20,6 @@ export class MemoryOAuthStateStore implements OAuthStateStore {
     return Promise.resolve(valid ? record.verifier : null);
   }
 }
-
-/** Five failures per key in fifteen minutes (rev 4 M8). */
-export const LOGIN_FAILURES = 5;
-export const LOGIN_WINDOW = 15 * MINUTE;
 
 export class MemoryLoginThrottle implements LoginThrottle {
   readonly failures = new Map<string, Instant[]>();

@@ -12,7 +12,7 @@ import {
 } from "../../src/entities/identity/ids";
 import { DAY, HOUR } from "../../src/entities/time/instant";
 import { invocationBudget } from "../../src/entities/budget/budget";
-import { MemoryBudgetMeter } from "../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../src/frameworks/budget/invocation_meter";
 import type { CommandResult } from "../../src/use_cases/authoring/post_command";
 import { CancelPostInteractor } from "../../src/use_cases/cancel_post/interactor";
 import { ComparePostsInteractor } from "../../src/use_cases/compare_posts/interactor";
@@ -277,8 +277,8 @@ describe("I5: every X call writes one cost entry and one audit entry", () => {
       { kind: "ok" },
       { kind: "fail", failure: { kind: "no_response" } },
     );
-    const meter = (): MemoryBudgetMeter =>
-      new MemoryBudgetMeter(invocationBudget(world.clock.now() + DAY));
+    const meter = (): InvocationBudgetMeter =>
+      new InvocationBudgetMeter(invocationBudget(world.clock.now() + DAY));
     await world.publishPost.publishDue(ACCOUNT, meter());
     await world.reconcileAccount.reconcile(ACCOUNT, meter());
     world.clock.advance(HOUR);
@@ -327,7 +327,7 @@ describe("I6 / R8: no token or bearer credential anywhere", () => {
     outputs.push(
       await world.publishPost.publishDue(
         ACCOUNT,
-        new MemoryBudgetMeter(invocationBudget(world.clock.now() + HOUR)),
+        new InvocationBudgetMeter(invocationBudget(world.clock.now() + HOUR)),
       ),
     );
     outputs.push(await creator(world)({ actor: BOT, parts: [{ text: "c", media: [] }] }));

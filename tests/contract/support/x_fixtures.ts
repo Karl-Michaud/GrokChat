@@ -6,7 +6,7 @@
 import { invocationBudget } from "../../../src/entities/budget/budget";
 import { HOUR, type Millis } from "../../../src/entities/time/instant";
 import { ManualClock } from "../../../src/frameworks/memory/manual_clock";
-import { MemoryBudgetMeter } from "../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../src/frameworks/budget/invocation_meter";
 import { XApiClient } from "../../../src/frameworks/x_http/x_api_client";
 import type { HttpTransport, TransportResult } from "../../../src/frameworks/x_http/transport";
 import type { AccessTokenResult, TokenProvider } from "../../../src/use_cases/ports/token_provider";
@@ -178,7 +178,7 @@ export function clientSetup(now = T0) {
   const clock = new ManualClock(now);
   const transport = new FixtureTransport();
   const tokens = new FixedTokens();
-  const meter = new MemoryBudgetMeter(invocationBudget(now + INVOCATION));
+  const meter = new InvocationBudgetMeter(invocationBudget(now + INVOCATION));
   const client = new XApiClient(transport, tokens, meter);
   return { clock, transport, tokens, meter, client };
 }

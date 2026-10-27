@@ -5,7 +5,7 @@ import type { Post } from "../../../../src/entities/posts/post";
 import { TOKEN_REFRESH_MILLIS } from "../../../../src/entities/budget/budget";
 import { STANDING_RETRY } from "../../../../src/entities/policy/publishable";
 import { HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
-import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
+import { InvocationBudgetMeter } from "../../../../src/frameworks/budget/invocation_meter";
 import { ACCOUNT, aPolicy, aPost, part, sentState, T0 } from "../../support/builders";
 import { makeWorld } from "../../support/world";
 import { meter, put, ready, required, states, stored } from "../../support/publishing";
@@ -199,7 +199,7 @@ describe("the budget is reserved before each part (A4)", () => {
   it("not enough for the token step: the post yields", async () => {
     const world = makeWorld();
     await ready(world);
-    const tight = new MemoryBudgetMeter({
+    const tight = new InvocationBudgetMeter({
       deadline: T0 + HOUR,
       cloudflareCalls: 1,
       externalSubrequests: 50,
@@ -220,7 +220,7 @@ describe("the budget is reserved before each part (A4)", () => {
         parts: [part("a", sentState("x-0")), part("b")],
       }),
     );
-    const tight = new MemoryBudgetMeter({
+    const tight = new InvocationBudgetMeter({
       deadline: T0 + HOUR,
       cloudflareCalls: 4,
       externalSubrequests: 50,
