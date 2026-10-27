@@ -1,0 +1,52 @@
+{
+  "at": "2026-10-27T16:13:23Z",
+  "exchange": {
+    "http": 200,
+    "token_type": "bearer",
+    "expires_in": 7200,
+    "access_token": {
+      "len": 91,
+      "fp": "e99367e9"
+    },
+    "scope": "offline.access tweet.write media.write users.read tweet.read",
+    "refresh_token": {
+      "len": 91,
+      "fp": "5bdcddaf"
+    }
+  },
+  "refresh_with_R0": {
+    "http": 200,
+    "token_type": "bearer",
+    "expires_in": 7200,
+    "access_token": {
+      "len": 91,
+      "fp": "22e12db0"
+    },
+    "scope": "offline.access tweet.write media.write users.read tweet.read",
+    "refresh_token": {
+      "len": 91,
+      "fp": "95894220"
+    }
+  },
+  "R1_differs_from_R0": true,
+  "replay_R0": {
+    "http": 400,
+    "error": "invalid_request",
+    "error_description": "Value passed for the token was invalid."
+  },
+  "refresh_with_R1_after_replay": {
+    "http": 200,
+    "token_type": "bearer",
+    "expires_in": 7200,
+    "access_token": {
+      "len": 91,
+      "fp": "cc0e0dc7"
+    },
+    "scope": "offline.access tweet.write media.write users.read tweet.read",
+    "refresh_token": {
+      "len": 91,
+      "fp": "8e09bf0b"
+    }
+  },
+  "kept_refresh_token_fp": "8e09bf0b"
+}

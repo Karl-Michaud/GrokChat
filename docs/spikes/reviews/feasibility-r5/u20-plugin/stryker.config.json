@@ -1,0 +1,1 @@
+{ "testRunner": "vitest", "mutate": ["src/entities/cap.ts"], "vitest": { "configFile": "vitest.config.ts" }, "reporters": ["clear-text"], "coverageAnalysis": "perTest", "timeoutMS": 60000 }

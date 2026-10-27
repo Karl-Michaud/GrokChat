@@ -1,0 +1,61 @@
+{
+  "at": "2026-10-27T16:17:48Z",
+  "posts": {
+    "plain": {
+      "http": 201,
+      "id": "2115115759395381362",
+      "body_keys": [
+        "data"
+      ],
+      "errors": null,
+      "ratelimit_remaining": "99",
+      "ratelimit_limit": "100"
+    },
+    "https_url": {
+      "http": 201,
+      "id": "2115115769012916576",
+      "body_keys": [
+        "data"
+      ],
+      "errors": null,
+      "ratelimit_remaining": "98",
+      "ratelimit_limit": "100"
+    },
+    "bare_domain": {
+      "http": 201,
+      "id": "2115115778684952983",
+      "body_keys": [
+        "data"
+      ],
+      "errors": null,
+      "ratelimit_remaining": "97",
+      "ratelimit_limit": "100"
+    }
+  },
+  "deletes": {
+    "plain": {
+      "http": 200,
+      "body": {
+        "data": {
+          "deleted": true
+        }
+      }
+    },
+    "https_url": {
+      "http": 200,
+      "body": {
+        "data": {
+          "deleted": true
+        }
+      }
+    },
+    "bare_domain": {
+      "http": 200,
+      "body": {
+        "data": {
+          "deleted": true
+        }
+      }
+    }
+  }
+}

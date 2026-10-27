@@ -1,0 +1,8 @@
+{
+  "name": "fz-r5",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-20",
+  "d1_databases": [{ "binding": "DB", "database_name": "fz", "database_id": "00000000-0000-0000-0000-000000000000" }],
+  "durable_objects": { "bindings": [{ "name": "ACCOUNT", "class_name": "AccountPublisher" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AccountPublisher"] }]
+}

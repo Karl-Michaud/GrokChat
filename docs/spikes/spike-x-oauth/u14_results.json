@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-27T16:48:52Z",
+  "start_refresh_token_fp": "bba89132",
+  "1_refresh": {
+    "http": 200,
+    "token_type": "bearer",
+    "expires_in": 7200,
+    "access_token": {
+      "len": 91,
+      "fp": "c2c2f1c4"
+    },
+    "scope": "offline.access tweet.write media.write users.read tweet.read",
+    "refresh_token": {
+      "len": 91,
+      "fp": "30c3148e"
+    }
+  },
+  "2_me_before": {
+    "http": 200,
+    "body": {
+      "data_keys": [
+        "id",
+        "name",
+        "username"
+      ]
+    }
+  },
+  "3_revoke_R1": {
+    "http": 200,
+    "revoked": true
+  },
+  "4_refresh_revoked_R1": {
+    "http": 400,
+    "error": "invalid_request",
+    "error_description": "Value passed for the token was invalid."
+  },
+  "5_me_after": {
+    "http": 401,
+    "body": {
+      "title": "Unauthorized",
+      "type": "about:blank",
+      "status": 401,
+      "detail": "Unauthorized"
+    }
+  },
+  "6_env_key_removed": true
+}

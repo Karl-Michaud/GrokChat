@@ -1,0 +1,2 @@
+/// <reference types="@cloudflare/workers-types" />
+export async function leak2(db: D1Database): Promise<unknown> { return db.prepare("SELECT 1").first(); }
