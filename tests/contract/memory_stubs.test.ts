@@ -38,6 +38,7 @@ import { T0 } from "../unit/support/builders";
 import {
   budgetMeterContract,
   clockAndIdsContract,
+  lockDeadlineContract,
   locksContract,
   singleFlightContract,
 } from "./coordination.contract";
@@ -93,7 +94,17 @@ describe("memory coordination", () => {
   locksContract(() => {
     const clock = new ManualClock(T0);
     return {
-      locks: new MemoryLocks(clock),
+      locks: new MemoryLocks(clock, clock),
+      advance: (ms) => {
+        clock.advance(ms);
+      },
+    };
+  });
+  lockDeadlineContract(() => {
+    const clock = new ManualClock(T0);
+    return {
+      locks: new MemoryLocks(clock, clock),
+      now: () => clock.now(),
       advance: (ms) => {
         clock.advance(ms);
       },
@@ -105,6 +116,23 @@ describe("memory coordination", () => {
 });
 
 describe("stub-only helpers", () => {
+  it("ManualClock's deadline waits settle only once the clock passes them, and cancel drops them", async () => {
+    const clock = new ManualClock(T0);
+    await clock.after(T0 - 1).passed;
+    const due = clock.after(T0 + 10);
+    const dropped = clock.after(T0 + 10);
+    const later = clock.after(T0 + 20);
+    expect(clock.pendingWaits()).toBe(3);
+    dropped.cancel();
+    clock.advance(10);
+    expect(clock.pendingWaits()).toBe(2);
+    clock.set(T0 + 11);
+    await due.passed;
+    expect(clock.pendingWaits()).toBe(1);
+    later.cancel();
+    expect(clock.pendingWaits()).toBe(0);
+  });
+
   it("NoLocks runs everything at once (the negative control)", async () => {
     const locks = new NoLocks();
     expect(await locks.publish.run(() => Promise.resolve(1), T0)).toStrictEqual({

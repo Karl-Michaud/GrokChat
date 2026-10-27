@@ -11,11 +11,16 @@ import { accountId, postId, xPostId, type AccountId } from "../../src/entities/i
 import { MINUTE, SECOND } from "../../src/entities/time/instant";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { AccountObjects } from "../../src/frameworks/durable_objects/account_client";
+import { SystemClock } from "../../src/frameworks/durable_objects/system_clock";
 import { X_UNAVAILABLE } from "../../src/frameworks/durable_objects/x_unavailable";
 import { ManualClock } from "../../src/frameworks/memory/manual_clock";
 import { MemoryLocks, MemorySingleFlight } from "../../src/frameworks/memory/memory_locks";
 import { aPost, anAccount, aPersonality, part, T0 } from "../unit/support/builders";
-import { locksContract, singleFlightContract } from "../contract/coordination.contract";
+import {
+  lockDeadlineContract,
+  locksContract,
+  singleFlightContract,
+} from "../contract/coordination.contract";
 import { freshStorage } from "./support/fresh_d1";
 import { freshAccountId, newHarness, objectFor, seedAccount } from "./support/harness";
 
@@ -171,13 +176,49 @@ describe("the locks and single-flight the object uses, in workerd", () => {
   locksContract(() => {
     const clock = new ManualClock(T0);
     return {
-      locks: new MemoryLocks(clock),
+      locks: new MemoryLocks(clock, clock),
+      advance: (ms) => {
+        clock.advance(ms);
+      },
+    };
+  });
+  lockDeadlineContract(() => {
+    const clock = new ManualClock(T0);
+    return {
+      locks: new MemoryLocks(clock, clock),
+      now: () => clock.now(),
       advance: (ms) => {
         clock.advance(ms);
       },
     };
   });
   singleFlightContract(() => new MemorySingleFlight());
+});
+
+describe("the production locks (SystemClock, real timers) in workerd", () => {
+  const clock = new SystemClock();
+  lockDeadlineContract(() => ({
+    locks: new MemoryLocks(clock, clock),
+    now: () => clock.now(),
+    advance: () => undefined,
+  }));
+
+  it("a deadline wait settles after its deadline on a real timer; a past one at once; cancel stops it", async () => {
+    const past = clock.after(clock.now() - 1);
+    past.cancel();
+    await past.passed;
+    const deadline = clock.now() + 20;
+    await clock.after(deadline).passed;
+    expect(clock.now()).toBeGreaterThan(deadline);
+    let fired = false;
+    const cancelled = clock.after(clock.now() + 10);
+    void cancelled.passed.then(() => {
+      fired = true;
+    });
+    cancelled.cancel();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(fired).toBe(false);
+  });
 });
 
 describe("I9: a part costs a fixed number of D1 calls, inside its worst case", () => {

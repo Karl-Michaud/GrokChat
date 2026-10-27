@@ -75,7 +75,7 @@ export function accountRuntime(
     db: env.DB,
     bucket: env.MEDIA,
     tokens: new DurableTokenStore(ctx.storage, vault),
-    locks: new MemoryLocks(clock),
+    locks: new MemoryLocks(clock, clock),
     flights: new MemorySingleFlight(),
     clock,
     x,

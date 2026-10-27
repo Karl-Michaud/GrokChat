@@ -231,3 +231,39 @@ describe("R20: an orphaned PUBLISHING post", () => {
     expect(h.x.posts.size).toBe(1);
   });
 });
+
+describe("§3.1.1: a publishNow that cannot get publishLock by its deadline", () => {
+  it("returns not-run at its deadline while a publishDue still holds the lock, and leaves its post unchanged", async () => {
+    const h = newHarness();
+    const account = await seedAccount();
+    const [first, second] = await duePosts(account.id, 2);
+    // Flags polled on each side's own timers, and the clock moved from inside the object: a promise
+    // settled across the test and the object would carry one context's I/O into the other.
+    const flags = { entered: false, released: false };
+    h.x.beforeCreate = async () => {
+      flags.entered = true;
+      while (h.clock.pendingWaits() === 0) {
+        await sleep(1);
+      }
+      h.clock.advance(DEADLINE - T0 + SECOND);
+      while (!flags.released) {
+        await sleep(1);
+      }
+    };
+    const object = objectFor(account.id);
+    const due = object.publishDue(account.id, T0, DEADLINE + MINUTE);
+    while (!flags.entered) {
+      await sleep(1);
+    }
+    const now = object.publishNow(account.id, second?.id ?? postId(""), DEADLINE);
+    expect(await now).toMatchObject({ ran: false, sent: 0 });
+    const untouched = await stores().reader.get(second?.id ?? postId(""));
+    expect(untouched?.lifecycle).toBe("SCHEDULED");
+    expect(untouched?.version).toBe(second?.version);
+    expect(untouched?.parts[0]?.state.kind).toBe("PENDING");
+    expect(h.x.posts.size).toBe(0);
+    flags.released = true;
+    expect((await due).ran).toBe(true);
+    expect((await stores().reader.get(first?.id ?? postId("")))?.lifecycle).toBe("DONE");
+  });
+});

@@ -76,7 +76,7 @@ export function testRuntime(ctx: DurableObjectState): AccountRuntime {
     ...accountRuntime(ctx, env, x),
     db: h.meter.db,
     clock: h.clock,
-    locks: h.locks === "none" ? new NoLocks() : new MemoryLocks(h.clock),
+    locks: h.locks === "none" ? new NoLocks() : new MemoryLocks(h.clock, h.clock),
   };
 }
 

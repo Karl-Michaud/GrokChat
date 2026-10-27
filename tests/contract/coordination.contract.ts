@@ -1,6 +1,6 @@
 /** Contracts for the locks, single-flight, the budget meter, the clock and the id generator. */
 import { expect, it } from "vitest";
-import { SECOND } from "../../src/entities/time/instant";
+import { SECOND, type Instant } from "../../src/entities/time/instant";
 import type { BudgetMeter } from "../../src/use_cases/ports/budget_meter";
 import type { Clock } from "../../src/use_cases/ports/clock";
 import type { IdGenerator } from "../../src/use_cases/ports/id_generator";
@@ -59,6 +59,66 @@ export function locksContract(
     release();
     await held;
     expect(await waiting).toStrictEqual({ acquired: false });
+  });
+}
+
+/**
+ * A publish waiter stops waiting at its deadline while the holder still runs (plan §3.3 #1,
+ * §3.1.1). `advance` moves a manual clock; on a real clock it is a no-op and real time passes.
+ */
+export function lockDeadlineContract(
+  make: () => {
+    readonly locks: Locks;
+    readonly now: () => Instant;
+    readonly advance: (ms: number) => void;
+  },
+): void {
+  it("a waiter gives up at its deadline while the holder never releases, and keeps the lock order", async () => {
+    const { locks, now, advance } = make();
+    const order: string[] = [];
+    let release = (): void => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held = locks.publish.run(async () => {
+      await gate;
+      order.push("holder");
+    }, null);
+    const start = now();
+    const waiting = locks.publish.run(() => {
+      order.push("late waiter");
+      return Promise.resolve();
+    }, start + 50);
+    const next = locks.publish.run(() => {
+      order.push("next");
+      return Promise.resolve();
+    }, null);
+    advance(100);
+    expect(await waiting).toStrictEqual({ acquired: false });
+    expect(now() - start).toBeLessThan(SECOND);
+    expect(order).toStrictEqual([]);
+    release();
+    await held;
+    await next;
+    expect(order).toStrictEqual(["holder", "next"]);
+    expect(await locks.publish.run(() => Promise.resolve(3), now() + SECOND)).toStrictEqual({
+      acquired: true,
+      value: 3,
+    });
+  });
+
+  it("a waiter whose deadline has not passed when the holder releases runs", async () => {
+    const { locks, now } = make();
+    let release = (): void => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held = locks.publish.run(() => gate, null);
+    const waiting = locks.publish.run(() => Promise.resolve(4), now() + 10 * SECOND);
+    await tick();
+    release();
+    await held;
+    expect(await waiting).toStrictEqual({ acquired: true, value: 4 });
   });
 }
 
