@@ -132,10 +132,11 @@ export class MemoryPostWriter implements PostWriter {
   async commitPart(
     post: Post,
     expectedVersion: number,
+    expectedLifecycle: Lifecycle,
     audit: AuditEvent,
     cost: CostEntry,
   ): Promise<SaveResult> {
-    const saved = await this.save(post, expectedVersion, "PUBLISHING");
+    const saved = await this.save(post, expectedVersion, expectedLifecycle);
     if (saved.kind === "ok") {
       await this.audit.append(audit);
       await this.costs.append(cost);

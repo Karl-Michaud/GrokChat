@@ -34,7 +34,13 @@ export class GuardedTransition {
     if (!result.ok) {
       return { kind: "invalid_transition" };
     }
-    const saved = await this.writer.commitPart(result.post, post.version, audit, cost);
+    const saved = await this.writer.commitPart(
+      result.post,
+      post.version,
+      post.lifecycle,
+      audit,
+      cost,
+    );
     return saved.kind === "ok" ? { kind: "ok", post: result.post } : { kind: "version_conflict" };
   }
 }
