@@ -13,12 +13,14 @@ export interface PostWriter {
   /** Writes only if the stored post still has this version and lifecycle (plan §3.5). */
   save(post: Post, expectedVersion: number, expectedLifecycle: Lifecycle): Promise<SaveResult>;
   /**
-   * One guarded batch: the version guard first, then the post with its part, the audit event and
-   * the cost entry, so a part costs a fixed number of queries (M2-feas, A4).
+   * One guarded batch: the version guard first (version and lifecycle, as `save`), then the post
+   * with its part, the audit event and the cost entry, so a part costs a fixed number of queries
+   * (M2-feas, A4). A stale guard writes nothing.
    */
   commitPart(
     post: Post,
     expectedVersion: number,
+    expectedLifecycle: Lifecycle,
     audit: AuditEvent,
     cost: CostEntry,
   ): Promise<SaveResult>;
