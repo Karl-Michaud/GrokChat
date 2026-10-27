@@ -1,0 +1,55 @@
+{
+  "name": "grokchat",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GrokChat: the MCP server and dashboard that posts Grok bots' scripts to X, on Cloudflare Workers.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=26.10.0",
+    "npm": ">=11.19.1"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.inner.json && tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "lint": "eslint --max-warnings 0 .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs",
+    "test": "vitest run --coverage",
+    "mutation": "stryker run",
+    "licenses": "npm run licenses:runtime && npm run licenses:all",
+    "licenses:runtime": "license-checker-rseidelsohn --excludePrivatePackages --clarificationsFile licence-clarifications.json --clarificationsMatchAll true --production --onlyAllow \"MIT;Apache-2.0;ISC;BSD-2-Clause;BSD-3-Clause;0BSD\" --summary",
+    "licenses:all": "license-checker-rseidelsohn --excludePrivatePackages --clarificationsFile licence-clarifications.json --onlyAllow \"MIT;Apache-2.0;ISC;BSD-2-Clause;BSD-3-Clause;0BSD;MIT OR Apache-2.0;BlueOak-1.0.0;CC0-1.0;CC-BY-3.0;CC-BY-4.0;(MIT AND CC-BY-3.0);MPL-2.0;LGPL-3.0-or-later\" --summary",
+    "audit": "npm audit --omit=dev",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run depcruise && npm run test && npm run mutation && npm run licenses && npm run audit",
+    "dev": "wrangler dev"
+  },
+  "dependencies": {
+    "hono": "4.13.14",
+    "twitter-text": "3.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.8",
+    "@cloudflare/workers-types": "5.20261027.1",
+    "@eslint/js": "10.0.1",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
+    "@types/node": "26.6.5",
+    "@vitest/coverage-istanbul": "5.0.5",
+    "dependency-cruiser": "18.7.0",
+    "eslint": "10.13.0",
+    "fast-check": "4.10.2",
+    "license-checker-rseidelsohn": "5.0.1",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.0.5",
+    "wrangler": "4.153.0"
+  },
+  "allowScripts": {
+    "core-js": false,
+    "esbuild": false,
+    "workerd": false,
+    "fsevents": false
+  }
+}

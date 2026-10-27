@@ -1,7 +1,19 @@
-# --- secrets: never committed (they live in Infisical) ---
+# --- secrets: never committed (they live in Infisical / Worker secrets) ---
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.spike_token
+
+# --- dependencies and tool output ---
+node_modules/
+.wrangler/
+.vercel/
+coverage/
+reports/
+.stryker-tmp/
 
 # --- os / editor ---
 .DS_Store

@@ -1,0 +1,14 @@
+# Copy to .dev.vars (gitignored) for `wrangler dev`. Names only: never put a value in this file.
+# Production values are Worker secrets (`wrangler secret put <NAME>`), plan §3.6.
+
+# Secrets
+X_CLIENT_ID=
+X_CLIENT_SECRET=
+GROKCHAT_BOT_CLIENTS=
+GROKCHAT_TOKEN_KEYS=
+GROKCHAT_SESSION_SECRET=
+GROKCHAT_ADMIN_PASSWORD_HASH=
+
+# Vars
+GROKCHAT_PUBLIC_ORIGIN=
+GROKCHAT_MEDIA_HOSTS=
