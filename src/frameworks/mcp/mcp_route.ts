@@ -35,7 +35,7 @@ export function mcpRoute(handlers: ToolHandlerFactory) {
   return async (request: Request, env: Env): Promise<Response> => {
     const clients = parseBotClients(env.GROKCHAT_BOT_CLIENTS);
     if (!clients.ok) {
-      console.error("grokchat mcp: GROKCHAT_BOT_CLIENTS is missing or invalid");
+      console.error(`grokchat mcp: GROKCHAT_BOT_CLIENTS refused (${clients.problem})`);
       return jsonError(503, "bot_auth_unavailable");
     }
     const token = bearerToken(request.headers.get("authorization"));

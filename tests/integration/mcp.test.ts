@@ -2,7 +2,7 @@
  * The MCP server through main.ts (plan §6 integration, R6): the SDK client lists the 13 tools,
  * creates a post that the in-memory publisher sends, and is refused without the right token.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { xPostId } from "../../src/entities/identity/ids";
 import type { Env } from "../../src/frameworks/env";
 import { stubs } from "../../src/main";
@@ -244,6 +244,61 @@ describe("create_post → published by the in-memory publisher (stub X)", () => 
   });
 });
 
+describe("stage_media_from_url → create_post with the media", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+
+  it("stages from an allowed host and posts with the staged photo", async () => {
+    const account = await seedAccount();
+    const url = `https://media.example/${account.id}.png`;
+    stubs.fetcher.responses.set(url, { ok: true, bytes: PNG, contentType: "image/png" });
+    const client = await connect(await botEnv([account.id]));
+    const staged = await client.callTool({
+      name: "stage_media_from_url",
+      arguments: { account_id: account.id, url },
+    });
+    expect(body(staged)).toMatchObject({ kind: "PHOTO", size_bytes: PNG.length });
+    const mediaId = String(body(staged)["media_id"]);
+    const created = await client.callTool({
+      name: "create_post",
+      arguments: {
+        account_id: account.id,
+        text: "with a photo",
+        media_ids: [mediaId],
+        idempotency_key: "k-media",
+      },
+    });
+    expect(body(created)).toMatchObject({ status: "PUBLISHED" });
+    expect(stubs.x.postsBy(account.id)[0]?.media).toHaveLength(1);
+  });
+
+  it("refuses every host when GROKCHAT_MEDIA_HOSTS is not set", async () => {
+    const account = await seedAccount();
+    const { GROKCHAT_MEDIA_HOSTS: hosts, ...rest } = await botEnv([account.id]);
+    expect(hosts).toBe("media.example");
+    const client = await connect(rest);
+    const staged = await client.callTool({
+      name: "stage_media_from_url",
+      arguments: { account_id: account.id, url: "https://media.example/a.png" },
+    });
+    expect(body(staged)).toStrictEqual({ error: "host_not_allowed", part: null });
+  });
+
+  it("reads the allowlist case-insensitively, trimming spaces and empty entries", async () => {
+    const account = await seedAccount();
+    const url = `https://cdn.example/${account.id}.png`;
+    stubs.fetcher.responses.set(url, { ok: true, bytes: PNG, contentType: "image/png" });
+    const workerEnv = await botEnv([account.id], [], {
+      GROKCHAT_MEDIA_HOSTS: " other.example, ,CDN.Example ",
+    });
+    const client = await connect(workerEnv);
+    const staged = await client.callTool({
+      name: "stage_media_from_url",
+      arguments: { account_id: account.id, url },
+    });
+    expect(isError(staged)).toBe(false);
+  });
+});
+
 describe("tool refusals and boundary checks", () => {
   it("refuses an over-long part as isError with the use case's code and the part index", async () => {
     const account = await seedAccount();
@@ -290,6 +345,45 @@ describe("tool refusals and boundary checks", () => {
       expect(JSON.stringify(result)).not.toContain(BOT_TOKEN);
     } finally {
       stubs.accounts.get = original;
+    }
+  });
+});
+
+describe("logging (m3)", () => {
+  it("never logs the Authorization header, a token or the bot-clients secret", async () => {
+    const lines: string[] = [];
+    const capture = (...args: unknown[]) => {
+      lines.push(args.map(String).join(" "));
+    };
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map((level) =>
+      vi.spyOn(console, level).mockImplementation(capture),
+    );
+    try {
+      const account = await seedAccount();
+      const workerEnv = await botEnv([account.id]);
+      await call(workerEnv, initialize("/mcp", { authorization: `Bearer ${"f".repeat(64)}` }));
+      await call(
+        { ...workerEnv, GROKCHAT_BOT_CLIENTS: `[${BOT_TOKEN}` },
+        initialize("/mcp", { authorization: `Bearer ${BOT_TOKEN}` }),
+      );
+      const client = await connect(workerEnv);
+      const original = stubs.accounts.get.bind(stubs.accounts);
+      stubs.accounts.get = () => Promise.reject(new Error(`boom ${BOT_TOKEN}`));
+      try {
+        await client.callTool({ name: "get_policy", arguments: { account_id: account.id } });
+      } finally {
+        stubs.accounts.get = original;
+      }
+      expect(lines).toContain("grokchat mcp: GROKCHAT_BOT_CLIENTS refused (not_json)");
+      expect(lines).toContain("grokchat mcp: tool get_policy failed");
+      const all = lines.join("\n");
+      expect(all).not.toContain(BOT_TOKEN);
+      expect(all).not.toContain("f".repeat(64));
+      expect(all.toLowerCase()).not.toContain("authorization");
+    } finally {
+      for (const spy of spies) {
+        spy.mockRestore();
+      }
     }
   });
 });

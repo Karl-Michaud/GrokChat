@@ -20,29 +20,36 @@ const entry = z.strictObject({
 /** Two entries with one id or one token hash would make a caller ambiguous: refuse the list. */
 const clients = z
   .array(entry)
-  .refine((list) => new Set(list.map((item) => item.id)).size === list.length, "duplicate id")
-  .refine(
-    (list) => new Set(list.map((item) => item.tokenSha256)).size === list.length,
-    "duplicate tokenSha256",
-  );
+  .refine((list) => new Set(list.map((item) => item.id)).size === list.length)
+  .refine((list) => new Set(list.map((item) => item.tokenSha256)).size === list.length);
+
+/** Why the secret was refused: logged by name, never with the value. */
+export type BotClientsProblem = "missing" | "not_json" | "invalid";
 
 export type BotClientsParse =
-  { readonly ok: true; readonly clients: readonly BotClientEntry[] } | { readonly ok: false };
+  | { readonly ok: true; readonly clients: readonly BotClientEntry[] }
+  | { readonly ok: false; readonly problem: BotClientsProblem };
+
+function parseJson(raw: string): { readonly json: unknown } | null {
+  try {
+    return { json: JSON.parse(raw) };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Parses the secret's JSON. Anything malformed fails closed: no client is accepted, and the
- * reason is not echoed (it could quote the secret).
+ * zod issues are not passed on (they could quote the secret).
  */
 export function parseBotClients(raw: string | undefined): BotClientsParse {
   if (raw === undefined) {
-    return { ok: false };
+    return { ok: false, problem: "missing" };
   }
-  let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    return { ok: false };
+  const parsed = parseJson(raw);
+  if (parsed === null) {
+    return { ok: false, problem: "not_json" };
   }
-  const parsed = clients.safeParse(json);
-  return parsed.success ? { ok: true, clients: parsed.data } : { ok: false };
+  const checked = clients.safeParse(parsed.json);
+  return checked.success ? { ok: true, clients: checked.data } : { ok: false, problem: "invalid" };
 }
