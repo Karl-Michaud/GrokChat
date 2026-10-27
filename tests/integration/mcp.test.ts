@@ -270,6 +270,37 @@ describe("stage_media_from_url → R2 → create_post with the media", () => {
     expect(stored.objects.map((object) => object.size)).toContain(PNG.length);
   });
 
+  it.each([
+    [
+      "a redirect off the allowlist",
+      () =>
+        new Response(null, { status: 302, headers: { location: "https://evil.example/a.png" } }),
+      "host_not_allowed",
+    ],
+    [
+      "Cloudflare's 403 for a private address",
+      () => new Response("error code: 1003", { status: 403 }),
+      "host_not_allowed",
+    ],
+    ["a page that is not media", () => new Response("<html></html>"), "bad_type"],
+  ])("refuses %s through the real fetcher, storing nothing", async (_name, answer, code) => {
+    const account = await seedAccount();
+    const url = `https://media.example/${account.id}-refused.png`;
+    x.web.set(url, answer);
+    const client = await connect(await botEnv([account.id]));
+    const staged = await client.callTool({
+      name: "stage_media_from_url",
+      arguments: { account_id: account.id, url },
+    });
+    expect(body(staged)).toStrictEqual({ error: code, part: null });
+    const rows = await env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM staged_media WHERE owner_account_id = ?",
+    )
+      .bind(account.id)
+      .first<{ n: number }>();
+    expect(rows?.n).toBe(0);
+  });
+
   it("refuses every host when GROKCHAT_MEDIA_HOSTS is not set", async () => {
     const account = await seedAccount();
     const { GROKCHAT_MEDIA_HOSTS: hosts, ...rest } = await botEnv([account.id]);

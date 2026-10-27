@@ -3,6 +3,8 @@
  * Cloudflare-service call (U16), and `rowsRead` sums `meta.rows_read` of the calls that report it.
  * `failBatches` makes batches throw before they reach D1 (a store failing mid-publish), after
  * `passBatches` more have gone through; `broken` makes every statement fail to prepare.
+ * `afterQuery` runs after each `first` or `all` returns from D1 and before its caller sees the
+ * result, with the statement's SQL: a test parks queries there to force an interleaving.
  */
 export interface Meter {
   readonly db: D1Database;
@@ -11,11 +13,12 @@ export interface Meter {
   failBatches: number;
   passBatches: number;
   broken: boolean;
+  afterQuery: (sql: string) => Promise<void>;
 }
 
 type Statement = D1PreparedStatement;
 
-function meteredStatement(statement: Statement, meter: Meter): Statement {
+function meteredStatement(statement: Statement, meter: Meter, sql: string): Statement {
   return new Proxy(statement, {
     get(target, property, receiver) {
       const value: unknown = Reflect.get(target, property, receiver);
@@ -23,12 +26,14 @@ function meteredStatement(statement: Statement, meter: Meter): Statement {
         return value;
       }
       if (property === "bind") {
-        return (...values: unknown[]) => meteredStatement(target.bind(...values), meter);
+        return (...values: unknown[]) => meteredStatement(target.bind(...values), meter, sql);
       }
       if (property === "first" || property === "raw") {
-        return (...args: unknown[]) => {
+        return async (...args: unknown[]) => {
           meter.calls += 1;
-          return (value as (...a: unknown[]) => unknown).apply(target, args);
+          const result: unknown = await (value as (...a: unknown[]) => unknown).apply(target, args);
+          await meter.afterQuery(sql);
+          return result;
         };
       }
       if (property === "all" || property === "run") {
@@ -36,6 +41,7 @@ function meteredStatement(statement: Statement, meter: Meter): Statement {
           meter.calls += 1;
           const result = await (property === "all" ? target.all() : target.run());
           meter.rowsRead += result.meta.rows_read;
+          await meter.afterQuery(sql);
           return result;
         };
       }
@@ -52,6 +58,7 @@ export function metered(db: D1Database): Meter {
     failBatches: 0,
     passBatches: 0,
     broken: false,
+    afterQuery: () => Promise.resolve(),
   };
   const proxy = new Proxy(db, {
     get(target, property, receiver) {
@@ -60,7 +67,7 @@ export function metered(db: D1Database): Meter {
           if (meter.broken) {
             throw new Error("D1 unavailable (test)");
           }
-          return meteredStatement(target.prepare(sql), meter);
+          return meteredStatement(target.prepare(sql), meter, sql);
         };
       }
       if (property === "batch") {

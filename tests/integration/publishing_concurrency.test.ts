@@ -43,11 +43,50 @@ async function duePosts(account: AccountId, count: number): Promise<readonly Pos
   return posts;
 }
 
+/**
+ * Holds every query matching `matches` until `parties` of them have arrived, then lets them all
+ * (and any later one) through: the calls that reach it are forced past this point together.
+ */
+function barrier(parties: number, matches: (sql: string) => boolean) {
+  let arrived = 0;
+  let open = (): void => undefined;
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return (sql: string): Promise<void> => {
+    if (!matches(sql)) {
+      return Promise.resolve();
+    }
+    arrived += 1;
+    if (arrived >= parties) {
+      open();
+    }
+    return opened;
+  };
+}
+
+/** `PublishPost.one` loads its post after recovery and before starting it. */
+const loadsThePost = (sql: string): boolean => sql.endsWith("FROM posts WHERE id = ?1");
+/** `PartSender`'s gate reads the account's recent attempts, then writes SENDING. */
+const readsRecentAttempts = (sql: string): boolean =>
+  sql.includes("FROM post_parts WHERE account_id = ?1 AND attempt_at >= ?2");
+
 async function tenConcurrentPublishNow(locks: "mutex" | "none"): Promise<number> {
   const h = newHarness({ locks });
   h.x.beforeCreate = () => sleep(5);
   const account = await seedAccount({ policy: aPolicy({ dailyCap: 3, minGap: 0 }) });
   const posts = await duePosts(account.id, 10);
+  if (locks === "none") {
+    // The race the mutex closes, forced instead of left to timing: every call finishes its
+    // recovery before any post starts, and every call reads the cap's attempts before any of them
+    // writes SENDING. With the mutex the calls never overlap, so no barrier could fill.
+    const started = barrier(posts.length, loadsThePost);
+    const gated = barrier(posts.length, readsRecentAttempts);
+    h.meter.afterQuery = async (sql) => {
+      await started(sql);
+      await gated(sql);
+    };
+  }
   const object = objectFor(account.id);
   await Promise.all(posts.map((post) => object.publishNow(account.id, post.id, DEADLINE)));
   return h.x.posts.size;
@@ -58,9 +97,14 @@ describe("R1: one Durable Object per account and its publish mutex", () => {
     expect(await tenConcurrentPublishNow("mutex")).toBe(3);
   });
 
-  it("negative control: without the mutex the same calls send more than 3", async () => {
-    expect(await tenConcurrentPublishNow("none")).toBeGreaterThan(3);
-  });
+  // Deterministic: the barriers force every call through the gate on the same empty count, so all
+  // ten send. Twenty rounds, each on a fresh account and object, prove it does not depend on luck.
+  it.each(Array.from({ length: 20 }, (_, round) => round + 1))(
+    "negative control, round %i: without the mutex the same calls all send (10, not 3)",
+    async () => {
+      expect(await tenConcurrentPublishNow("none")).toBe(10);
+    },
+  );
 });
 
 describe("R4: X created the post, then our write failed", () => {
