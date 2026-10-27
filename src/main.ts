@@ -99,6 +99,7 @@ import { PartSender } from "./use_cases/run_services/part_sender";
 import { PublishPost } from "./use_cases/run_services/publish_post";
 import { ReconcileAccount } from "./use_cases/run_services/reconcile_account";
 import { RefreshingTokenProvider } from "./use_cases/run_services/refreshing_token_provider";
+import { TokenStep } from "./use_cases/run_services/token_step";
 import { XCallRecorder } from "./use_cases/run_services/x_call_recorder";
 import { StageMediaFromUrlInteractor } from "./use_cases/stage_media_from_url/interactor";
 
@@ -351,8 +352,8 @@ export function buildAccountServices(runtime: AccountRuntime): AccountServices {
   });
   const recovery = new AccountRecovery(reader, writer);
   const publish = new PublishPost({ reader, accounts, locks, clock, recovery, steps, sender });
-  const flights = runtime.flights;
-  const shared = { reader, accounts, recorder, flights, clock };
+  const tokenStep = new TokenStep(tokens, clock);
+  const shared = { reader, accounts, recorder, flights: runtime.flights, clock, tokenStep };
   return {
     publisher: new InProcessAccountPublisher(publish),
     reconciler: new InProcessAccountReconciler(
@@ -373,8 +374,9 @@ export function buildAccountServices(runtime: AccountRuntime): AccountServices {
 }
 
 /**
- * The account's Durable Object, bound as ACCOUNT. Its X ports are unavailable until the X drivers
- * land (PR 4): nothing is sent, and every due part waits as a retryable failure.
+ * The account's Durable Object, bound as ACCOUNT. Its X ports stay unavailable until the X drivers
+ * (PR 4) are wired here, per invocation around its `BudgetMeter` (plan §3.5): nothing is sent, and
+ * every due part waits as a retryable failure.
  */
 export class AccountPublisher extends AccountPublisherObject {
   protected build(): AccountServices {

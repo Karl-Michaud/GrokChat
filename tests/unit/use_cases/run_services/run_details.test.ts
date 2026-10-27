@@ -1,5 +1,6 @@
 /** Run-service details the mutation run showed were not yet pinned down. */
 import { describe, expect, it } from "vitest";
+import { TOKEN_REFRESH_MILLIS, TOKEN_STEP_CALLS } from "../../../../src/entities/budget/budget";
 import { accountId, postId, xPostId, xUserId } from "../../../../src/entities/identity/ids";
 import { DAY, HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
 import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
@@ -69,13 +70,32 @@ describe("PartSender reports why it stopped", () => {
     });
   });
 
-  it("the token step's own time must fit, even when the part's would", async () => {
+  it("a valid token needs no refresh time: the part goes when its own budget fits", async () => {
     const world = makeWorld();
     await world.seedAccount();
     const post = put(world, aPost({ lifecycle: "PUBLISHING" }));
     expect(await world.sender.sendNext(post, meter(T0 + 3 * SECOND))).toMatchObject({
-      stop: "yielded",
+      stop: "continue",
+      sent: true,
     });
+    expect(world.tokenEndpoint.calls).toStrictEqual([]);
+  });
+
+  it("the token step's calls must fit, and a refresh must fit its whole minute", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    world.clock.advance(2 * HOUR - 5 * MINUTE);
+    const post = put(world, aPost({ lifecycle: "PUBLISHING" }));
+    const noCalls = new MemoryBudgetMeter({
+      deadline: T0 + DAY,
+      cloudflareCalls: TOKEN_STEP_CALLS.cloudflareCalls - 1,
+      externalSubrequests: 50,
+    });
+    expect(await world.sender.sendNext(post, noCalls)).toMatchObject({ stop: "yielded" });
+    const late = put(world, aPost({ lifecycle: "PUBLISHING" }));
+    const short = meter(world.clock.now() + TOKEN_REFRESH_MILLIS - 1);
+    expect(await world.sender.sendNext(late, short)).toMatchObject({ stop: "yielded" });
+    expect(world.tokenEndpoint.calls).toStrictEqual([]);
     expect(world.x.posts.size).toBe(0);
   });
 

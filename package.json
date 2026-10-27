@@ -16,6 +16,7 @@
     "format:check": "prettier --check .",
     "depcruise": "depcruise src --config .dependency-cruiser.cjs",
     "test": "vitest run --coverage",
+    "test:live": "vitest run --config vitest.live.config.ts",
     "mutation": "stryker run",
     "mutate:changed": "node scripts/mutate-changed.mjs",
     "licenses": "npm run licenses:runtime && npm run licenses:all",
