@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { redact, REDACTED } from "../../../../src/entities/security/redact";
+import { redact, redactCredentials, REDACTED } from "../../../../src/entities/security/redact";
 
 describe("redact", () => {
   it("removes every secret, longest first", () => {
@@ -20,6 +20,11 @@ describe("redact", () => {
     );
     expect(redact("bearer   tok123 next", [])).toBe("bearer [redacted] next");
     expect(redact("Bearer", [])).toBe("Bearer");
+  });
+
+  it("redactCredentials strips bearer credentials and nothing else", () => {
+    expect(redactCredentials("Stryker was here")).toBe("Stryker was here");
+    expect(redactCredentials("auth Bearer abc")).toBe("auth Bearer [redacted]");
   });
 
   const secret = fc.stringMatching(/^[A-Za-z0-9]{12,40}$/);

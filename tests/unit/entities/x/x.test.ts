@@ -32,16 +32,25 @@ describe("mapXOutcome", () => {
     expect(mapXOutcome(http(503), T0)).toStrictEqual({ kind: "unknown" });
   });
 
-  it("429 → rate-limited by scope, at X's retry time or in a minute", () => {
+  it("429 → rate-limited for the user or the whole app, at X's retry time or in a minute", () => {
     expect(mapXOutcome(http(429, { scope: "app", retryAt: T0 + 5 }), T0)).toStrictEqual({
-      kind: "rate_limited",
-      scope: "app",
+      kind: "app_rate_limited",
       retryAt: T0 + 5,
     });
     expect(mapXOutcome(http(429), T0)).toStrictEqual({
       kind: "rate_limited",
-      scope: "user",
       retryAt: T0 + MINUTE,
+    });
+    expect(mapXOutcome(http(429, { scope: "app" }), T0)).toStrictEqual({
+      kind: "app_rate_limited",
+      retryAt: T0 + MINUTE,
+    });
+  });
+
+  it("a detail is kept as X sent it unless it carries a credential", () => {
+    expect(mapXOutcome(http(400, { detail: "Stryker was here" }), T0)).toStrictEqual({
+      kind: "rejected",
+      reason: "x_400: Stryker was here",
     });
   });
 
@@ -56,6 +65,10 @@ describe("mapXOutcome", () => {
       reason: "x_400: bad text",
     });
     expect(mapXOutcome(http(499), T0)).toStrictEqual({ kind: "rejected", reason: "x_499: why" });
+    expect(mapXOutcome(http(400, { detail: "echo Bearer abc.def" }), T0)).toStrictEqual({
+      kind: "rejected",
+      reason: "x_400: echo Bearer [redacted]",
+    });
   });
 });
 
@@ -81,7 +94,10 @@ describe("refreshOutcome (U1, U14)", () => {
   });
 
   it("failed but the stored token changed → retry once with it, then lost", () => {
-    expect(refreshOutcome(failed, "r1", "r9", false)).toStrictEqual({ kind: "retry_with_stored" });
+    expect(refreshOutcome(failed, "r1", "r9", false)).toStrictEqual({
+      kind: "retry_with_stored",
+      refreshToken: "r9",
+    });
     expect(refreshOutcome(failed, "r1", "r9", true)).toStrictEqual({ kind: "lost" });
   });
 

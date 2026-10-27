@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { DAY, HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
+import { DAY, HOUR, inWindow, MINUTE, SECOND } from "../../../../src/entities/time/instant";
 import {
   instantsOfWall,
   isValidTimeZone,
@@ -128,5 +128,17 @@ describe("nextWallMinute", () => {
       ),
       { numRuns: 40 },
     );
+  });
+});
+
+describe("inWindow", () => {
+  it("is half-open: from included, to excluded", () => {
+    const window = { from: 10, to: 20 };
+    expect([9, 10, 19, 20].map((instant) => inWindow(window, instant))).toStrictEqual([
+      false,
+      true,
+      true,
+      false,
+    ]);
   });
 });

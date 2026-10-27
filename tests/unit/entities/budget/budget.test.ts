@@ -5,9 +5,12 @@ import {
   fits,
   INVOCATION_LIMITS,
   invocationBudget,
+  METRICS_READ_COST,
   partCost,
+  partCostForMediaCount,
+  RECONCILE_CHECK_COST,
   spend,
-  TOKEN_REFRESH_COST,
+  TOKEN_STEP_COST,
 } from "../../../../src/entities/budget/budget";
 import { SECOND } from "../../../../src/entities/time/instant";
 import { T0 } from "../../support/builders";
@@ -42,14 +45,17 @@ describe("Budget (U16)", () => {
     });
   });
 
-  it("the fan-out ceiling and the per-dispatch and refresh costs", () => {
+  it("the fan-out ceiling and the fixed step costs", () => {
     expect(FANOUT_CEILING).toBe(200);
     expect(DISPATCH_COST).toStrictEqual({ cloudflareCalls: 1, externalSubrequests: 0, millis: 0 });
-    expect(TOKEN_REFRESH_COST).toStrictEqual({
-      cloudflareCalls: 0,
+    expect(TOKEN_STEP_COST).toStrictEqual({
+      cloudflareCalls: 2,
       externalSubrequests: 1,
       millis: 5 * SECOND,
     });
+    const read = { cloudflareCalls: 3, externalSubrequests: 1, millis: 2 * SECOND };
+    expect(RECONCILE_CHECK_COST).toStrictEqual(read);
+    expect(METRICS_READ_COST).toStrictEqual(read);
   });
 
   it("a part's worst case grows with its media", () => {
@@ -59,15 +65,21 @@ describe("Budget (U16)", () => {
       millis: 2 * SECOND,
     });
     expect(partCost(["PHOTO", "PHOTO"])).toStrictEqual({
-      cloudflareCalls: 15,
+      cloudflareCalls: 17,
       externalSubrequests: 3,
       millis: 4 * SECOND,
     });
     expect(partCost(["GIF"])).toStrictEqual({
-      cloudflareCalls: 10,
+      cloudflareCalls: 11,
       externalSubrequests: 12,
       millis: 7 * SECOND,
     });
+  });
+
+  it("the worst case by media count: a single item may be a GIF, several are photos", () => {
+    expect(partCostForMediaCount(0)).toStrictEqual(partCost([]));
+    expect(partCostForMediaCount(1)).toStrictEqual(partCost(["GIF"]));
+    expect(partCostForMediaCount(3)).toStrictEqual(partCost(["PHOTO", "PHOTO", "PHOTO"]));
   });
 
   it("the worst thread part fits one invocation many times over", () => {
