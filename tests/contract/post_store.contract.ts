@@ -9,6 +9,7 @@ import type { AuditLog } from "../../src/use_cases/ports/audit_log";
 import type { CostLedger } from "../../src/use_cases/ports/cost_ledger";
 import type { PostReader } from "../../src/use_cases/ports/post_reader";
 import type { PostWriter } from "../../src/use_cases/ports/post_writer";
+import type { PublishingCount } from "../../src/use_cases/ports/publishing_count";
 import {
   ACCOUNT,
   aPost,
@@ -21,7 +22,7 @@ import {
 } from "../unit/support/builders";
 
 export interface PostStore {
-  readonly reader: PostReader;
+  readonly reader: PostReader & PublishingCount;
   readonly writer: PostWriter;
   readonly audit: AuditLog;
   readonly costs: CostLedger;
@@ -43,6 +44,16 @@ const COST = {
 } as const;
 
 export function postStoreContract(make: () => PostStore): void {
+  it("counts the posts PUBLISHING now, and nothing else", async () => {
+    const { reader, writer } = make();
+    expect(await reader.publishingCount()).toBe(0);
+    const lifecycles = ["PUBLISHING", "SCHEDULED", "PUBLISHING", "DONE", "RESUMING"] as const;
+    for (const [index, lifecycle] of lifecycles.entries()) {
+      await writer.add(aPost({ id: postId(`p-${String(index)}`), lifecycle }));
+    }
+    expect(await reader.publishingCount()).toBe(2);
+  });
+
   it("add then get; a missing id is null", async () => {
     const { reader, writer } = make();
     const post = aPost();

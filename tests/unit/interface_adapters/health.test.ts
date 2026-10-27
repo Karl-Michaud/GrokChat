@@ -7,10 +7,10 @@ import type { GetHealthInputBoundary } from "../../../src/use_cases/get_health/i
 describe("HealthPresenter", () => {
   it("turns the output data into a 200 view", () => {
     const viewModel = new HealthViewModel();
-    new HealthPresenter(viewModel).present({ service: "grokchat", status: "ok" });
+    new HealthPresenter(viewModel).present({ service: "grokchat", status: "ok", publishing: 2 });
     expect(viewModel.current()).toStrictEqual({
       httpStatus: 200,
-      body: { service: "grokchat", status: "ok" },
+      body: { service: "grokchat", status: "ok", publishing: 2 },
     });
   });
 });
@@ -24,14 +24,15 @@ describe("HealthViewModel", () => {
 });
 
 describe("HealthController", () => {
-  it("runs the use case once per request", () => {
+  it("runs the use case once per request, and waits for it", async () => {
     let calls = 0;
     const useCase: GetHealthInputBoundary = {
-      execute: () => {
+      execute: async () => {
+        await Promise.resolve();
         calls += 1;
       },
     };
-    new HealthController(useCase).health();
+    await new HealthController(useCase).health();
     expect(calls).toBe(1);
   });
 });

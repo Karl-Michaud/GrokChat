@@ -10,10 +10,22 @@ class RecordingPresenter implements GetHealthOutputBoundary {
   }
 }
 
+const counting = (n: number) => ({ publishingCount: () => Promise.resolve(n) });
+
 describe("GetHealthInteractor", () => {
-  it("presents the current health exactly once", () => {
+  it("presents the current health and the PUBLISHING count exactly once", async () => {
     const presenter = new RecordingPresenter();
-    new GetHealthInteractor(presenter).execute();
-    expect(presenter.presented).toStrictEqual([{ service: "grokchat", status: "ok" }]);
+    await new GetHealthInteractor(counting(3), presenter).execute();
+    expect(presenter.presented).toStrictEqual([
+      { service: "grokchat", status: "ok", publishing: 3 },
+    ]);
+  });
+
+  it("reports 0 when nothing is publishing: the time to deploy (m7)", async () => {
+    const presenter = new RecordingPresenter();
+    await new GetHealthInteractor(counting(0), presenter).execute();
+    expect(presenter.presented).toStrictEqual([
+      { service: "grokchat", status: "ok", publishing: 0 },
+    ]);
   });
 });

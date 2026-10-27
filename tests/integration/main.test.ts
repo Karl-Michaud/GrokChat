@@ -1,16 +1,33 @@
 import { createExecutionContext, createScheduledController } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import { postId } from "../../src/entities/identity/ids";
+import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { mediaHosts } from "../../src/frameworks/composition/worker_graph";
 import { validOrigin } from "../../src/frameworks/web/config";
 import worker from "../../src/main";
+import { aPost } from "../unit/support/builders";
+import { freshStorage } from "./support/fresh_d1";
 
 describe("GET /health through the deployed entry point (wrangler.jsonc main)", () => {
   it("answers 200 with the service status as JSON", async () => {
     const response = await exports.default.fetch("https://grokchat.test/health");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toMatch(/^application\/json/);
-    expect(await response.json()).toStrictEqual({ service: "grokchat", status: "ok" });
+    expect(await response.json()).toStrictEqual({
+      service: "grokchat",
+      status: "ok",
+      publishing: 0,
+    });
+  });
+
+  it("counts the posts PUBLISHING in D1, so a deploy can wait for 0 (plan §3.6, m7)", async () => {
+    await freshStorage();
+    await d1Stores(env.DB).writer.add(aPost({ lifecycle: "PUBLISHING" }));
+    await d1Stores(env.DB).writer.add(aPost({ id: postId("post-2"), lifecycle: "SCHEDULED" }));
+    const response = await exports.default.fetch("https://grokchat.test/health");
+    expect(await response.json()).toMatchObject({ status: "ok", publishing: 1 });
+    await freshStorage();
   });
 
   it("answers 404 for a route that does not exist", async () => {

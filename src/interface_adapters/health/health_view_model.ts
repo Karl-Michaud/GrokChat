@@ -1,6 +1,10 @@
 export interface HealthView {
   readonly httpStatus: 200;
-  readonly body: { readonly service: string; readonly status: string };
+  readonly body: {
+    readonly service: string;
+    readonly status: string;
+    readonly publishing: number;
+  };
 }
 
 /** Holds what the presenter produced for one request; built per request by the composition root. */
