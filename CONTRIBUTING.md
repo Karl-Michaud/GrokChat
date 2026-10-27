@@ -44,11 +44,12 @@ src/use_cases/<name>/    input_boundary, interactor, output_boundary, output_dat
 src/use_cases/ports/     data-access interfaces, entity types only
 src/interface_adapters/  controllers, presenters, view models; zod schemas in schemas/
 src/frameworks/          Workers entry pieces, Durable Object, D1/R2/X drivers, Hono, MCP SDK
+src/frameworks/memory/   in-memory stubs, one per port (tests, and the stub backend)
 src/main.ts              composition root
 tests/{architecture,contract,invariants,unit,integration}/
 ```
 
-`tests/architecture/fixtures/` holds deliberate violations that the architecture tests feed to each gate; they are excluded from the normal runs.
+`tests/contract/*.contract.ts` holds one suite per port; `tests/contract/memory_stubs.test.ts` runs them against the stubs, and each real driver joins it. `tests/architecture/fixtures/` holds deliberate violations that the architecture tests feed to each gate; they are excluded from the normal runs.
 
 ## Dependencies
 

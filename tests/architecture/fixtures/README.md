@@ -10,3 +10,4 @@ from the normal typecheck, lint and dependency-cruiser runs.
 | `ambient/tsconfig.control.json` | `tsc` with workers-types         | pass, so the failure above is about ambient types only                                                                                     |
 | `lint/`                         | ESLint                           | flag triple-slash `types`, `path` and `lib` references in the inner layers, mutable module state in entities, and a function over 40 lines |
 | `layers/`                       | dependency-cruiser               | flag every rule in `.dependency-cruiser.cjs`                                                                                               |
+| `ports/`                        | the port-signature scan          | flag a port signature that names a vendor type (`hono`'s `Context`)                                                                        |
