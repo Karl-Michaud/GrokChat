@@ -44,8 +44,9 @@ src/use_cases/<name>/    input_boundary, interactor, output_boundary, output_dat
 src/use_cases/ports/     data-access interfaces, entity types only
 src/interface_adapters/  controllers, presenters, view models; zod schemas in schemas/
 src/frameworks/          Workers entry pieces, Durable Object, D1/R2/X drivers, Hono, MCP SDK
-src/frameworks/memory/   in-memory stubs, one per port (tests, and the stub backend)
-src/main.ts              composition root
+src/frameworks/composition/  the production graph's factories (Worker, MCP tools, dashboard, crons, the account object)
+src/frameworks/memory/   in-memory stubs and fakes, one per port: imported by tests only (dependency-cruiser `stubs-only-in-tests`)
+src/main.ts              composition root: builds the factories' graphs once per env and exports the entry points
 tests/{architecture,contract,invariants,unit,integration}/
 ```
 
