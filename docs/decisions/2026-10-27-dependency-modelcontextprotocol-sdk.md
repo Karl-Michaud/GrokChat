@@ -16,3 +16,4 @@ Installed in PR 5 (the MCP server), which first imports it.
 
 - The SDK pulls Node-oriented packages (express, cors, `@hono/node-server`) that the Worker bundle does not import; bundle size is checked when PR 5 lands (the spike measured 242 KB gzipped).
 - An SDK upgrade is re-proved against xAI's client with the `/mcp` regression test (R6).
+- Measured when PR 5 landed (GROKCHAT-10): the Worker bundle with the SDK, zod and twitter-text is 1,768.77 KiB, 326.74 KiB gzipped (`wrangler deploy --dry-run`), against the spike's 242 KB for the SDK alone. Stateless mode is selected by omitting `sessionIdGenerator` (the same as `undefined`), because `exactOptionalPropertyTypes` refuses an explicit `undefined` there.
