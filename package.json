@@ -25,8 +25,10 @@
     "dev": "wrangler dev"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "hono": "4.13.14",
-    "twitter-text": "3.1.0"
+    "twitter-text": "3.1.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "1.4.8",
