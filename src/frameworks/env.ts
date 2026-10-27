@@ -9,7 +9,10 @@ export interface Env {
   readonly ACCOUNT: DurableObjectNamespace<AccountPublisherObject>;
   readonly MEDIA: R2Bucket;
   // Secrets (`wrangler secret put`). Optional ones fail closed where they are read.
-  /** The X app's OAuth 2.0 client (plan §3.6); parsed by x_auth/x_oauth_config.ts. */
+  /**
+   * The X app's OAuth 2.0 client (plan §3.6): parsed by x_auth/x_oauth_config.ts, for the connect
+   * flow (`xOAuthConfig`) and the account DO's token refresh (`xClientCredentials`).
+   */
   readonly X_CLIENT_ID?: string;
   readonly X_CLIENT_SECRET?: string;
   readonly GROKCHAT_BOT_CLIENTS?: string;
