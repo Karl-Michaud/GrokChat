@@ -304,6 +304,13 @@ describe("logs (m3, I6)", () => {
     const { browser } = await dashboard();
     await browser.get("/dashboard/login?next=secret-query");
     expect(lines).toHaveLength(1);
+    await browser.get("/dashboard");
+    await browser.get("/oauth/x/callback");
+    expect(lines.map((line) => (JSON.parse(line) as { path: string }).path)).toStrictEqual([
+      "/dashboard/login",
+      "/dashboard",
+      "/oauth/x/callback",
+    ]);
     expect(JSON.parse(lines[0] ?? "{}")).toMatchObject({
       route: "web",
       method: "GET",
