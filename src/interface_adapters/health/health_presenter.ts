@@ -8,7 +8,7 @@ export class HealthPresenter implements GetHealthOutputBoundary {
   present(data: GetHealthOutputData): void {
     this.viewModel.update({
       httpStatus: 200,
-      body: { service: data.service, status: data.status },
+      body: { service: data.service, status: data.status, publishing: data.publishing },
     });
   }
 }

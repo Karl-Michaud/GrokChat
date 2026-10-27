@@ -48,6 +48,7 @@ src/frameworks/composition/  the production graph's factories (Worker, MCP tools
 src/frameworks/memory/   in-memory stubs and fakes, one per port: imported by tests only (dependency-cruiser `stubs-only-in-tests`)
 src/main.ts              composition root: builds the factories' graphs once per env and exports the entry points
 tests/{architecture,contract,invariants,unit,integration}/
+scripts/                 plain-Node tooling (no dependency): the deploy scripts (docs/runbook.md) and mutate-changed; outside the coverage and Stryker scope, which is src/
 ```
 
 `tests/contract/*.contract.ts` holds one suite per port; `tests/contract/memory_stubs.test.ts` runs them against the stubs, and each real driver joins it. `tests/architecture/fixtures/` holds deliberate violations that the architecture tests feed to each gate; they are excluded from the normal runs.
@@ -58,7 +59,7 @@ No new dependency without a decision record in `docs/decisions/` (`Agents/CLAUDE
 
 ## Secrets
 
-Never commit, print or log a secret. Production secrets are Worker secrets (`wrangler secret put <NAME>`). Locally, copy `.dev.vars.example` to `.dev.vars` (gitignored) for `wrangler dev`.
+Never commit, print or log a secret. Production secrets are Worker secrets, set by `npm run provision-secrets`, `npm run set-admin-password` and `npm run add-bot` over `wrangler secret put`'s stdin (`docs/runbook.md`). Locally, copy `.dev.vars.example` to `.dev.vars` (gitignored) for `wrangler dev`.
 
 ## Changelog
 

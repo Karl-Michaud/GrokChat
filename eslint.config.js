@@ -85,6 +85,11 @@ export default defineConfig(
         require: "readonly",
         process: "readonly",
         console: "readonly",
+        // Web globals that Node and workerd both have (scripts/deploy/secret_values.mjs).
+        crypto: "readonly",
+        TextEncoder: "readonly",
+        atob: "readonly",
+        btoa: "readonly",
       },
     },
   },

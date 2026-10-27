@@ -9,6 +9,7 @@ import { activityOf, type RecentActivity } from "../../entities/policy/recent_ac
 import type { Post } from "../../entities/posts/post";
 import { DAY, type Instant } from "../../entities/time/instant";
 import type { AccountWork, PostFilter, PostReader } from "../../use_cases/ports/post_reader";
+import type { PublishingCount } from "../../use_cases/ports/publishing_count";
 import { postFilterSql } from "./post_filter_sql";
 import { POST_COLUMNS, postFromRow, type PostRow } from "./post_rows";
 
@@ -48,7 +49,7 @@ interface WorkRow {
   readonly metrics: number;
 }
 
-export class D1PostReader implements PostReader {
+export class D1PostReader implements PostReader, PublishingCount {
   constructor(private readonly db: D1Database) {}
 
   async get(id: PostId): Promise<Post | null> {
@@ -65,6 +66,14 @@ export class D1PostReader implements PostReader {
       .bind(bot, key)
       .first<PostRow>();
     return row === null ? null : postFromRow(row);
+  }
+
+  /** On the `(lifecycle, publish_at)` index: one row read per PUBLISHING post. */
+  async publishingCount(): Promise<number> {
+    const row = await this.db
+      .prepare("SELECT COUNT(*) AS n FROM posts WHERE lifecycle = 'PUBLISHING'")
+      .first<{ n: number }>();
+    return row?.n ?? 0;
   }
 
   async list(filter: PostFilter): Promise<readonly Post[]> {

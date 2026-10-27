@@ -177,6 +177,7 @@ describe("the dashboard's commands, through forms", () => {
     const accounts = await browser.page("/dashboard/accounts");
     expect(accounts.html).toContain('action="/dashboard/accounts/acc-1/status?to=PAUSED"');
     expect(accounts.html).toContain('hx-boost="false"');
+    expect(accounts.html).toContain("<code>acc-1</code>");
     expect((await browser.post("/dashboard/accounts/acc-1/status?to=PAUSED")).status).toBe(303);
     expect((await world.accounts.list())[0]?.status).toBe("PAUSED");
     expect((await browser.page("/dashboard/accounts")).html).toContain("Activate");

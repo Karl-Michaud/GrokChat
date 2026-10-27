@@ -11,6 +11,7 @@ import type { CostLedger } from "../../use_cases/ports/cost_ledger";
 import type { MetricsRepository } from "../../use_cases/ports/metrics_repository";
 import type { AccountWork, PostFilter, PostReader } from "../../use_cases/ports/post_reader";
 import type { AddResult, PostWriter, SaveResult } from "../../use_cases/ports/post_writer";
+import type { PublishingCount } from "../../use_cases/ports/publishing_count";
 
 /** The posts table, shared by the in-memory reader and writer. */
 export class MemoryPostTable {
@@ -38,7 +39,7 @@ function matches(post: Post, filter: PostFilter): boolean {
 
 const ORDER = (a: Post, b: Post): number => a.publishAt - b.publishAt || a.id.localeCompare(b.id);
 
-export class MemoryPostReader implements PostReader {
+export class MemoryPostReader implements PostReader, PublishingCount {
   constructor(
     private readonly table: MemoryPostTable,
     private readonly metrics: MetricsRepository,
@@ -53,6 +54,10 @@ export class MemoryPostReader implements PostReader {
       .all()
       .find((post) => post.provenance.botId === bot && post.idempotencyKey === key);
     return Promise.resolve(found ?? null);
+  }
+
+  publishingCount(): Promise<number> {
+    return Promise.resolve(this.table.all().filter((p) => p.lifecycle === "PUBLISHING").length);
   }
 
   list(filter: PostFilter): Promise<readonly Post[]> {

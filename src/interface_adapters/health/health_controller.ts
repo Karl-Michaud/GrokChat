@@ -4,7 +4,7 @@ import type { GetHealthInputBoundary } from "../../use_cases/get_health/input_bo
 export class HealthController {
   constructor(private readonly useCase: GetHealthInputBoundary) {}
 
-  health(): void {
-    this.useCase.execute();
+  health(): Promise<void> {
+    return this.useCase.execute();
   }
 }

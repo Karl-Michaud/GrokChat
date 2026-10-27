@@ -3,7 +3,7 @@ export const SERVICE_NAME = "grokchat";
 
 export type HealthStatus = "ok";
 
-/** What `/health` reports. Later PRs add the count of PUBLISHING posts (plan §3.6, m7). */
+/** The service's own part of `/health`; the use case adds the count of PUBLISHING posts (m7). */
 export interface Health {
   readonly service: typeof SERVICE_NAME;
   readonly status: HealthStatus;

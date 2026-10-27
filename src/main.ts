@@ -26,10 +26,12 @@ import { HealthController } from "./interface_adapters/health/health_controller"
 import { HealthPresenter } from "./interface_adapters/health/health_presenter";
 import { HealthViewModel, type HealthView } from "./interface_adapters/health/health_view_model";
 import { GetHealthInteractor } from "./use_cases/get_health/interactor";
+import type { PublishingCount } from "./use_cases/ports/publishing_count";
 
-function handleHealth(): HealthView {
+async function handleHealth(posts: PublishingCount): Promise<HealthView> {
   const viewModel = new HealthViewModel();
-  new HealthController(new GetHealthInteractor(new HealthPresenter(viewModel))).health();
+  const interactor = new GetHealthInteractor(posts, new HealthPresenter(viewModel));
+  await new HealthController(interactor).health();
   return viewModel.current();
 }
 
@@ -51,7 +53,7 @@ function entryFor(env: Env): EnvEntry {
     const graph = workerGraph(env);
     const tools = mcpTools(graph);
     const app = buildHttpApp({
-      health: handleHealth,
+      health: () => handleHealth(graph.reader),
       mcp: mcpRoute(() => tools),
       web: buildWebApp(dashboardControllers(graph)),
     });

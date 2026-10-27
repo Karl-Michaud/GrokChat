@@ -8,16 +8,13 @@
  */
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { createExecutionContext, createScheduledController } from "cloudflare:test";
-import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Account } from "../../src/entities/accounts/account";
-import { xUserId } from "../../src/entities/identity/ids";
 import { HOUR, MINUTE } from "../../src/entities/time/instant";
 import { CRONS, type CronName } from "../../src/frameworks/cron/dispatch";
-import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import type { Env } from "../../src/frameworks/env";
 import worker from "../../src/main";
 import { freshStorage } from "./support/fresh_d1";
+import { connectThroughDashboard, setUpAccount } from "./support/dashboard_flow";
 import { body, botEnv, connect } from "./support/mcp_client";
 import { stubX, type XWire } from "./support/x_wire";
 import { Browser, webEnv } from "./web/browser";
@@ -46,60 +43,6 @@ async function tick(name: CronName, workerEnv: Env): Promise<void> {
   await worker.scheduled(controller, workerEnv);
 }
 
-/** The owner logs in, adds a personality and connects the X user `x.me` through X's OAuth. */
-async function connectThroughDashboard(browser: Browser): Promise<Account> {
-  expect((await browser.login()).status).toBe(303);
-  const saved = await browser.post("/dashboard/personalities", {
-    ...{ id: "", name: "E2E Muse", voiceGuide: "", topics: "", dos: "", donts: "", examples: "" },
-  });
-  expect(saved.status).toBe(303);
-  const page = await browser.page("/dashboard/personalities");
-  const personality = /name="id" value="([0-9a-f-]{36})"/.exec(page.html)?.[1] ?? "";
-  const started = await browser.post("/oauth/x/start", { personality });
-  const state = new URL(started.headers.get("location") ?? "").searchParams.get("state") ?? "";
-  const finished = await browser.get(`/oauth/x/finish?code=code-e2e&state=${state}`);
-  expect([finished.status, finished.headers.get("location")]).toStrictEqual([
-    303,
-    "/dashboard/accounts?connected=%40e2e_muse",
-  ]);
-  // X saw the code exchange and the who-am-I, nothing else.
-  expect(x.calls()).toStrictEqual(["POST /2/oauth2/token", "GET /2/users/me"]);
-  const account = await d1Stores(env.DB).accounts.findByXUserId(xUserId("x-e2e-1"));
-  expect(account).toMatchObject({ handle: "e2e_muse", status: "PAUSED" });
-  if (account === null) {
-    throw new Error("the connect stored no account");
-  }
-  return account;
-}
-
-/** The owner confirms the disclosure, asks to review every post, and activates the account. */
-async function setUpAccount(browser: Browser, account: Account): Promise<void> {
-  await browser.page("/dashboard/accounts");
-  const base = `/dashboard/accounts/${account.id}`;
-  const policy = {
-    mode: "REVIEW",
-    dailyCap: "10",
-    minGapMinutes: "0",
-    quietStart: "",
-    quietEnd: "",
-    tz: "UTC",
-    linkPolicy: "REFUSE",
-    graceMinutes: "30",
-  };
-  for (const [path, form] of [
-    ["/disclosure", { bioConfirmed: "yes", automatedLabelConfirmed: "yes" }],
-    ["/policy", policy],
-    ["/status?to=ACTIVE", {}],
-  ] as const) {
-    expect((await browser.post(`${base}${path}`, form)).status).toBeLessThan(400);
-  }
-  expect(await d1Stores(env.DB).accounts.get(account.id)).toMatchObject({
-    status: "ACTIVE",
-    disclosure: { bioConfirmed: true, automatedLabelConfirmed: true },
-    policy: { mode: "REVIEW", minGap: 0 },
-  });
-}
-
 const tool = async (client: Client, name: string, args: Record<string, unknown>) =>
   body(await client.callTool({ name, arguments: args }));
 
@@ -107,7 +50,7 @@ describe("dashboard connect → bot create_post → scheduled() → dashboard ba
   it("runs the whole path on the production graph, with only X's HTTP faked", async () => {
     const dashboardEnv = await webEnv();
     const browser = browserFor(dashboardEnv);
-    const account = await connectThroughDashboard(browser);
+    const account = await connectThroughDashboard(browser, x);
     await setUpAccount(browser, account);
 
     // The bot's deployment scopes it to the account the dashboard connected.
