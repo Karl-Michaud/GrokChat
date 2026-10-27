@@ -1,4 +1,4 @@
-import { createExecutionContext } from "cloudflare:test";
+import { createExecutionContext, createScheduledController } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import worker from "../../src/main";
@@ -34,8 +34,10 @@ describe("the default export", () => {
     expect(response.status).toBe(200);
   });
 
-  it("has a scheduled handler that does nothing yet (cron ticks arrive in PR 6)", async () => {
-    await expect(worker.scheduled()).resolves.toBe(undefined);
+  it("has a scheduled handler that dispatches by cron (tests/integration/cron_ticks.test.ts)", async () => {
+    await expect(
+      worker.scheduled(createScheduledController({ cron: "0 * * * *" }), env),
+    ).rejects.toThrow('no tick is scheduled as "0 * * * *"');
   });
 });
 

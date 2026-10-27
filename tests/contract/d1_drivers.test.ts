@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe } from "vitest";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { freshStorage } from "../integration/support/fresh_d1";
+import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import { postStoreContract } from "./post_store.contract";
 import {
   auditLogContract,
@@ -26,6 +27,13 @@ describe("D1 post store", () => {
   postStoreContract(() => {
     const { reader, writer, audit, costs } = stores();
     return { reader, writer, audit, costs };
+  });
+});
+
+describe("D1 cleanup candidates", () => {
+  mediaCleanupCandidatesContract(() => {
+    const { cleanupCandidates, media, writer } = stores();
+    return { candidates: cleanupCandidates, media, writer };
   });
 });
 

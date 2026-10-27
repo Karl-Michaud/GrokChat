@@ -87,6 +87,23 @@ export const METRICS_READ_COST: CallCost = {
 };
 
 /**
+ * The metrics tick's staged-media cleanup (plan §3.5, U16): one D1 query selects the items whose
+ * retention has passed, oldest staged first, at most `MEDIA_CLEANUP_BATCH`; each item then costs
+ * the R2 delete, the usage record and the row delete. The rest waits for the next tick.
+ */
+export const MEDIA_CLEANUP_BATCH = 100;
+export const MEDIA_CLEANUP_QUERY_COST: CallCost = {
+  cloudflareCalls: 1,
+  externalSubrequests: 0,
+  millis: SECOND,
+};
+export const MEDIA_CLEANUP_ITEM_COST: CallCost = {
+  cloudflareCalls: 3,
+  externalSubrequests: 0,
+  millis: SECOND,
+};
+
+/**
  * Per staged media item: metadata, the usage row (read and count), the R2 read, the audit and
  * cost entries.
  */

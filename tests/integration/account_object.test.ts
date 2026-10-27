@@ -1,7 +1,7 @@
 /**
  * The account Durable Object's own behaviour: one account per object, every method's error
- * mapping, the Worker-side client, the production object before the X drivers exist, the
- * locks inside workerd, and the D1 calls a part costs (I9).
+ * mapping, the Worker-side client, the locks inside workerd, and the D1 calls a part costs (I9).
+ * The production object on the X drivers is tests/integration/cron_ticks.test.ts.
  */
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -12,10 +12,9 @@ import { MINUTE, SECOND } from "../../src/entities/time/instant";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { AccountObjects } from "../../src/frameworks/durable_objects/account_client";
 import { SystemClock } from "../../src/frameworks/durable_objects/system_clock";
-import { X_UNAVAILABLE } from "../../src/frameworks/durable_objects/x_unavailable";
 import { ManualClock } from "../../src/frameworks/memory/manual_clock";
 import { MemoryLocks, MemorySingleFlight } from "../../src/frameworks/memory/memory_locks";
-import { aPost, anAccount, aPersonality, part, T0 } from "../unit/support/builders";
+import { aPost, part, T0 } from "../unit/support/builders";
 import {
   lockDeadlineContract,
   locksContract,
@@ -132,43 +131,6 @@ describe("the Worker-side client", () => {
     expect((await objects.collect(id, T0, DEADLINE)).ran).toBe(false);
     expect(await objects.deletePost(id, [xPostId("x")])).toStrictEqual([]);
     await expect(objects.storeConnectedTokens(id, TOKENS)).rejects.toThrow("were not stored");
-  });
-});
-
-describe("the production object (main.ts) before the X drivers land", () => {
-  it("stores tokens sealed, and sends nothing: a due post waits as a retryable failure", async () => {
-    const account = anAccount({ id: accountId("acc-prod") });
-    const stores = d1Stores(env.DB);
-    await stores.accounts.save(account);
-    await stores.personalities.save(aPersonality({ id: account.personalityId }));
-    const objects = new AccountObjects(env.ACCOUNT);
-    await objects.storeConnectedTokens(account.id, {
-      ...TOKENS,
-      accessExpiresAt: Date.now() + 2 * 60 * MINUTE,
-    });
-    await stores.writer.add(
-      aPost({ id: postId("prod"), accountId: account.id, publishAt: Date.now() - MINUTE }),
-    );
-    const summary = await objects.publishNow(account.id, postId("prod"), Date.now() + 10 * SECOND);
-    expect(summary).toMatchObject({ ran: true, sent: 0 });
-    const post = await stores.reader.get(postId("prod"));
-    expect(post?.lifecycle).toBe("SCHEDULED");
-    expect(post?.parts[0]?.state.kind).toBe("PENDING");
-  });
-});
-
-describe("X_UNAVAILABLE", () => {
-  it("fails every call before a request would leave", async () => {
-    const id = accountId("a");
-    const notSent = { ok: false, failure: { kind: "not_sent" } };
-    expect(await X_UNAVAILABLE.publisher.create(id, "t", [], null)).toStrictEqual(notSent);
-    expect(await X_UNAVAILABLE.publisher.delete(id, xPostId("x"))).toStrictEqual(notSent);
-    expect(await X_UNAVAILABLE.uploader.upload(id, new Uint8Array(), "PHOTO")).toStrictEqual(
-      notSent,
-    );
-    expect(await X_UNAVAILABLE.timeline.recent(id, T0, 5)).toStrictEqual(notSent);
-    expect(await X_UNAVAILABLE.metrics.read(id, [])).toStrictEqual(notSent);
-    expect(await X_UNAVAILABLE.refresher.refresh("r")).toStrictEqual({ kind: "not_sent" });
   });
 });
 

@@ -3,7 +3,7 @@ import { SECOND, type Instant, type Millis } from "../../entities/time/instant";
 import type { TokenSet } from "../../entities/x/token_set";
 import { count, field, readJson, text } from "../x_http/json_fields";
 import type { HttpTransport } from "../x_http/transport";
-import { TOKEN_URL, type XOAuthConfig } from "./x_oauth_config";
+import { TOKEN_URL, type XClientCredentials } from "./x_oauth_config";
 
 /**
  * The token call is never cut short (plan §3.5): aborting it after X rotated the refresh token
@@ -19,7 +19,7 @@ export type TokenResponse =
   | { readonly kind: "failed"; readonly status: number | null };
 
 /** RFC 6749 §2.3.1: the client id and secret form-encoded, then Basic. */
-export function basicAuth(config: XOAuthConfig): string {
+export function basicAuth(config: XClientCredentials): string {
   const pair = `${encodeURIComponent(config.clientId)}:${encodeURIComponent(config.clientSecret)}`;
   return `Basic ${btoa(pair)}`;
 }
@@ -41,7 +41,7 @@ function tokenSet(body: unknown, now: Instant): TokenSet | null {
 export class XTokenEndpoint {
   constructor(
     private readonly transport: HttpTransport,
-    private readonly config: XOAuthConfig,
+    private readonly config: XClientCredentials,
   ) {}
 
   async request(form: Record<string, string>, now: Instant): Promise<TokenResponse> {

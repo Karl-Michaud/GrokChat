@@ -1,12 +1,12 @@
 /**
  * The D1 post reader answers exactly as the in-memory stub over random tables (fast-check): the
  * indexed SQL forms of `dueAt`, `metricsDue` and the gate's activity window are checked against
- * the entity functions the stub calls.
+ * the entity functions the stub calls, and so is the staged-media cleanup's `mediaCleanupDue`.
  */
 import { env } from "cloudflare:workers";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { accountId, postId, xPostId } from "../../src/entities/identity/ids";
+import { accountId, postId, stagedMediaId, xPostId } from "../../src/entities/identity/ids";
 import type { MetricsSnapshot } from "../../src/entities/metrics/metrics_snapshot";
 import { checkPublishable, nextAllowedAt } from "../../src/entities/policy/publishable";
 import { LIFECYCLES, type Post } from "../../src/entities/posts/post";
@@ -24,7 +24,9 @@ import {
   MemoryCostLedger,
   MemoryMetricsRepository,
 } from "../../src/frameworks/memory/memory_records";
-import { aPolicy, aPost, anAccount, part, T0 } from "../unit/support/builders";
+import { MemoryMediaCleanupCandidates } from "../../src/frameworks/memory/memory_media_cleanup";
+import { MemoryMediaRepository } from "../../src/frameworks/memory/memory_repositories";
+import { aMedia, aPolicy, aPost, anAccount, part, T0 } from "../unit/support/builders";
 import { ZONES } from "../unit/support/arbitraries";
 import { freshStorage } from "../integration/support/fresh_d1";
 
@@ -156,6 +158,75 @@ describe("D1 PostReader ≡ the stub (fast-check)", () => {
         );
       }),
       { numRuns: 60 },
+    );
+  });
+});
+
+/** Posts that can hold media: done ones (sent a few days ago) are drawn as often as the rest. */
+const mediaPost = (index: number): fc.Arbitrary<Post> =>
+  fc
+    .record({
+      lifecycle: fc.oneof(fc.constant("DONE" as const), fc.constantFrom(...LIFECYCLES)),
+      sent: fc.array(fc.option(around(5 * DAY), { nil: null }), { minLength: 1, maxLength: 3 }),
+    })
+    .map((drawn) =>
+      aPost({
+        id: postId(`p-${String(index).padStart(2, "0")}`),
+        lifecycle: drawn.lifecycle,
+        parts: drawn.sent.map((at, k) =>
+          part(
+            `t${String(k)}`,
+            at === null
+              ? { kind: "REJECTED", reason: "no" }
+              : { kind: "SENT", xPostId: xPostId(`x-${String(index)}-${String(k)}`), at },
+          ),
+        ),
+      }),
+    );
+
+const mediaTable = fc
+  .integer({ min: 0, max: 8 })
+  .chain((count) => fc.tuple(...Array.from({ length: count }, (_, index) => mediaPost(index))));
+
+const stagedItems = fc.array(
+  fc.record({
+    attachedTo: fc.option(fc.integer({ min: 0, max: 9 }), { nil: null }),
+    stagedAt: around(5 * DAY),
+  }),
+  { maxLength: 12 },
+);
+
+describe("D1 MediaCleanupCandidates ≡ the stub (fast-check)", () => {
+  it("the SQL selects exactly the items mediaCleanupDue keeps for deletion, in the same order", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        mediaTable,
+        stagedItems,
+        fc.integer({ min: T0, max: T0 + 15 * DAY }),
+        fc.integer({ min: 0, max: 12 }),
+        async (posts, items, now, limit) => {
+          const { memory } = await both(posts, []);
+          const d1 = d1Stores(env.DB);
+          const media = new MemoryMediaRepository();
+          for (const [index, item] of items.entries()) {
+            const row = aMedia({
+              id: stagedMediaId(`m-${String(index).padStart(2, "0")}`),
+              stagedAt: item.stagedAt,
+              attachedTo:
+                item.attachedTo === null
+                  ? null
+                  : postId(`p-${String(item.attachedTo).padStart(2, "0")}`),
+            });
+            await d1.media.save(row);
+            await media.save(row);
+          }
+          const stub = new MemoryMediaCleanupCandidates(media, memory);
+          expect(await d1.cleanupCandidates.due(now, limit)).toStrictEqual(
+            await stub.due(now, limit),
+          );
+        },
+      ),
+      { numRuns: 100 },
     );
   });
 });

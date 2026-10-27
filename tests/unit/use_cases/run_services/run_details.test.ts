@@ -1,6 +1,10 @@
 /** Run-service details the mutation run showed were not yet pinned down. */
 import { describe, expect, it } from "vitest";
-import { TOKEN_REFRESH_MILLIS, TOKEN_STEP_CALLS } from "../../../../src/entities/budget/budget";
+import {
+  invocationBudget,
+  TOKEN_REFRESH_MILLIS,
+  TOKEN_STEP_CALLS,
+} from "../../../../src/entities/budget/budget";
 import { accountId, postId, xPostId, xUserId } from "../../../../src/entities/identity/ids";
 import { DAY, HOUR, MINUTE, SECOND } from "../../../../src/entities/time/instant";
 import { MemoryBudgetMeter } from "../../../../src/frameworks/memory/memory_budget";
@@ -363,7 +367,7 @@ describe("the shared test helper", () => {
       asked.push(id);
       return Promise.resolve(null);
     };
-    await world.cleanup.run(T0);
+    await world.cleanup.run(new MemoryBudgetMeter(invocationBudget(T0 + DAY)));
     expect(asked).toStrictEqual([]);
   });
 });
