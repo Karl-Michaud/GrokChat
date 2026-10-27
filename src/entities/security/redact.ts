@@ -12,3 +12,8 @@ export function redact(text: string, secrets: readonly string[]): string {
   const replaced = ordered.reduce((current, secret) => current.split(secret).join(REDACTED), text);
   return replaced.replace(BEARER, `$1 ${REDACTED}`);
 }
+
+/** Strips bearer credentials where no secret is known by name (X error details, audit details). */
+export function redactCredentials(text: string): string {
+  return redact(text, []);
+}

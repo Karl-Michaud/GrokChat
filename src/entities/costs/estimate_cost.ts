@@ -25,6 +25,11 @@ export const PRICES = {
 
 const usd = (micros: number): CostEstimate => ({ kind: "usd", micros });
 
+/** A create's price: $0.20 with a scheme URL, else $0.015, for every account (U4). */
+export function createMicros(text: string): number {
+  return hasSchemeUrl(text) ? PRICES.createWithUrl : PRICES.create;
+}
+
 /**
  * A post with a scheme URL (`https://…`) is billed "with URL" at $0.20; a bare domain is billed as
  * a plain post at $0.015 (U4). Reads are owned reads at $0.001 only for the app owner's account.
@@ -33,7 +38,7 @@ const usd = (micros: number): CostEstimate => ({ kind: "usd", micros });
 export function estimateCost(operation: XOperation, isAppOwner: boolean): CostEstimate {
   switch (operation.kind) {
     case "create":
-      return usd(hasSchemeUrl(operation.text) ? PRICES.createWithUrl : PRICES.create);
+      return usd(createMicros(operation.text));
     case "delete":
       return usd(PRICES.delete);
     case "read":

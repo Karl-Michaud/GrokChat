@@ -37,7 +37,7 @@ export function hasSchemeUrl(text: string): boolean {
   return extractUrls(text).some((url) => SCHEME.test(url));
 }
 
-const ENTITIES: Readonly<Record<string, string>> = { "&amp;": "&", "&lt;": "<", "&gt;": ">" };
+const ENTITIES = { "&amp;": "&", "&lt;": "<", "&gt;": ">" } as const;
 
 /**
  * The form two texts are compared in when reconciling an unknown outcome (plan §3.3 #6): X
@@ -45,7 +45,7 @@ const ENTITIES: Readonly<Record<string, string>> = { "&amp;": "&", "&lt;": "<", 
  */
 export function normalisePostText(text: string): string {
   return text
-    .replace(/&(amp|lt|gt);/g, (entity) => ENTITIES[entity] ?? entity)
+    .replace(/&(amp|lt|gt);/g, (entity) => ENTITIES[entity as keyof typeof ENTITIES])
     .normalize("NFC")
     .trim();
 }

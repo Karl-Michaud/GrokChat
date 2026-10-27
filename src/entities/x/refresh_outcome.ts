@@ -9,7 +9,7 @@ export type RefreshResult =
 export type RefreshOutcome =
   | { readonly kind: "rotated"; readonly tokens: TokenSet }
   | { readonly kind: "retryable_before_send" }
-  | { readonly kind: "retry_with_stored" }
+  | { readonly kind: "retry_with_stored"; readonly refreshToken: string }
   | { readonly kind: "lost" };
 
 /**
@@ -30,6 +30,8 @@ export function refreshOutcome(
   if (result.kind === "not_sent") {
     return { kind: "retryable_before_send" };
   }
-  const changed = storedRefreshToken !== null && storedRefreshToken !== sentRefreshToken;
-  return changed && !alreadyRetried ? { kind: "retry_with_stored" } : { kind: "lost" };
+  if (storedRefreshToken === null || storedRefreshToken === sentRefreshToken || alreadyRetried) {
+    return { kind: "lost" };
+  }
+  return { kind: "retry_with_stored", refreshToken: storedRefreshToken };
 }

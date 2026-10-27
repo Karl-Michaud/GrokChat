@@ -18,3 +18,13 @@ export interface WallClock {
   readonly minute: number;
   readonly second: number;
 }
+
+/** A half-open window of time, `[from, to)`. */
+export interface TimeWindow {
+  readonly from: Instant;
+  readonly to: Instant;
+}
+
+export function inWindow(window: TimeWindow, instant: Instant): boolean {
+  return instant >= window.from && instant < window.to;
+}
