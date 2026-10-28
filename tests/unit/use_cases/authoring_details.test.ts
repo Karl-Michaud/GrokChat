@@ -42,6 +42,7 @@ function creator(world: World) {
       accountId: ACCOUNT,
       parts: [{ text: "hello", media: [] }],
       publishAt: null,
+      replyTo: null,
       idempotencyKey: null,
       ...input,
     });

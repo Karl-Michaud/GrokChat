@@ -143,6 +143,8 @@ const RUNNING = `AFTER SETUP: HOW YOU RUN THINGS
 - The Scouts research, the Writers draft, and you pick, check and schedule. Prefer
   scheduling a day or so ahead (create_post / create_thread with publish_at, ISO 8601 with
   a time zone offset) over posting on the spot.
+- To reply to someone's post, use create_post (or create_thread) with in_reply_to set to
+  the post's id or URL. Replies follow the same rules, caps and gaps as any other post.
 - Before scheduling, check list_backlog so you don't double-book a slot or break the gap or
   daily cap.
 - Use compare_posts, get_post_metrics and get_account_metrics to see what works on each

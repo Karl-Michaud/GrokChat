@@ -111,6 +111,10 @@ describe("X's errors", () => {
     expect(isContentForbidden({ detail: "You are not permitted to perform this action." })).toBe(
       true,
     );
+    const replyRefused =
+      "Reply to this conversation is not allowed because you have not been mentioned or " +
+      "otherwise engaged by the author of the post you are replying to.";
+    expect(isContentForbidden({ title: "Forbidden", detail: replyRefused })).toBe(true);
     expect(isContentForbidden(PROBLEMS.unsupportedAuth)).toBe(false);
     expect(isContentForbidden(PROBLEMS.clientForbidden)).toBe(false);
     expect(isContentForbidden({ ...PROBLEMS.duplicate, reason: "client-not-enrolled" })).toBe(

@@ -40,6 +40,12 @@ function facts(view: PostDetailView): Html {
         : html`<dt>Resumes at</dt>
             <dd>${view.resumeAt}</dd>`
     }
+    ${
+      view.replyToUrl === null
+        ? ""
+        : html`<dt>Reply to</dt>
+            <dd>${externalLink(view.replyToUrl, "Post on X")}</dd>`
+    }
     <dt>Created by</dt>
     <dd class="mono">${view.createdBy}</dd>
     <dt>State</dt>

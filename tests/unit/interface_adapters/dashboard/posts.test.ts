@@ -286,6 +286,7 @@ describe("a post's page", () => {
       view.publishRelative,
       view.publishAtInput,
       view.resumeAt,
+      view.replyToUrl,
       view.createdBy,
       view.version,
     ]).toStrictEqual([
@@ -296,6 +297,7 @@ describe("a post's page", () => {
       "Oct 26, 12:00 UTC",
       "1 d ago",
       "2026-10-26T12:00",
+      null,
       null,
       "human:owner",
       1,
@@ -326,8 +328,9 @@ describe("a post's page", () => {
     expect(view.actions.delete).toBe(true);
   });
 
-  it("a post never read has no totals; an unknown post is refused", async () => {
-    const { pages, world } = await setup([aPost({ resumeAt: T0 + 5 * MINUTE })]);
+  it("a post never read has no totals; a reply links its target; an unknown post is refused", async () => {
+    const replyTo = xPostId("1850000000000000001");
+    const { pages, world } = await setup([aPost({ resumeAt: T0 + 5 * MINUTE, replyTo })]);
     const media = await world.stage(ACCOUNT, "PHOTO", "m-a");
     await world.writer.add(
       aPost({ id: postId("m"), parts: [part("x", undefined, [media.id, media.id])] }),
@@ -336,6 +339,7 @@ describe("a post's page", () => {
       view: {
         reads: 0,
         resumeAt: "Oct 27, 12:05 UTC",
+        replyToUrl: "https://x.com/i/web/status/1850000000000000001",
         totals: { impressions: "—" },
         parts: [{ xUrl: null }],
       },

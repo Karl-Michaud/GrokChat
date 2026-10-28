@@ -55,6 +55,15 @@ const toStep = (
     ? { post: result.post, sent: false, stop, appRateLimited: false, ...extra }
     : conflictStep(post);
 
+/**
+ * A later part answers the part before it (always SENT: parts go in order); part 1, with nothing
+ * before it, answers the post's reply target (null: an original post).
+ */
+function replyTarget(post: Post, index: number): XPostId | null {
+  const previous = stateAt(post, index - 1);
+  return previous?.kind === "SENT" ? previous.xPostId : post.replyTo;
+}
+
 const isAppLimit = (outcome: XOutcome): boolean => outcome.kind === "app_rate_limited";
 
 /**
@@ -172,8 +181,7 @@ export class PartSender {
     account: Account,
     media: readonly XMediaId[],
   ): Promise<PartStep> {
-    const previous = stateAt(post, index - 1);
-    const inReplyTo: XPostId | null = previous?.kind === "SENT" ? previous.xPostId : null;
+    const inReplyTo = replyTarget(post, index);
     const result = await this.ports.publisher.create(account.id, part.text, media, inReplyTo);
     const now = this.ports.clock.now();
     if (result.ok) {

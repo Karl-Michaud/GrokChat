@@ -13,6 +13,8 @@ const id = z.string().min(1).max(128);
 /** 280 weighted characters can be longer raw (a URL counts as 23), so this is only a size cap. */
 const text = z.string().max(4_000);
 const mediaIds = z.array(id).max(MAX_PHOTOS).optional();
+/** An X post id or a post URL; the use case checks which (`reply_target_invalid`). */
+const replyTarget = z.string().min(1).max(512).optional();
 /** A time without an offset is ambiguous and refused (m5). */
 const time = z.iso.datetime({ offset: true });
 
@@ -49,12 +51,14 @@ export const TOOL_SCHEMAS = {
     text,
     media_ids: mediaIds,
     publish_at: time.optional(),
+    in_reply_to: replyTarget,
     idempotency_key: id,
   }),
   create_thread: z.object({
     account_id: id,
     parts,
     publish_at: time.optional(),
+    in_reply_to: replyTarget,
     idempotency_key: id,
   }),
   stage_media_from_url: z.object({ account_id: id, url: z.string().min(1).max(2_048) }),

@@ -6,6 +6,14 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ### Added
 
+- **Replies to other people's posts over MCP** (GROKCHAT-17):
+  - `create_post` and `create_thread` take an optional **`in_reply_to`**: an X post id or the post's URL (`https://x.com/<handle>/status/<id>`, twitter.com and mobile hosts too). Part 1 is sent as a reply to it; a thread's later parts chain under it as before. A target that is neither is refused as `reply_target_invalid`;
+  - everything else works as for an original post: media, `publish_at`, review mode, the gate (caps, gaps, quiet hours, link policy), idempotency, metrics, edit, cancel and delete. The target is part of the request hash, so the same key with another target is refused as `idempotency_mismatch`; an original post's hash is unchanged, so stored hashes still match;
+  - the post keeps its target (`posts.reply_to_x_post_id`, nullable, migration `0005_post_replies.sql`); `get_post`, `list_backlog` and the edit/cancel/delete results show it as `in_reply_to`, and the dashboard's post page links it ("Reply to");
+  - a 403 from X saying a reply to this conversation is not allowed (the author has not mentioned or engaged with the account) is a content refusal: the post is rejected and the account is **not** marked as needing a reconnect;
+  - the tool descriptions and the setup prompt tell the bot how to reply;
+  - **Why:** the owner wants bots to reply to other people's posts with the same features as original posts.
+
 - **People: accounts grouped per person, one bot token per person, managed on the dashboard** (GROKCHAT-16):
   - a `Person` (name, the token's SHA-256 only, when it was created and last generated) in D1, migration `0004_people.sql`; each account belongs to at most one person (`accounts.person_id`). Ports `PersonRepository`, `AccountOwners` and `BotTokenIssuer`, each with a D1 or WebCrypto driver and a stub on one contract suite. `D1AccountRepository.save` is now an upsert, so saving an account keeps its owner;
   - **MCP auth reads people from D1 per request**: token → SHA-256 → person → their accounts, nothing cached, so assigning or unassigning an account changes the bot's scope at once with the same token. The audit actor stays `bot:<person id>`. A D1 failure during auth answers 503;

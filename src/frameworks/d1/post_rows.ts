@@ -1,5 +1,5 @@
 import type { Actor } from "../../entities/identity/actor";
-import { accountId, idempotencyKey, postId } from "../../entities/identity/ids";
+import { accountId, idempotencyKey, postId, xPostId } from "../../entities/identity/ids";
 import { attemptTime } from "../../entities/posts/part_state";
 import { dueAt } from "../../entities/posts/due";
 import type { Lifecycle, Post, PostPart, Provenance } from "../../entities/posts/post";
@@ -12,6 +12,7 @@ export interface PostRow {
   readonly lifecycle: string;
   readonly publish_at: number;
   readonly resume_at: number | null;
+  readonly reply_to_x_post_id: string | null;
   readonly due_at: number | null;
   readonly bot_id: string | null;
   readonly idempotency_key: string | null;
@@ -23,8 +24,8 @@ export interface PostRow {
 }
 
 export const POST_COLUMNS =
-  "id, account_id, lifecycle, publish_at, resume_at, due_at, bot_id, idempotency_key, " +
-  "request_hash, created_by, provenance, parts, version";
+  "id, account_id, lifecycle, publish_at, resume_at, reply_to_x_post_id, due_at, bot_id, " +
+  "idempotency_key, request_hash, created_by, provenance, parts, version";
 
 export function postFromRow(row: PostRow): Post {
   return {
@@ -34,6 +35,7 @@ export function postFromRow(row: PostRow): Post {
     lifecycle: row.lifecycle as Lifecycle,
     publishAt: row.publish_at,
     resumeAt: row.resume_at,
+    replyTo: row.reply_to_x_post_id === null ? null : xPostId(row.reply_to_x_post_id),
     idempotencyKey: row.idempotency_key === null ? null : idempotencyKey(row.idempotency_key),
     requestHash: row.request_hash,
     createdBy: JSON.parse(row.created_by) as Actor,
@@ -50,6 +52,7 @@ function postValues(post: Post): readonly (string | number | null)[] {
     post.lifecycle,
     post.publishAt,
     post.resumeAt,
+    post.replyTo,
     dueAt(post),
     post.provenance.botId,
     post.idempotencyKey,
@@ -61,7 +64,7 @@ function postValues(post: Post): readonly (string | number | null)[] {
   ];
 }
 
-const PLACEHOLDERS = Array.from({ length: 13 }, (_, index) => `?${String(index + 1)}`).join(", ");
+const PLACEHOLDERS = Array.from({ length: 14 }, (_, index) => `?${String(index + 1)}`).join(", ");
 
 export function insertPost(db: D1Database, post: Post): D1PreparedStatement {
   return db

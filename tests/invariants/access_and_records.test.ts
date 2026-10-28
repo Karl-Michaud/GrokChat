@@ -83,6 +83,7 @@ function creator(world: World) {
       accountId: ACCOUNT,
       parts: [{ text: "mine", media: [] }],
       publishAt: null,
+      replyTo: null,
       idempotencyKey: idempotencyKey("k"),
       ...input,
     });

@@ -1,10 +1,11 @@
 import type { Account } from "../../entities/accounts/account";
 import { createMicros } from "../../entities/costs/estimate_cost";
 import type { StagedMedia } from "../../entities/content/staged_media";
-import { postId, type BotId } from "../../entities/identity/ids";
+import { postId, type BotId, type XPostId } from "../../entities/identity/ids";
 import { derivedStatus } from "../../entities/posts/derived_status";
 import { newPost, requestHash } from "../../entities/posts/new_post";
 import type { Post } from "../../entities/posts/post";
+import { replyTargetId } from "../../entities/posts/reply_target";
 import { SECOND } from "../../entities/time/instant";
 import type { AccessGuard } from "../access/access_guard";
 import type { ActionAudit } from "../access/action_audit";
@@ -43,6 +44,13 @@ const refuse = (code: CreatePostRefusalCode, part: number | null = null): Create
   part,
 });
 
+/** Where a new post goes: the account, the bot asking (null: a person), and what it replies to. */
+interface Target {
+  readonly account: Account;
+  readonly bot: BotId | null;
+  readonly replyTo: XPostId | null;
+}
+
 function estimate(post: Post): number {
   return post.parts.reduce((sum, part) => sum + createMicros(part.text), 0);
 }
@@ -71,16 +79,22 @@ export class CreatePostInteractor implements CreatePostInputBoundary {
     if (!(await this.ports.guard.inScope(action))) {
       return refuse("scope");
     }
-    const hash = requestHash(account.id, input.parts, input.publishAt);
+    const replyTo = input.replyTo === null ? null : replyTargetId(input.replyTo);
+    if (input.replyTo !== null && replyTo === null) {
+      return refuse("reply_target_invalid");
+    }
+    const hash = requestHash(account.id, input.parts, input.publishAt, replyTo);
     if (input.actor.kind !== "bot") {
-      return this.build(input, account, null, hash);
+      return this.build(input, { account, bot: null, replyTo }, hash);
     }
     const bot = input.actor.scope.botId;
     if (input.idempotencyKey === null) {
       return refuse("idempotency_key_required");
     }
     const earlier = await this.ports.reader.findByIdempotency(bot, input.idempotencyKey);
-    return earlier === null ? this.build(input, account, bot, hash) : this.duplicate(earlier, hash);
+    return earlier === null
+      ? this.build(input, { account, bot, replyTo }, hash)
+      : this.duplicate(earlier, hash);
   }
 
   private duplicate(existing: Post, hash: string): CreatePostOutputData {
@@ -99,8 +113,7 @@ export class CreatePostInteractor implements CreatePostInputBoundary {
 
   private async build(
     input: CreatePostInputData,
-    account: Account,
-    bot: BotId | null,
+    { account, bot, replyTo }: Target,
     hash: string,
   ): Promise<CreatePostOutputData> {
     const id = postId(this.ports.ids.newId());
@@ -119,6 +132,7 @@ export class CreatePostInteractor implements CreatePostInputBoundary {
         parts: checked.parts,
         publishAt: input.publishAt ?? now,
         resumeAt: null,
+        replyTo,
         idempotencyKey: input.idempotencyKey,
         requestHash: hash,
         createdBy: input.actor,

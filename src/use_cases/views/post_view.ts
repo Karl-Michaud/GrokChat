@@ -21,6 +21,8 @@ export interface PostView {
   readonly lifecycle: Lifecycle;
   readonly publishAt: Instant;
   readonly resumeAt: Instant | null;
+  /** The X post part 1 replies to; null for an original post. */
+  readonly replyTo: XPostId | null;
   readonly parts: readonly PartView[];
   readonly createdBy: string;
   readonly version: number;
@@ -34,6 +36,7 @@ export function toPostView(post: Post): PostView {
     lifecycle: post.lifecycle,
     publishAt: post.publishAt,
     resumeAt: post.resumeAt,
+    replyTo: post.replyTo,
     parts: post.parts.map((part) => ({
       text: part.text,
       media: part.media,

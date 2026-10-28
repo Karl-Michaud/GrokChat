@@ -1,6 +1,13 @@
 import type { PostingPolicy } from "../accounts/posting_policy";
 import type { Actor } from "../identity/actor";
-import type { AccountId, BotId, IdempotencyKey, PostId, StagedMediaId } from "../identity/ids";
+import type {
+  AccountId,
+  BotId,
+  IdempotencyKey,
+  PostId,
+  StagedMediaId,
+  XPostId,
+} from "../identity/ids";
 import type { Instant } from "../time/instant";
 import type { PartState } from "./part_state";
 
@@ -51,6 +58,8 @@ export interface Post {
    * max(publishAt, resumeAt). Cleared when the post starts.
    */
   readonly resumeAt: Instant | null;
+  /** The X post part 1 replies to (someone else's post); null for an original post or thread. */
+  readonly replyTo: XPostId | null;
   readonly idempotencyKey: IdempotencyKey | null;
   readonly requestHash: string;
   readonly createdBy: Actor;

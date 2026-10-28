@@ -35,6 +35,7 @@ function creator(world: World, reader: PostReader = world.reader) {
       accountId: ACCOUNT,
       parts: [{ text: "hello world", media: [] }],
       publishAt: null,
+      replyTo: null,
       idempotencyKey: null,
       ...input,
     });
@@ -133,8 +134,9 @@ describe("createPost: publish now", () => {
       lifecycle: "PENDING_REVIEW",
       publishAt: T0 + MINUTE,
       resumeAt: null,
+      replyTo: null,
       idempotencyKey: KEY,
-      requestHash: requestHash(ACCOUNT, [{ text: "hello world", media: [] }], T0 + MINUTE),
+      requestHash: requestHash(ACCOUNT, [{ text: "hello world", media: [] }], T0 + MINUTE, null),
       createdBy: botActor(),
       provenance: { botId: BOT, policySnapshot: account.policy },
       version: 1,
@@ -153,6 +155,60 @@ describe("createPost: publish now", () => {
       ["two", xPostId("x-1")],
       ["three", xPostId("x-2")],
     ]);
+  });
+
+  it("a reply is sent as a reply to the target, given by id or by the post's URL", async () => {
+    for (const replyTo of [
+      "1850000000000000001",
+      "https://x.com/someone/status/1850000000000000001?s=20",
+    ]) {
+      const world = makeWorld();
+      await world.seedAccount();
+      expect(await creator(world)({ replyTo })).toMatchObject({ ok: true, status: "PUBLISHED" });
+      expect([...world.x.posts.values()].map((post) => post.inReplyTo)).toStrictEqual([
+        xPostId("1850000000000000001"),
+      ]);
+      expect((await world.reader.get(postId("id-1")))?.replyTo).toBe("1850000000000000001");
+    }
+  });
+
+  it("a reply thread hangs under the target: part 1 replies to it, the rest chain", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    const parts = ["one", "two"].map((text) => ({ text, media: [] }));
+    await creator(world)({ parts, replyTo: "42" });
+    expect([...world.x.posts.values()].map((post) => [post.text, post.inReplyTo])).toStrictEqual([
+      ["one", xPostId("42")],
+      ["two", xPostId("x-1")],
+    ]);
+  });
+
+  it("refuses a reply target that is neither a post id nor a post URL, and stores nothing", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    for (const replyTo of ["", "abc", "https://example.com/a/status/1", "https://x.com/someone"]) {
+      expect(await creator(world)({ replyTo })).toStrictEqual({
+        ok: false,
+        code: "reply_target_invalid",
+        part: null,
+      });
+    }
+    expect(world.table.rows.size).toBe(0);
+  });
+
+  it("the reply target is part of the request: the same key with another target is refused", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    const create = creator(world);
+    const first = { actor: botActor(), idempotencyKey: KEY, publishAt: T0 + MINUTE };
+    await create({ ...first, replyTo: "1" });
+    expect(await create({ ...first, replyTo: "1" })).toMatchObject({ ok: true, duplicate: true });
+    expect(await create({ ...first, replyTo: "2" })).toStrictEqual({
+      ok: false,
+      code: "idempotency_mismatch",
+      part: null,
+    });
+    expect(await create(first)).toMatchObject({ code: "idempotency_mismatch" });
   });
 
   it("a future post is only scheduled; a past one inside the grace is published", async () => {
