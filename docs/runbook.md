@@ -134,6 +134,7 @@ person. Bot auth reads all of it on every MCP request, so a change applies to th
    GrokChat keeps only the hash. The page is not cached, is kept out of the browser's
    history snapshots, and the token is in no URL, redirect, log line or audit row. Leave the
    page and the token is gone: rotate to get a new one.
+
 4. **Configure the person's Grok bot** with the connector settings, then paste the setup
    prompt. Its Phase 1 checks the tools (13), lists the accounts, and proves that an account
    id that is not theirs is refused as `scope`. A wrong token fails the **whole** Grok request
