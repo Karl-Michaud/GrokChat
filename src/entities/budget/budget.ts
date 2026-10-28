@@ -114,6 +114,22 @@ export const MEDIA_CLEANUP_ITEM_COST: CallCost = {
 };
 
 /**
+ * The expired `upload_media` uploads' cleanup (GROKCHAT-20): up to five R2 listing pages of the
+ * pending uploads and its usage record; each upload then costs listing its objects, one batched delete
+ * and the usage record.
+ */
+export const UPLOAD_CLEANUP_QUERY_COST: CallCost = {
+  cloudflareCalls: 6,
+  externalSubrequests: 0,
+  millis: SECOND,
+};
+export const UPLOAD_CLEANUP_ITEM_COST: CallCost = {
+  cloudflareCalls: 3,
+  externalSubrequests: 0,
+  millis: SECOND,
+};
+
+/**
  * Per staged media item: metadata, the usage row (read and count), the R2 read, the audit and
  * cost entries.
  */

@@ -7,7 +7,7 @@ import type { Clock } from "../ports/clock";
 import type { FollowerSchedule } from "../ports/follower_days";
 import type { PostReader } from "../ports/post_reader";
 import { fanOut } from "../run_services/fan_out";
-import type { MediaCleanup } from "../run_services/media_cleanup";
+import type { CleanupStep } from "../run_services/cleanup_step";
 import type { MetricsTickInputBoundary } from "./input_boundary";
 import type { MetricsTickInputData } from "./input_data";
 import type { MetricsTickOutputBoundary } from "./output_boundary";
@@ -16,7 +16,8 @@ export interface MetricsTickPorts {
   readonly reader: PostReader;
   readonly followers: FollowerSchedule;
   readonly collector: AccountMetricsCollector;
-  readonly cleanup: MediaCleanup;
+  /** The staged-media cleanup, then the expired uploads' (GROKCHAT-20). */
+  readonly cleanup: CleanupStep;
   readonly meter: BudgetMeter;
   readonly clock: Clock;
 }
