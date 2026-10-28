@@ -1,10 +1,16 @@
 /** Every D1 driver against its port's contract, in workerd with a real local D1 (plan §6). */
 import { env } from "cloudflare:workers";
 import { beforeEach, describe } from "vitest";
+import { WebCryptoBotTokenIssuer } from "../../src/frameworks/crypto/bot_token_issuer";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { freshStorage } from "../integration/support/fresh_d1";
 import { followerStoreContract } from "./followers.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
+import {
+  accountOwnersContract,
+  personRepositoryContract,
+  tokenIssuerContract,
+} from "./people.contract";
 import { postStoreContract } from "./post_store.contract";
 import {
   activityLogContract,
@@ -67,4 +73,13 @@ describe("D1 records", () => {
   metricsRepositoryContract(() => stores().metrics);
   oauthStateContract(() => stores().states);
   loginThrottleContract(() => stores().throttle);
+});
+
+describe("D1 people (GROKCHAT-16)", () => {
+  personRepositoryContract(stores);
+  accountOwnersContract(stores);
+});
+
+describe("WebCrypto bot token issuer", () => {
+  tokenIssuerContract(() => new WebCryptoBotTokenIssuer());
 });

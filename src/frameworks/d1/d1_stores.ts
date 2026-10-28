@@ -1,3 +1,4 @@
+import { D1AccountOwners } from "./d1_account_owners";
 import { D1AccountRepository } from "./d1_account_repository";
 import { D1ActivityLog } from "./d1_activity_log";
 import { D1AuditLog } from "./d1_audit_log";
@@ -9,6 +10,7 @@ import { D1MediaRepository } from "./d1_media_repository";
 import { D1MediaUsage } from "./d1_media_usage";
 import { D1MetricsRepository } from "./d1_metrics_repository";
 import { D1OAuthStateStore } from "./d1_oauth_state_store";
+import { D1PersonRepository } from "./d1_person_repository";
 import { D1PostReader } from "./d1_post_reader";
 import { D1PostWriter } from "./d1_post_writer";
 
@@ -23,6 +25,8 @@ export function d1Stores(db: D1Database) {
     reader,
     writer: new D1PostWriter(db, reader),
     accounts: new D1AccountRepository(db),
+    people: new D1PersonRepository(db),
+    owners: new D1AccountOwners(db),
     media: new D1MediaRepository(db),
     cleanupCandidates: new D1MediaCleanupCandidates(db),
     usage: new D1MediaUsage(db),

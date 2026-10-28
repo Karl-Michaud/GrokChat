@@ -32,6 +32,11 @@ import {
   MemoryMediaRepository,
 } from "../../src/frameworks/memory/memory_repositories";
 import { ManualClock, SequentialIds } from "../../src/frameworks/memory/manual_clock";
+import {
+  MemoryAccountOwners,
+  MemoryPersonRepository,
+  SequentialTokenIssuer,
+} from "../../src/frameworks/memory/memory_people";
 import { MemoryTokenStore } from "../../src/frameworks/memory/memory_tokens";
 import { MemoryMediaCleanupCandidates } from "../../src/frameworks/memory/memory_media_cleanup";
 import { xUserId } from "../../src/entities/identity/ids";
@@ -47,6 +52,11 @@ import { MemoryActivityLog } from "../../src/frameworks/memory/memory_activity";
 import { MemoryFollowerStore } from "../../src/frameworks/memory/memory_followers";
 import { followerStoreContract } from "./followers.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
+import {
+  accountOwnersContract,
+  personRepositoryContract,
+  tokenIssuerContract,
+} from "./people.contract";
 import { postStoreContract } from "./post_store.contract";
 import {
   activityLogContract,
@@ -201,4 +211,16 @@ describe("stub-only helpers", () => {
     expect(clock.now()).toBe(T0 + 5);
     expect(new SequentialIds("p").newId()).toBe("p-1");
   });
+});
+
+function memoryPeople() {
+  const accounts = new MemoryAccountRepository();
+  const owners = new MemoryAccountOwners(accounts);
+  return { accounts, owners, people: new MemoryPersonRepository(owners) };
+}
+
+describe("memory people (GROKCHAT-16)", () => {
+  personRepositoryContract(memoryPeople);
+  accountOwnersContract(memoryPeople);
+  tokenIssuerContract(() => new SequentialTokenIssuer());
 });

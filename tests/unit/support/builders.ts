@@ -1,4 +1,5 @@
 /** Test data for the pure layers: a default for every entity, overridable field by field. */
+import type { Person } from "../../../src/entities/people/person";
 import type { Account } from "../../../src/entities/accounts/account";
 import { DEFAULT_POLICY, type PostingPolicy } from "../../../src/entities/accounts/posting_policy";
 import type { StagedMedia } from "../../../src/entities/content/staged_media";
@@ -6,6 +7,7 @@ import type { Actor } from "../../../src/entities/identity/actor";
 import {
   accountId,
   botId,
+  personId,
   postId,
   stagedMediaId,
   xPostId,
@@ -139,4 +141,10 @@ export function aFollowerSnapshot(
     posts: 2,
     listed: 0,
   };
+}
+
+export const PERSON = personId("person-1");
+
+export function aPerson(overrides: Partial<Person> = {}): Person {
+  return { id: PERSON, name: "Karl", createdAt: T0, token: null, ...overrides };
 }
