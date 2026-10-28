@@ -3,7 +3,7 @@
  * Worker, its account Durable Object and real local D1 and R2, with only `fetch` stubbed for X.
  * The owner connects an X account through the dashboard's OAuth flow and sets it up; a bot then
  * uses that account over MCP: its `create_post` waits for review, the owner approves it, the
- * publish tick (`scheduled()`) sends it through the real X drivers, the dashboard's backlog shows
+ * publish tick (`scheduled()`) sends it through the real X drivers, the dashboard's posts page shows
  * it with its X id, and an hour later the metrics tick reads its metrics.
  */
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -46,7 +46,7 @@ async function tick(name: CronName, workerEnv: Env): Promise<void> {
 const tool = async (client: Client, name: string, args: Record<string, unknown>) =>
   body(await client.callTool({ name, arguments: args }));
 
-describe("dashboard connect → bot create_post → scheduled() → dashboard backlog → metrics", () => {
+describe("dashboard connect → bot create_post → scheduled() → dashboard posts → metrics", () => {
   it("runs the whole path on the production graph, with only X's HTTP faked", async () => {
     const dashboardEnv = await webEnv();
     const browser = browserFor(dashboardEnv);
@@ -68,8 +68,8 @@ describe("dashboard connect → bot create_post → scheduled() → dashboard ba
     const postId = String(created["post_id"]);
     const detail = `/dashboard/posts/${postId}`;
 
-    // The owner finds it in the backlog and approves it; nothing is on X yet.
-    const pending = await browser.page("/dashboard/backlog");
+    // The owner finds it on the posts page and approves it; nothing is on X yet.
+    const pending = await browser.page("/dashboard/posts?status=PENDING_REVIEW");
     expect(pending.html).toContain(`href="${detail}"`);
     expect(pending.html).toContain("hello from a grok bot");
     await browser.page(detail);
@@ -87,11 +87,13 @@ describe("dashboard connect → bot create_post → scheduled() → dashboard ba
     expect(create?.headers.get("authorization")).toBe("Bearer access-2");
     const xId = sent?.id ?? "";
 
-    // The dashboard's backlog lists it as published; its page shows the part SENT with the X id.
-    const published = await browser.page("/dashboard/backlog?status=PUBLISHED");
+    // The posts page lists it as published; its page shows the part SENT, linked to X.
+    const published = await browser.page("/dashboard/posts?status=PUBLISHED");
     expect(published.html).toContain(`href="${detail}"`);
-    expect(published.html).toContain("PUBLISHED");
-    expect((await browser.page(detail)).html).toContain(`[SENT ${xId}]`);
+    expect(published.html).toContain('class="chip good">Published</span>');
+    const page = (await browser.page(detail)).html;
+    expect(page).toContain(`https://x.com/${x.me.username}/status/${xId}`);
+    expect(page).toContain(">SENT</span>");
     expect(await tool(bot, "get_post", { post_id: postId })).toMatchObject({
       post: { status: "PUBLISHED", parts: [{ state: "SENT", x_post_id: xId }] },
     });
@@ -101,12 +103,18 @@ describe("dashboard connect → bot create_post → scheduled() → dashboard ba
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + HOUR + MINUTE });
     const before = x.calls().length;
     await tick("metrics", dashboardEnv);
-    expect(x.calls().slice(before)).toStrictEqual(["GET /2/tweets"]);
+    // The post's metrics, then the account's follower snapshot for the day (GROKCHAT-15).
+    expect(x.calls().slice(before)).toStrictEqual(["GET /2/tweets", `GET /2/users/${x.me.id}`]);
     expect(await tool(bot, "get_post_metrics", { post_id: postId })).toMatchObject({
       parts: [{ x_post_id: xId, impressions: 100, likes: 10 }],
     });
+    // The post's page charts its reads; the analytics show it in the top posts, and the
+    // follower count the tick read.
     expect((await browser.page(detail)).html).toMatch(
-      new RegExp(`<td>${xId}</td>[\\s\\S]*<td>100</td>`),
+      /<strong>100<\/strong>\s*<span>Impressions<\/span>/,
     );
+    const analytics = (await browser.page("/dashboard/analytics?range=24h")).html;
+    expect(analytics).toContain(`href="${detail}"`);
+    expect(analytics).toContain(">1,234</span>");
   });
 });

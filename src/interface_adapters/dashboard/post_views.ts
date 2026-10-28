@@ -1,39 +1,20 @@
 import type { Account } from "../../entities/accounts/account";
+import { sum, valuesOf } from "../../entities/analytics/metric_values";
+import type { XPostId } from "../../entities/identity/ids";
 import type { MetricsSnapshot } from "../../entities/metrics/metrics_snapshot";
 import type { DerivedStatus } from "../../entities/posts/derived_status";
 import type { Lifecycle } from "../../entities/posts/post";
+import type { Instant } from "../../entities/time/instant";
+import type { ActivityEntry } from "../../use_cases/ports/activity_log";
 import type { PostView } from "../../use_cases/views/post_view";
-import { handleOf } from "./account_directory";
-import { formatUtc, toDateTimeInput } from "./form_values";
-
-/** Every status the backlog can be filtered by, in the order the filter lists them. */
-export const STATUS_OPTIONS: readonly DerivedStatus[] = [
-  "DRAFT",
-  "PENDING_REVIEW",
-  "SCHEDULED",
-  "RESUMING",
-  "PUBLISHING",
-  "PUBLISHED",
-  "PARTIALLY_PUBLISHED",
-  "UNKNOWN_OUTCOME",
-  "NOT_FOUND",
-  "FAILED",
-  "MISSED",
-  "CANCELLED",
-  "DELETED",
-  "DELETE_INCOMPLETE",
-];
-
-export interface PostRow {
-  readonly id: string;
-  readonly href: string;
-  readonly account: string;
-  readonly status: DerivedStatus;
-  readonly publishAt: string;
-  readonly time: string;
-  readonly text: string;
-  readonly parts: number;
-}
+import { badgeOf, bareHandle, type AccountBadge } from "./account_directory";
+import { activityRow, type ActivityRow } from "./activity_views";
+import { lineChart, type LineChartView } from "./charts";
+import { postStatusChip, type Chip } from "./chips";
+import { dateTimeLabel, exact, relativeTime } from "./format";
+import { toDateTimeInput } from "./form_values";
+import { liveUrl } from "./links";
+import { metricCells, type MetricCells } from "./metric_cells";
 
 export interface PartDetail {
   /** 1-based, as the page shows it. */
@@ -42,7 +23,7 @@ export interface PartDetail {
   /** The staged media ids, comma-separated, carried through an edit. */
   readonly media: string;
   readonly state: string;
-  readonly xPostId: string | null;
+  readonly xUrl: string | null;
 }
 
 /** What the post page offers; the use cases still decide (§3.1.1). */
@@ -56,47 +37,26 @@ export interface PostActions {
   readonly confirmNotOnX: boolean;
 }
 
-export interface MetricsRow {
-  readonly xPostId: string;
-  readonly takenAt: string;
-  readonly impressions: number;
-  readonly likes: number;
-  readonly reposts: number;
-  readonly replies: number;
-  readonly quotes: number;
-  readonly bookmarks: number;
-}
-
 export interface PostDetailView {
   readonly id: string;
-  readonly account: string;
-  readonly status: DerivedStatus;
+  readonly account: AccountBadge;
+  readonly status: Chip;
+  readonly derived: DerivedStatus;
   readonly lifecycle: Lifecycle;
   readonly publishAt: string;
+  readonly publishRelative: string;
   readonly publishAtInput: string;
   readonly resumeAt: string | null;
   readonly createdBy: string;
   readonly version: number;
   readonly parts: readonly PartDetail[];
   readonly actions: PostActions;
-  readonly metrics: readonly MetricsRow[];
-}
-
-export function postHref(id: string): string {
-  return `/dashboard/posts/${encodeURIComponent(id)}`;
-}
-
-export function postRow(post: PostView, accounts: readonly Account[]): PostRow {
-  return {
-    id: post.id,
-    href: postHref(post.id),
-    account: handleOf(accounts, post.accountId),
-    status: post.status,
-    publishAt: formatUtc(post.publishAt),
-    time: toDateTimeInput(post.publishAt).slice(11),
-    text: post.parts[0]?.text ?? "",
-    parts: post.parts.length,
-  };
+  /** The parts' newest reads, summed; every cell "—" before the first read. */
+  readonly totals: MetricCells;
+  /** Impressions over time, summed over the parts, one point per read. */
+  readonly chart: LineChartView;
+  readonly reads: number;
+  readonly timeline: readonly ActivityRow[];
 }
 
 const UNSTARTED: readonly Lifecycle[] = ["DRAFT", "PENDING_REVIEW", "SCHEDULED"];
@@ -122,32 +82,55 @@ export function postActions(post: PostView): PostActions {
   };
 }
 
-export function metricsRow(snapshot: MetricsSnapshot): MetricsRow {
-  return {
-    xPostId: snapshot.xPostId,
-    takenAt: formatUtc(snapshot.takenAt),
-    impressions: snapshot.impressions,
-    likes: snapshot.likes,
-    reposts: snapshot.reposts,
-    replies: snapshot.replies,
-    quotes: snapshot.quotes,
-    bookmarks: snapshot.bookmarks,
-  };
+/** At each read, the post's impressions: every part's newest read so far, summed. */
+export function impressionsOverTime(
+  series: readonly MetricsSnapshot[],
+): readonly { readonly at: Instant; readonly value: number }[] {
+  const latest = new Map<XPostId, number>();
+  const points: { at: Instant; value: number }[] = [];
+  for (const snapshot of series) {
+    latest.set(snapshot.xPostId, snapshot.impressions);
+    const value = [...latest.values()].reduce((total, count) => total + count, 0);
+    if (points.at(-1)?.at === snapshot.takenAt) {
+      points.pop();
+    }
+    points.push({ at: snapshot.takenAt, value });
+  }
+  return points;
+}
+
+function newestTotals(series: readonly MetricsSnapshot[]): MetricCells {
+  const newest = new Map(series.map((snapshot) => [snapshot.xPostId, snapshot]));
+  return metricCells(newest.size === 0 ? null : sum([...newest.values()].map(valuesOf)));
+}
+
+export interface PostInsights {
+  readonly post: PostView;
+  readonly series: readonly MetricsSnapshot[];
+  readonly timeline: readonly ActivityEntry[];
 }
 
 export function postDetail(
-  post: PostView,
+  found: PostInsights,
   accounts: readonly Account[],
-  metrics: readonly MetricsSnapshot[],
+  now: Instant,
 ): PostDetailView {
+  const { post, series } = found;
+  const handle = bareHandle(accounts, post.accountId);
+  const points = impressionsOverTime(series).map((point) => ({
+    label: dateTimeLabel(point.at),
+    value: point.value,
+  }));
   return {
     id: post.id,
-    account: handleOf(accounts, post.accountId),
-    status: post.status,
+    account: badgeOf(accounts, post.accountId),
+    status: postStatusChip(post.status),
+    derived: post.status,
     lifecycle: post.lifecycle,
-    publishAt: formatUtc(post.publishAt),
+    publishAt: dateTimeLabel(post.publishAt),
+    publishRelative: relativeTime(post.publishAt, now),
     publishAtInput: toDateTimeInput(post.publishAt),
-    resumeAt: post.resumeAt === null ? null : formatUtc(post.resumeAt),
+    resumeAt: post.resumeAt === null ? null : dateTimeLabel(post.resumeAt),
     createdBy: post.createdBy,
     version: post.version,
     parts: post.parts.map((part, index) => ({
@@ -155,9 +138,12 @@ export function postDetail(
       text: part.text,
       media: part.media.join(","),
       state: part.state,
-      xPostId: part.xPostId,
+      xUrl: liveUrl(handle, part),
     })),
     actions: postActions(post),
-    metrics: metrics.map(metricsRow),
+    totals: newestTotals(series),
+    chart: lineChart(points, exact),
+    reads: series.length,
+    timeline: found.timeline.map((entry) => activityRow(entry, accounts, now)),
   };
 }

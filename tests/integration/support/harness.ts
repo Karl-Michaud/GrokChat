@@ -14,6 +14,7 @@ import {
   FakeXMetrics,
   FakeXPublisher,
   FakeXTimeline,
+  FakeXUserMetrics,
   FakeXWorld,
 } from "../../../src/frameworks/memory/fake_x";
 import { ManualClock } from "../../../src/frameworks/memory/manual_clock";
@@ -24,7 +25,7 @@ import {
   accountRuntime,
   type AccountRuntime,
 } from "../../../src/frameworks/composition/account_graph";
-import { aPersonality, anAccount, T0 } from "../../unit/support/builders";
+import { anAccount, T0 } from "../../unit/support/builders";
 import { metered, type Meter } from "./metered_d1";
 
 export interface Harness {
@@ -33,6 +34,7 @@ export interface Harness {
   readonly publisher: FakeXPublisher;
   readonly uploader: FakeXMediaUploader;
   readonly timeline: FakeXTimeline;
+  readonly users: FakeXUserMetrics;
   readonly endpoint: FakeXTokenEndpoint;
   readonly meter: Meter;
   readonly locks: "mutex" | "none";
@@ -51,6 +53,7 @@ export function newHarness(options: { readonly locks?: "mutex" | "none" } = {}):
     publisher: new FakeXPublisher(x),
     uploader: new FakeXMediaUploader(x),
     timeline: new FakeXTimeline(x),
+    users: new FakeXUserMetrics(x),
     endpoint: new FakeXTokenEndpoint(clock),
     meter: metered(env.DB),
     locks: options.locks ?? "mutex",
@@ -75,6 +78,7 @@ export function testRuntime(ctx: DurableObjectState): AccountRuntime {
     uploader: h.uploader,
     timeline: h.timeline,
     metrics: new FakeXMetrics(h.x),
+    users: h.users,
   };
   const x: AccountXWiring = { refresher: () => h.endpoint, calls: () => calls };
   return {
@@ -97,12 +101,11 @@ export function objectFor(account: AccountId) {
   return env.TEST_ACCOUNT.get(env.TEST_ACCOUNT.idFromName(account));
 }
 
-/** An active, disclosed account in D1 with its personality, and tokens in its object. */
+/** An active, disclosed account in D1, and tokens in its object. */
 export async function seedAccount(overrides: Partial<Account> = {}): Promise<Account> {
   const account = anAccount({ id: freshAccountId(), ...overrides });
   const stores = d1Stores(env.DB);
   await stores.accounts.save(account);
-  await stores.personalities.save(aPersonality({ id: account.personalityId }));
   const stored = await objectFor(account.id).storeConnectedTokens(
     account.id,
     harness().endpoint.issue(),

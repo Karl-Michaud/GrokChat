@@ -3,8 +3,14 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe } from "vitest";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { freshStorage } from "../integration/support/fresh_d1";
+import { followerStoreContract } from "./followers.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import { postStoreContract } from "./post_store.contract";
+import {
+  activityLogContract,
+  followerHistoryContract,
+  metricsHistoryContract,
+} from "./read_models.contract";
 import {
   auditLogContract,
   costLedgerContract,
@@ -16,7 +22,6 @@ import {
   accountRepositoryContract,
   mediaRepositoryContract,
   mediaUsageContract,
-  personalityRepositoryContract,
 } from "./repositories.contract";
 
 beforeEach(freshStorage);
@@ -39,9 +44,21 @@ describe("D1 cleanup candidates", () => {
 
 describe("D1 repositories", () => {
   accountRepositoryContract(() => stores().accounts);
-  personalityRepositoryContract(() => stores().personalities);
   mediaRepositoryContract(() => stores().media);
   mediaUsageContract(() => stores().usage);
+});
+
+describe("D1 follower store", () => {
+  followerStoreContract(() => ({ store: stores().followers, accounts: stores().accounts }));
+});
+
+describe("D1 read models (GROKCHAT-15)", () => {
+  metricsHistoryContract(() => stores().metrics);
+  followerHistoryContract(() => stores().followers);
+  activityLogContract(() => {
+    const { activity, audit, costs } = stores();
+    return { activity, audit, costs };
+  });
 });
 
 describe("D1 records", () => {

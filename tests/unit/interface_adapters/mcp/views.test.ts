@@ -1,23 +1,17 @@
 import { describe, expect, it } from "vitest";
-import {
-  personalityId,
-  postId,
-  stagedMediaId,
-  xPostId,
-} from "../../../../src/entities/identity/ids";
+import { postId, stagedMediaId, xPostId } from "../../../../src/entities/identity/ids";
 import type { MetricsSnapshot } from "../../../../src/entities/metrics/metrics_snapshot";
 import { MINUTE } from "../../../../src/entities/time/instant";
 import {
   disclosureJson,
   isoTime,
-  personalityJson,
   policyJson,
   postJson,
   snapshotJson,
 } from "../../../../src/interface_adapters/mcp/json_views";
 import * as views from "../../../../src/interface_adapters/mcp/tool_views";
 import { toPostView } from "../../../../src/use_cases/views/post_view";
-import { ACCOUNT, aPersonality, aPolicy, aPost, part, sentState, T0 } from "../../support/builders";
+import { ACCOUNT, aPolicy, aPost, part, sentState, T0 } from "../../support/builders";
 
 const SNAPSHOT: MetricsSnapshot = {
   xPostId: xPostId("x-1"),
@@ -86,19 +80,6 @@ describe("json views", () => {
 
   it("shows a metrics snapshot", () => {
     expect(snapshotJson(SNAPSHOT)).toStrictEqual(SNAPSHOT_JSON);
-  });
-
-  it("shows a personality", () => {
-    expect(personalityJson(aPersonality({ id: personalityId("p-2") }))).toStrictEqual({
-      personality_id: "p-2",
-      name: "Muse",
-      voice_guide: "warm",
-      topics: ["music"],
-      dos: ["be kind"],
-      donts: ["no politics"],
-      examples: ["hello"],
-      version: 3,
-    });
   });
 
   it("shows a policy in minutes and quiet hours as zero-padded local HH:MM", () => {
@@ -219,12 +200,7 @@ describe("tool views", () => {
     });
   });
 
-  it("get_personality and get_policy", () => {
-    const personality = aPersonality();
-    expect(views.personalityView({ ok: true, personality })).toStrictEqual({
-      ok: true,
-      body: { personality: personalityJson(personality) },
-    });
+  it("get_policy", () => {
     const policy = aPolicy();
     expect(
       views.policyView({

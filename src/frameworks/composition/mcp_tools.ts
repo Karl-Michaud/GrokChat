@@ -13,7 +13,6 @@ import {
 import {
   ComparePostsController,
   GetAccountMetricsController,
-  GetPersonalityController,
   GetPolicyController,
   GetPostController,
   GetPostMetricsController,
@@ -28,7 +27,6 @@ import type { CreatePostOutputData } from "../../use_cases/create_post/output_da
 import { DeletePostInteractor } from "../../use_cases/delete_post/interactor";
 import { EditPostInteractor } from "../../use_cases/edit_post/interactor";
 import { GetAccountMetricsInteractor } from "../../use_cases/get_account_metrics/interactor";
-import { GetPersonalityInteractor } from "../../use_cases/get_personality/interactor";
 import { GetPolicyInteractor } from "../../use_cases/get_policy/interactor";
 import { GetPostMetricsInteractor } from "../../use_cases/get_post_metrics/interactor";
 import { GetPostInteractor } from "../../use_cases/get_post/interactor";
@@ -108,12 +106,6 @@ function accountReadingTools(g: WorkerGraph) {
           call.actor,
           args,
         ),
-      ),
-    get_personality: (call, args) =>
-      presentTool(views.personalityView, call.secrets, (p) =>
-        new GetPersonalityController(
-          new GetPersonalityInteractor(g.accounts, g.personalities, g.guard, p),
-        ).handle(call.actor, args),
       ),
     get_policy: (call, args) =>
       presentTool(views.policyView, call.secrets, (p) =>

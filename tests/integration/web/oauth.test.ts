@@ -3,7 +3,6 @@ import { accountId, xUserId } from "../../../src/entities/identity/ids";
 import { MINUTE } from "../../../src/entities/time/instant";
 import { CONNECT_COOKIE } from "../../../src/frameworks/web/oauth_routes";
 import { SESSION_COOKIE } from "../../../src/frameworks/web/session";
-import { aPersonality } from "../../unit/support/builders";
 import type { World } from "../../unit/support/world";
 import { Browser, dashboard } from "./browser";
 
@@ -15,7 +14,6 @@ const user = (id = "x-user-9", handle = "newbie") => ({
 
 async function connected() {
   const setup = await dashboard();
-  await setup.world.personalities.save(aPersonality());
   await setup.browser.login();
   return setup;
 }
@@ -36,7 +34,7 @@ const finish = (browser: Browser, state: string, code = "code-1") =>
 describe("the OAuth connect flow (plan §3.5, R11)", () => {
   it("start → X → callback bounce → finish connects a new, paused account", async () => {
     const { browser, world } = await connected();
-    const started = await start(browser, world, { personality: "pers-1" });
+    const started = await start(browser, world, {});
     expect(started.response.status).toBe(303);
     expect(started.location).toBe(
       "https://x.com/i/oauth2/authorize?state=id-1&code_challenge=challenge-1",
@@ -71,7 +69,7 @@ describe("the OAuth connect flow (plan §3.5, R11)", () => {
 
   it("refuses a replayed state, with or without the intent cookie", async () => {
     const { browser, world } = await connected();
-    const started = await start(browser, world, { personality: "pers-1" });
+    const started = await start(browser, world, {});
     const intent = browser.cookies.get(CONNECT_COOKIE) ?? "";
     expect((await finish(browser, started.state)).status).toBe(303);
     const replay = await finish(browser, started.state);
@@ -87,7 +85,7 @@ describe("the OAuth connect flow (plan §3.5, R11)", () => {
 
   it("refuses the finish without the admin session, writing nothing", async () => {
     const { browser, world, env, app } = await connected();
-    const started = await start(browser, world, { personality: "pers-1" });
+    const started = await start(browser, world, {});
     const stranger = new Browser((request, e) => app.fetch(request, e), env);
     stranger.cookies.set(CONNECT_COOKIE, browser.cookies.get(CONNECT_COOKIE) ?? "");
     const response = await finish(stranger, started.state);
@@ -101,13 +99,13 @@ describe("the OAuth connect flow (plan §3.5, R11)", () => {
 
   it("refuses another session's state or intent cookie (foreign state)", async () => {
     const { browser, world, env, app } = await connected();
-    const started = await start(browser, world, { personality: "pers-1" });
+    const started = await start(browser, world, {});
     const other = new Browser((request, e) => app.fetch(request, e), env);
     await other.login();
     expect(other.cookies.get(SESSION_COOKIE)).not.toBe(browser.cookies.get(SESSION_COOKIE));
     other.cookies.set(CONNECT_COOKIE, browser.cookies.get(CONNECT_COOKIE) ?? "");
     expect((await finish(other, started.state)).status).toBe(400);
-    const own = await start(other, world, { personality: "pers-1" });
+    const own = await start(other, world, {});
     expect(own.state).not.toBe(started.state);
     expect((await finish(other, started.state)).status).toBe(400);
     expect(await world.accounts.list()).toStrictEqual([]);
@@ -118,7 +116,7 @@ describe("the OAuth connect flow (plan §3.5, R11)", () => {
 
   it("refuses an expired state", async () => {
     const { browser, world } = await connected();
-    const started = await start(browser, world, { personality: "pers-1" });
+    const started = await start(browser, world, {});
     world.clock.advance(11 * MINUTE);
     expect((await finish(browser, started.state)).status).toBe(400);
     expect(await world.accounts.list()).toStrictEqual([]);
@@ -142,13 +140,13 @@ describe("the OAuth connect flow (plan §3.5, R11)", () => {
 
   it("shows X's refusal without echoing it, and a missing code", async () => {
     const { browser, world } = await connected();
-    const started = await start(browser, world, { personality: "pers-1" });
+    const started = await start(browser, world, {});
     const denied = await browser.get(`/oauth/x/finish?error=access_denied&state=${started.state}`);
     expect(denied.status).toBe(400);
     const text = await denied.text();
     expect(text).toContain("cancelled or refused on X");
     expect(text).not.toContain("access_denied");
-    const again = await start(browser, world, { personality: "pers-1" });
+    const again = await start(browser, world, {});
     expect((await browser.get(`/oauth/x/finish?state=${again.state}`)).status).toBe(400);
   });
 });

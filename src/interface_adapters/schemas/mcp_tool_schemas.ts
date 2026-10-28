@@ -73,6 +73,5 @@ export const TOOL_SCHEMAS = {
   compare_posts: accountWindow.extend({
     sort_by: z.enum(METRIC_NAMES),
   }),
-  get_personality: accountOnly,
   get_policy: accountOnly,
 } satisfies { readonly [K in ToolName]: z.ZodType<ToolArgs[K]> };

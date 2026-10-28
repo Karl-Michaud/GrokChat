@@ -76,7 +76,6 @@ export interface ToolArgs {
   readonly get_post_metrics: PostArgs;
   readonly get_account_metrics: AccountWindowArgs;
   readonly compare_posts: ComparePostsArgs;
-  readonly get_personality: AccountArgs;
   readonly get_policy: AccountArgs;
 }
 

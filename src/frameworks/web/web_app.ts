@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { accountRoutes, personalityRoutes } from "./account_routes";
+import { accountRoutes } from "./account_routes";
 import type { WebControllers } from "./controllers";
 import {
   checkUnsafe,
@@ -13,6 +13,7 @@ import { oauthRoutes } from "./oauth_routes";
 import { postRoutes } from "./post_routes";
 import { reportRoutes } from "./report_routes";
 import { sessionRoutes } from "./session_routes";
+import { frameOf } from "./respond";
 import { errorPage } from "./views/layout";
 import type { WebApp } from "./web_context";
 
@@ -31,12 +32,11 @@ export function buildWebApp(controllers: WebControllers): WebApp {
   sessionRoutes(app, controllers);
   postRoutes(app, controllers);
   accountRoutes(app, controllers);
-  personalityRoutes(app, controllers);
   oauthRoutes(app, controllers);
   reportRoutes(app, controllers);
   app.onError((error, c) => {
     console.error(JSON.stringify({ route: "web", error: error.name }));
-    return c.html(errorPage("Something went wrong.", null), 500);
+    return c.html(errorPage("Something went wrong.", frameOf(c)), 500);
   });
   return app;
 }

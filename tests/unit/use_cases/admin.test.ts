@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_POLICY } from "../../../src/entities/accounts/posting_policy";
-import { accountId, personalityId, xUserId } from "../../../src/entities/identity/ids";
+import { accountId, xUserId } from "../../../src/entities/identity/ids";
 import { HOUR, MINUTE } from "../../../src/entities/time/instant";
 import type { AccountCommandResult } from "../../../src/use_cases/admin/account_command";
 import { ConfirmDisclosureInteractor } from "../../../src/use_cases/confirm_disclosure/interactor";
@@ -12,12 +12,9 @@ import type { ConnectAccountBeginOutputData } from "../../../src/use_cases/conne
 import { ConnectAccountCompleteInteractor } from "../../../src/use_cases/connect_account_complete/interactor";
 import type { ConnectAccountCompleteInputData } from "../../../src/use_cases/connect_account_complete/input_data";
 import type { ConnectAccountCompleteOutputData } from "../../../src/use_cases/connect_account_complete/output_data";
-import { SavePersonalityInteractor } from "../../../src/use_cases/save_personality/interactor";
-import type { SavePersonalityInputData } from "../../../src/use_cases/save_personality/input_data";
-import type { SavePersonalityOutputData } from "../../../src/use_cases/save_personality/output_data";
 import { SetAccountStatusInteractor } from "../../../src/use_cases/set_account_status/interactor";
 import { SetPolicyInteractor } from "../../../src/use_cases/set_policy/interactor";
-import { ACCOUNT, aPersonality, aPolicy, botActor, HUMAN, T0 } from "../support/builders";
+import { ACCOUNT, aPolicy, botActor, HUMAN, T0 } from "../support/builders";
 import { Capture, makeWorld, type World } from "../support/world";
 import { required } from "../support/publishing";
 
@@ -83,60 +80,6 @@ describe("setPolicy, setAccountStatus, confirmDisclosure (AccountCommand)", () =
   });
 });
 
-describe("savePersonality", () => {
-  const save = async (world: World, input: Partial<SavePersonalityInputData>) => {
-    const presenter = new Capture<SavePersonalityOutputData>();
-    const interactor = new SavePersonalityInteractor(
-      world.personalities,
-      world.ids,
-      world.guard,
-      world.actionAudit,
-      presenter,
-    );
-    const base = aPersonality();
-    await interactor.execute({
-      actor: HUMAN,
-      id: null,
-      name: base.name,
-      voiceGuide: base.voiceGuide,
-      topics: base.topics,
-      dos: base.dos,
-      donts: base.donts,
-      examples: base.examples,
-      ...input,
-    });
-    return presenter.last;
-  };
-
-  it("creates at version 1, then each save is the next version", async () => {
-    const world = makeWorld();
-    const created = await save(world, {});
-    expect(created).toStrictEqual({
-      ok: true,
-      personality: aPersonality({ id: personalityId("id-1"), version: 1 }),
-    });
-    const updated = await save(world, { id: personalityId("id-1"), name: "Muse 2" });
-    expect(updated).toStrictEqual({
-      ok: true,
-      personality: aPersonality({ id: personalityId("id-1"), name: "Muse 2", version: 2 }),
-    });
-    expect(world.audit.events.map((event) => event.detail)).toStrictEqual(["id-1 v1", "id-1 v2"]);
-  });
-
-  it("refuses a bot, a blank name and an unknown id", async () => {
-    const world = makeWorld();
-    expect(await save(world, { actor: botActor() })).toStrictEqual({
-      ok: false,
-      code: "human_only",
-    });
-    expect(await save(world, { name: "  " })).toStrictEqual({ ok: false, code: "name_required" });
-    expect(await save(world, { id: personalityId("zz") })).toStrictEqual({
-      ok: false,
-      code: "not_found",
-    });
-  });
-});
-
 describe("connecting an X account (rev 4 M7, R11)", () => {
   const user = (id = "x-user-1", handle = "muse") => ({
     xUserId: xUserId(id),
@@ -168,7 +111,6 @@ describe("connecting an X account (rev 4 M7, R11)", () => {
         states: world.states,
         connector: world.connector,
         accounts: world.accounts,
-        personalities: world.personalities,
         gateway: world.gateway,
         guard: world.guard,
         audit: world.actionAudit,
@@ -183,7 +125,6 @@ describe("connecting an X account (rev 4 M7, R11)", () => {
       state: "id-1",
       code: "code-1",
       reconnect: null,
-      personalityId: personalityId("pers-1"),
       ...input,
     });
     return presenter.last;
@@ -205,9 +146,8 @@ describe("connecting an X account (rev 4 M7, R11)", () => {
     expect(await begin(world, botActor())).toStrictEqual({ ok: false, code: "human_only" });
   });
 
-  it("a new account starts PAUSED and undisclosed; its tokens go to the DO, never the output", async () => {
+  it("a new account needs no personality, starts PAUSED and undisclosed; its tokens go to the DO, never the output", async () => {
     const world = makeWorld();
-    await world.personalities.save(aPersonality());
     await begin(world);
     world.connector.codes.set("code-1", { verifier: "verifier-1", user: user() });
     const out = await complete(world, {});
@@ -221,7 +161,6 @@ describe("connecting an X account (rev 4 M7, R11)", () => {
       id: accountId("id-2"),
       xUserId: xUserId("x-user-1"),
       handle: "muse",
-      personalityId: personalityId("pers-1"),
       status: "PAUSED",
       disclosure: { bioConfirmed: false, automatedLabelConfirmed: false },
       policy: DEFAULT_POLICY,
@@ -236,7 +175,6 @@ describe("connecting an X account (rev 4 M7, R11)", () => {
 
   it("refuses a replayed, foreign-session or expired state, and a failed exchange", async () => {
     const world = makeWorld();
-    await world.personalities.save(aPersonality());
     await begin(world);
     expect(await complete(world, { sessionId: "other" })).toStrictEqual({
       ok: false,
@@ -300,7 +238,7 @@ describe("connecting an X account (rev 4 M7, R11)", () => {
     });
   });
 
-  it("refuses an unknown reconnect target, an X user already connected, a missing personality", async () => {
+  it("refuses an unknown reconnect target and an X user already connected", async () => {
     const world = makeWorld();
     await world.seedAccount();
     const attempt = async (input: Partial<ConnectAccountCompleteInputData>, who = user()) => {
@@ -315,13 +253,5 @@ describe("connecting an X account (rev 4 M7, R11)", () => {
       code: "not_found",
     });
     expect(await attempt({})).toStrictEqual({ ok: false, code: "already_connected" });
-    expect(await attempt({ personalityId: null }, user("x-user-5"))).toStrictEqual({
-      ok: false,
-      code: "personality_required",
-    });
-    expect(await attempt({ personalityId: personalityId("zz") }, user("x-user-6"))).toStrictEqual({
-      ok: false,
-      code: "personality_not_found",
-    });
   });
 });

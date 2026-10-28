@@ -8,9 +8,7 @@ export type ConnectAccountCompleteRefusalCode =
   | "oauth_failed"
   | "not_found"
   | "different_x_user"
-  | "already_connected"
-  | "personality_required"
-  | "personality_not_found";
+  | "already_connected";
 
 /** Never carries a token. */
 export type ConnectAccountCompleteOutputData =

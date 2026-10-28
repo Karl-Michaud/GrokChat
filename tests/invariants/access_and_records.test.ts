@@ -22,7 +22,6 @@ import type { CreatePostOutputData } from "../../src/use_cases/create_post/outpu
 import { DeletePostInteractor } from "../../src/use_cases/delete_post/interactor";
 import { EditPostInteractor } from "../../src/use_cases/edit_post/interactor";
 import { GetAccountMetricsInteractor } from "../../src/use_cases/get_account_metrics/interactor";
-import { GetPersonalityInteractor } from "../../src/use_cases/get_personality/interactor";
 import { GetPolicyInteractor } from "../../src/use_cases/get_policy/interactor";
 import { GetPostInteractor } from "../../src/use_cases/get_post/interactor";
 import { GetPostMetricsInteractor } from "../../src/use_cases/get_post_metrics/interactor";
@@ -66,7 +65,6 @@ function creator(world: World) {
   const interactor = new CreatePostInteractor(
     {
       accounts: world.accounts,
-      personalities: world.personalities,
       reader: world.reader,
       writer: world.writer,
       attachments: world.attachments,
@@ -179,13 +177,6 @@ const PROBES: Readonly<Record<string, Probe>> = {
         accountId: OTHER_ACCOUNT,
         window: WINDOW,
         sortBy: "likes",
-      }),
-    ),
-  get_personality: (w) =>
-    last((p) =>
-      new GetPersonalityInteractor(w.accounts, w.personalities, w.guard, p).execute({
-        actor: BOT,
-        accountId: OTHER_ACCOUNT,
       }),
     ),
   get_policy: (w) =>

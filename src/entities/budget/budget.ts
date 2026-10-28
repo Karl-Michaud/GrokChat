@@ -87,6 +87,16 @@ export const METRICS_READ_COST: CallCost = {
 };
 
 /**
+ * The daily follower snapshot (GROKCHAT-15): the day's claim, the user read, its audit and cost
+ * entries, and storing the counts (or giving the claim back).
+ */
+export const FOLLOWER_READ_COST: CallCost = {
+  cloudflareCalls: 4,
+  externalSubrequests: 1,
+  millis: 2 * SECOND,
+};
+
+/**
  * The metrics tick's staged-media cleanup (plan §3.5, U16): one D1 query selects the items whose
  * retention has passed, oldest staged first, at most `MEDIA_CLEANUP_BATCH`; each item then costs
  * the R2 delete, the usage record and the row delete. The rest waits for the next tick.

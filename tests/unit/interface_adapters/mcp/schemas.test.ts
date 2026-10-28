@@ -14,9 +14,9 @@ const THREAD = { account_id: "a", parts: [{ text: "hi" }], idempotency_key: "k" 
 const WINDOW = { account_id: "a", from: "2026-10-27T00:00:00Z", to: "2026-10-28T00:00:00+02:00" };
 
 describe("tool input schemas", () => {
-  it("has a schema for exactly the 13 catalogued tools", () => {
+  it("has a schema for exactly the 12 catalogued tools", () => {
     expect(Object.keys(TOOL_SCHEMAS).sort()).toStrictEqual([...TOOL_NAMES].sort());
-    expect(TOOL_NAMES).toHaveLength(13);
+    expect(TOOL_NAMES).toHaveLength(12);
   });
 
   it("lists every derived status for list_backlog (compile-time check)", () => {
@@ -72,7 +72,6 @@ describe("tool input schemas", () => {
 
   it("the account tools need an account id", () => {
     expect(ok("get_policy", {})).toBe(false);
-    expect(ok("get_personality", {})).toBe(false);
     expect(TOOL_SCHEMAS.get_policy.parse({ account_id: "a" })).toStrictEqual({ account_id: "a" });
   });
 
@@ -113,7 +112,6 @@ describe("tool catalog", () => {
     expect(readOnly).toStrictEqual([
       "compare_posts",
       "get_account_metrics",
-      "get_personality",
       "get_policy",
       "get_post",
       "get_post_metrics",

@@ -3,7 +3,7 @@ import { redirect, refused, type Outcome } from "./outcome";
 import { runUseCase } from "./presenter";
 import type { SessionUseCases } from "./use_cases";
 
-export const HOME_PAGE = "/dashboard/backlog";
+export const HOME_PAGE = "/dashboard/analytics";
 
 /** The login form (plan §3.5, R12). The route issues the session cookie on a redirect. */
 export class SessionController {

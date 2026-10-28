@@ -17,7 +17,6 @@ function creator(world: World, reader: PostReader = world.reader) {
   const interactor = new CreatePostInteractor(
     {
       accounts: world.accounts,
-      personalities: world.personalities,
       reader,
       writer: world.writer,
       attachments: world.attachments,
@@ -91,17 +90,6 @@ describe("createPost: refusals before anything is written", () => {
     expect((await create({ publishAt: edge })).ok).toBe(true);
   });
 
-  it("the account's personality must exist", async () => {
-    const world = makeWorld();
-    await world.seedAccount();
-    world.personalities.rows.clear();
-    expect(await creator(world)()).toStrictEqual({
-      ok: false,
-      code: "personality_not_found",
-      part: null,
-    });
-  });
-
   it("part refusals carry the part index", async () => {
     const world = makeWorld();
     await world.seedAccount();
@@ -148,7 +136,7 @@ describe("createPost: publish now", () => {
       idempotencyKey: KEY,
       requestHash: requestHash(ACCOUNT, [{ text: "hello world", media: [] }], T0 + MINUTE),
       createdBy: botActor(),
-      provenance: { botId: BOT, personalityVersion: 3, policySnapshot: account.policy },
+      provenance: { botId: BOT, policySnapshot: account.policy },
       version: 1,
     });
     expect(world.x.posts.size).toBe(0);

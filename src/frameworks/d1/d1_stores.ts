@@ -1,13 +1,14 @@
 import { D1AccountRepository } from "./d1_account_repository";
+import { D1ActivityLog } from "./d1_activity_log";
 import { D1AuditLog } from "./d1_audit_log";
 import { D1CostLedger } from "./d1_cost_ledger";
+import { D1FollowerStore } from "./d1_follower_store";
 import { D1LoginThrottle } from "./d1_login_throttle";
 import { D1MediaCleanupCandidates } from "./d1_media_cleanup_candidates";
 import { D1MediaRepository } from "./d1_media_repository";
 import { D1MediaUsage } from "./d1_media_usage";
 import { D1MetricsRepository } from "./d1_metrics_repository";
 import { D1OAuthStateStore } from "./d1_oauth_state_store";
-import { D1PersonalityRepository } from "./d1_personality_repository";
 import { D1PostReader } from "./d1_post_reader";
 import { D1PostWriter } from "./d1_post_writer";
 
@@ -22,12 +23,13 @@ export function d1Stores(db: D1Database) {
     reader,
     writer: new D1PostWriter(db, reader),
     accounts: new D1AccountRepository(db),
-    personalities: new D1PersonalityRepository(db),
     media: new D1MediaRepository(db),
     cleanupCandidates: new D1MediaCleanupCandidates(db),
     usage: new D1MediaUsage(db),
     metrics: new D1MetricsRepository(db),
+    followers: new D1FollowerStore(db),
     audit: new D1AuditLog(db),
+    activity: new D1ActivityLog(db),
     costs: new D1CostLedger(db),
     states: new D1OAuthStateStore(db),
     throttle: new D1LoginThrottle(db),

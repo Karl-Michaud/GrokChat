@@ -5,10 +5,10 @@ import { buildWebApp } from "../../../src/frameworks/web/web_app";
 import type { WebControllers } from "../../../src/frameworks/web/controllers";
 import { AccountsController } from "../../../src/interface_adapters/dashboard/accounts_controller";
 import { OAuthController } from "../../../src/interface_adapters/dashboard/oauth_controller";
-import { PersonalitiesController } from "../../../src/interface_adapters/dashboard/personalities_controller";
 import { PostCommandsController } from "../../../src/interface_adapters/dashboard/post_commands_controller";
-import { PostPagesController } from "../../../src/interface_adapters/dashboard/post_pages_controller";
-import { ReportsController } from "../../../src/interface_adapters/dashboard/reports_controller";
+import { PostsController } from "../../../src/interface_adapters/dashboard/posts_controller";
+import { ActivityController } from "../../../src/interface_adapters/dashboard/activity_controller";
+import { AnalyticsController } from "../../../src/interface_adapters/dashboard/analytics_controller";
 import { SessionController } from "../../../src/interface_adapters/dashboard/session_controller";
 import { dashboardUseCases } from "../../unit/support/dashboard";
 import { makeWorld, type World } from "../../unit/support/world";
@@ -38,12 +38,12 @@ export function controllersFor(world: World): WebControllers {
   const useCases = dashboardUseCases(world);
   return {
     session: (verifier) => new SessionController(dashboardUseCases(world, verifier)),
-    postPages: new PostPagesController(useCases, world.clock),
+    analytics: new AnalyticsController(useCases),
+    posts: new PostsController(useCases, world.clock),
     postCommands: new PostCommandsController(useCases),
     accounts: new AccountsController(useCases),
     oauth: new OAuthController(useCases),
-    personalities: new PersonalitiesController(useCases),
-    reports: new ReportsController(useCases, world.clock),
+    activity: new ActivityController(useCases, world.clock),
   };
 }
 
@@ -87,7 +87,7 @@ export class Browser {
   async login(password = PASSWORD): Promise<Response> {
     const response = await this.post("/dashboard/login", { password });
     if (response.status === 303) {
-      await this.page("/dashboard/backlog");
+      await this.page("/dashboard/analytics");
     }
     return response;
   }

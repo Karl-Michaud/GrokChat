@@ -82,7 +82,6 @@ const OTHER_ACCOUNT_IDS: readonly Case[] = [
   ["list_backlog", (w) => ({ account_id: w.theirs.id }), "scope"],
   ["get_account_metrics", (w) => ({ account_id: w.theirs.id, ...WINDOW }), "scope"],
   ["compare_posts", (w) => ({ account_id: w.theirs.id, sort_by: "likes", ...WINDOW }), "scope"],
-  ["get_personality", (w) => ({ account_id: w.theirs.id }), "scope"],
   ["get_policy", (w) => ({ account_id: w.theirs.id }), "scope"],
 ];
 
@@ -217,7 +216,7 @@ describe("I2 / R7 over MCP: every tool × account, post and media id of another 
     const covered = new Set(
       [...OTHER_ACCOUNT_IDS, ...OTHER_POST_IDS, ...OTHER_MEDIA_IDS].map(([tool]) => tool),
     );
-    expect(covered.size).toBe(13);
+    expect(covered.size).toBe(12);
   });
 
   it("list_backlog without account_id shows only the bot's own accounts", async () => {

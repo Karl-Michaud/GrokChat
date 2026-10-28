@@ -1,6 +1,5 @@
 import type { Account } from "../../entities/accounts/account";
 import type { PostingPolicy } from "../../entities/accounts/posting_policy";
-import type { Personality } from "../../entities/content/personality";
 import type { MetricsSnapshot } from "../../entities/metrics/metrics_snapshot";
 import type { Instant } from "../../entities/time/instant";
 import type { PostView } from "../../use_cases/views/post_view";
@@ -44,19 +43,6 @@ export function snapshotJson(snapshot: MetricsSnapshot): JsonObject {
     bookmarks: snapshot.bookmarks,
     url_link_clicks: snapshot.urlLinkClicks,
     user_profile_clicks: snapshot.userProfileClicks,
-  };
-}
-
-export function personalityJson(personality: Personality): JsonObject {
-  return {
-    personality_id: personality.id,
-    name: personality.name,
-    voice_guide: personality.voiceGuide,
-    topics: [...personality.topics],
-    dos: [...personality.dos],
-    donts: [...personality.donts],
-    examples: [...personality.examples],
-    version: personality.version,
   };
 }
 

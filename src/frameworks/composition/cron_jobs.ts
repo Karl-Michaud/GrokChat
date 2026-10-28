@@ -10,7 +10,7 @@ import { ReconcileTickInteractor } from "../../use_cases/reconcile_tick/interact
 import { MediaCleanup } from "../../use_cases/run_services/media_cleanup";
 import type { CronJobs } from "../cron/dispatch";
 import { TICK_WINDOWS } from "../cron/tick_runner";
-import { d1Stores } from "../d1/d1_stores";
+import { d1Stores, type D1Stores } from "../d1/d1_stores";
 import { AccountObjects } from "../durable_objects/account_client";
 import type { AccountPublisherObject } from "../durable_objects/account_publisher";
 import { MeteredAccountDispatch } from "../durable_objects/metered_dispatch";
@@ -24,6 +24,17 @@ export interface CronPorts {
   readonly clock: Clock;
 }
 
+/** The metrics tick's staged-media cleanup over D1 and R2 (plan §3.5). */
+function mediaCleanup(stores: D1Stores, bucket: R2Bucket, clock: Clock): MediaCleanup {
+  return new MediaCleanup({
+    media: stores.media,
+    candidates: stores.cleanupCandidates,
+    blobs: new R2MediaBlobStore(bucket),
+    usage: stores.usage,
+    clock,
+  });
+}
+
 /**
  * The three ticks (plan §3.3 #5, #6, #8): each dispatches to the accounts' Durable Objects through
  * one Worker-side client, every call spending the tick's own budget (U16). Recovery runs inside
@@ -35,14 +46,8 @@ export function cronJobs(ports: CronPorts): CronJobs {
   const { reader } = stores;
   const objects = new AccountObjects(ports.accounts);
   const dispatch = (meter: BudgetMeter) => new MeteredAccountDispatch(objects, meter);
-  const blobs = new R2MediaBlobStore(ports.bucket);
-  const cleanup = new MediaCleanup({
-    media: stores.media,
-    candidates: stores.cleanupCandidates,
-    blobs,
-    usage: stores.usage,
-    clock,
-  });
+  const cleanup = mediaCleanup(stores, ports.bucket, clock);
+  const { followers } = stores;
   return {
     publish: {
       job: "publish_due",
@@ -61,7 +66,7 @@ export function cronJobs(ports: CronPorts): CronJobs {
       window: TICK_WINDOWS.metrics,
       build: (meter, presenter) =>
         new MetricsTickInteractor(
-          { reader, collector: dispatch(meter), cleanup, meter, clock },
+          { reader, followers, collector: dispatch(meter), cleanup, meter, clock },
           presenter,
         ),
     },

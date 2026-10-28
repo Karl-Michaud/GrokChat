@@ -32,10 +32,9 @@ export interface PostPart {
   readonly state: PartState;
 }
 
-/** Who asked for the post and under which personality and policy (rev 4 m4). */
+/** Who asked for the post and under which policy (rev 4 m4). */
 export interface Provenance {
   readonly botId: BotId | null;
-  readonly personalityVersion: number;
   readonly policySnapshot: PostingPolicy;
 }
 

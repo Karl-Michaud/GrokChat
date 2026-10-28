@@ -5,9 +5,9 @@
  */
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { xPostId } from "../../src/entities/identity/ids";
+import { postId, xPostId } from "../../src/entities/identity/ids";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
-import { aPersonality } from "../unit/support/builders";
+import { aPost, part } from "../unit/support/builders";
 import {
   BOT_TOKEN,
   body,
@@ -119,33 +119,36 @@ describe("logging (m3)", () => {
 describe("presenters redact secrets (I6, R8)", () => {
   it("removes the caller's token and the deployment's secrets from every string", async () => {
     const account = await seedAccount();
-    await stores().personalities.save(
-      aPersonality({
-        id: account.personalityId,
-        voiceGuide: `never print ${BOT_TOKEN}`,
-        examples: [`the secret is ${CLIENT_SECRET}`, "Bearer abc.def"],
+    const id = postId(`redact-${account.id}`);
+    await stores().writer.add(
+      aPost({
+        id,
+        accountId: account.id,
+        parts: [
+          part(`never print ${BOT_TOKEN}`),
+          part(`the secret is ${CLIENT_SECRET} Bearer abc.def`),
+        ],
       }),
     );
     const client = await connect(await botEnv([account.id]));
-    const result = await client.callTool({
-      name: "get_personality",
-      arguments: { account_id: account.id },
-    });
+    const result = await client.callTool({ name: "get_post", arguments: { post_id: id } });
     const text = JSON.stringify(result);
     expect(text).not.toContain(BOT_TOKEN);
     expect(text).not.toContain(CLIENT_SECRET);
     expect(text).not.toContain("abc.def");
     expect(body(result)).toMatchObject({
-      personality: {
-        voice_guide: "never print [redacted]",
-        examples: ["the secret is [redacted]", "Bearer [redacted]"],
+      post: {
+        parts: [
+          { text: "never print [redacted]" },
+          { text: "the secret is [redacted] Bearer [redacted]" },
+        ],
       },
     });
   });
 });
 
 describe("the read tools", () => {
-  it("answer policy, personality, backlog and metrics for an account in scope", async () => {
+  it("answer policy, backlog and metrics for an account in scope", async () => {
     const account = await seedAccount();
     const client = await connect(await botEnv([account.id]));
     const created = body(
@@ -182,9 +185,6 @@ describe("the read tools", () => {
       status: "ACTIVE",
       disclosure: { bio_confirmed: true, automated_label_confirmed: true },
       policy: { mode: "AUTO", daily_cap: 10, min_gap_minutes: 30, link_policy: "ALLOW" },
-    });
-    expect(await tool("get_personality", { account_id: account.id })).toMatchObject({
-      personality: { name: "Muse", topics: ["music"] },
     });
     expect(await tool("list_backlog", { statuses: ["PUBLISHED"], ...window })).toMatchObject({
       posts: [{ post_id: created.post_id }],

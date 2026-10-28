@@ -6,6 +6,7 @@ import { webConfig } from "./config";
 import { formBody } from "./form_body";
 import { OAUTH_CALLBACK, OAUTH_FINISH } from "./oauth_routes";
 import { readSession, SESSION_COOKIE } from "./session";
+import { frameOf } from "./respond";
 import { errorPage, loginPage } from "./views/layout";
 import type { WebBindings } from "./web_context";
 
@@ -32,6 +33,8 @@ export const requestLog: Middleware = async (c, next) => {
 const CSP = [
   "default-src 'none'",
   "script-src 'self'",
+  // The dashboard's own stylesheet only: no inline style, attribute or element (GROKCHAT-15).
+  "style-src 'self'",
   "connect-src 'self'",
   "img-src 'self'",
   "form-action 'self' https://x.com",
@@ -68,7 +71,7 @@ export const securityHeaders: Middleware = async (c, next) => {
 export const configure: Middleware = async (c, next) => {
   const config = webConfig(c.env);
   if (config === null) {
-    return c.html(errorPage("The dashboard is not configured.", null), 503);
+    return c.html(errorPage("The dashboard is not configured.", frameOf(c)), 503);
   }
   c.set("config", config);
   c.set("session", null);
@@ -93,7 +96,7 @@ export const requireSession: Middleware = async (c, next) => {
   if (session === null) {
     return c.req.method === "GET"
       ? c.redirect("/dashboard/login", 303)
-      : c.html(loginPage("Log in first."), 403);
+      : c.html(loginPage("Log in first.", frameOf(c)), 403);
   }
   c.set("session", session);
   await next();
@@ -120,7 +123,7 @@ export const checkUnsafe: Middleware = async (c, next) => {
   if (verdict !== "ok") {
     const message =
       verdict === "origin" ? "Refused: wrong origin." : "Refused: missing or wrong CSRF token.";
-    return c.html(errorPage(message, null), 403);
+    return c.html(errorPage(message, frameOf(c)), 403);
   }
   await next();
   return undefined;
@@ -131,5 +134,9 @@ export const MAX_FORM_BYTES = 64 * 1024;
 
 export const limitBody: Middleware = bodyLimit({
   maxSize: MAX_FORM_BYTES,
-  onError: (c) => c.html(errorPage("Refused: the form is too large.", null), 413),
+  onError: (c) =>
+    c.html(
+      errorPage("Refused: the form is too large.", { csrf: "", theme: "system", path: c.req.path }),
+      413,
+    ),
 });

@@ -1,13 +1,11 @@
 /** Test data for the pure layers: a default for every entity, overridable field by field. */
 import type { Account } from "../../../src/entities/accounts/account";
 import { DEFAULT_POLICY, type PostingPolicy } from "../../../src/entities/accounts/posting_policy";
-import type { Personality } from "../../../src/entities/content/personality";
 import type { StagedMedia } from "../../../src/entities/content/staged_media";
 import type { Actor } from "../../../src/entities/identity/actor";
 import {
   accountId,
   botId,
-  personalityId,
   postId,
   stagedMediaId,
   xPostId,
@@ -15,6 +13,8 @@ import {
   type AccountId,
   type StagedMediaId,
 } from "../../../src/entities/identity/ids";
+import type { FollowerSnapshot } from "../../../src/entities/metrics/follower_snapshot";
+import type { MetricsSnapshot } from "../../../src/entities/metrics/metrics_snapshot";
 import { PENDING, type PartState } from "../../../src/entities/posts/part_state";
 import type { Post, PostPart } from "../../../src/entities/posts/post";
 
@@ -41,25 +41,10 @@ export function anAccount(overrides: Partial<Account> = {}): Account {
     id: ACCOUNT,
     xUserId: xUserId("x-user-1"),
     handle: "musechat_one",
-    personalityId: personalityId("pers-1"),
     status: "ACTIVE",
     disclosure: { bioConfirmed: true, automatedLabelConfirmed: true },
     policy: aPolicy(),
     isAppOwner: false,
-    ...overrides,
-  };
-}
-
-export function aPersonality(overrides: Partial<Personality> = {}): Personality {
-  return {
-    id: personalityId("pers-1"),
-    name: "Muse",
-    voiceGuide: "warm",
-    topics: ["music"],
-    dos: ["be kind"],
-    donts: ["no politics"],
-    examples: ["hello"],
-    version: 3,
     ...overrides,
   };
 }
@@ -95,7 +80,7 @@ export function aPost(overrides: Partial<Post> = {}): Post {
     idempotencyKey: null,
     requestHash: "hash-1",
     createdBy: HUMAN,
-    provenance: { botId: null, personalityVersion: 3, policySnapshot: aPolicy() },
+    provenance: { botId: null, policySnapshot: aPolicy() },
     version: 1,
     ...overrides,
   };
@@ -113,5 +98,45 @@ export function aMedia(overrides: Partial<StagedMedia> = {}): StagedMedia {
     stagedAt: T0,
     attachedTo: null,
     ...overrides,
+  };
+}
+
+/** A metrics read of `id` at `at`, with every count set from `impressions` (GROKCHAT-15). */
+export function aSnapshot(
+  id: string,
+  at: number,
+  impressions: number,
+  overrides: Partial<MetricsSnapshot> = {},
+): MetricsSnapshot {
+  return {
+    xPostId: xPostId(id),
+    accountId: ACCOUNT,
+    takenAt: at,
+    impressions,
+    likes: Math.floor(impressions / 10),
+    reposts: Math.floor(impressions / 50),
+    replies: Math.floor(impressions / 100),
+    quotes: 0,
+    bookmarks: Math.floor(impressions / 25),
+    urlLinkClicks: null,
+    userProfileClicks: null,
+    ...overrides,
+  };
+}
+
+/** A recorded follower snapshot (GROKCHAT-15). */
+export function aFollowerSnapshot(
+  at: number,
+  followers: number,
+  account: AccountId = ACCOUNT,
+): FollowerSnapshot {
+  return {
+    accountId: account,
+    day: new Date(at).toISOString().slice(0, 10),
+    takenAt: at,
+    followers,
+    following: 1,
+    posts: 2,
+    listed: 0,
   };
 }

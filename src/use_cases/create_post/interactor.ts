@@ -14,7 +14,6 @@ import type { AccountPublisher } from "../ports/account_publisher";
 import type { AccountRepository } from "../ports/account_repository";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id_generator";
-import type { PersonalityRepository } from "../ports/personality_repository";
 import type { PostReader } from "../ports/post_reader";
 import type { PostWriter } from "../ports/post_writer";
 import type { CreatePostInputBoundary } from "./input_boundary";
@@ -27,7 +26,6 @@ export const PUBLISH_NOW_BUDGET = 10 * SECOND;
 
 export interface CreatePostPorts {
   readonly accounts: AccountRepository;
-  readonly personalities: PersonalityRepository;
   readonly reader: PostReader;
   readonly writer: PostWriter;
   readonly attachments: MediaAttachments;
@@ -114,10 +112,6 @@ export class CreatePostInteractor implements CreatePostInputBoundary {
     if (input.publishAt !== null && input.publishAt < now - account.policy.grace) {
       return refuse("publish_at_past");
     }
-    const personality = await this.ports.personalities.get(account.personalityId);
-    if (personality === null) {
-      return refuse("personality_not_found");
-    }
     const post = newPost(
       {
         id,
@@ -128,11 +122,7 @@ export class CreatePostInteractor implements CreatePostInputBoundary {
         idempotencyKey: input.idempotencyKey,
         requestHash: hash,
         createdBy: input.actor,
-        provenance: {
-          botId: bot,
-          personalityVersion: personality.version,
-          policySnapshot: account.policy,
-        },
+        provenance: { botId: bot, policySnapshot: account.policy },
       },
       account.policy.mode,
     );

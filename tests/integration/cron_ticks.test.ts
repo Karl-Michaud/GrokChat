@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Account } from "../../src/entities/accounts/account";
 import {
   accountId,
-  personalityId,
   postId,
   stagedMediaId,
   xUserId,
@@ -28,15 +27,7 @@ import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { AccountObjects } from "../../src/frameworks/durable_objects/account_client";
 import { basicAuth } from "../../src/frameworks/x_auth/token_endpoint";
 import worker from "../../src/main";
-import {
-  aMedia,
-  aPersonality,
-  aPolicy,
-  anAccount,
-  aPost,
-  part,
-  sentState,
-} from "../unit/support/builders";
+import { aMedia, aPolicy, anAccount, aPost, part, sentState } from "../unit/support/builders";
 import { freshStorage } from "./support/fresh_d1";
 import { sleep } from "./support/harness";
 import { stubX, type XWire } from "./support/x_wire";
@@ -67,11 +58,9 @@ async function seedAccount(accessExpiresAt = Date.now() + 2 * HOUR): Promise<Acc
   const account = anAccount({
     id: accountId(`cron-acc-${n}`),
     xUserId: xUserId(`cron-x-${n}`),
-    personalityId: personalityId(`cron-pers-${n}`),
     policy: aPolicy({ minGap: 0 }),
   });
   await stores().accounts.save(account);
-  await stores().personalities.save(aPersonality({ id: account.personalityId }));
   await objects().storeConnectedTokens(account.id, {
     accessToken: "access-1",
     refreshToken: "refresh-1",
@@ -198,12 +187,47 @@ describe("the metrics tick (*/15): metrics per account, then the staged-media cl
     await env.MEDIA.put(media.storageKey, new Uint8Array([1, 2, 3]));
 
     await tick(CRONS.metrics);
-    expect(x.calls()).toStrictEqual(["GET /2/tweets"]);
+    // The post's metrics, then the account's follower snapshot for the day (GROKCHAT-15).
+    expect(x.calls()).toStrictEqual(["GET /2/tweets", `GET /2/users/${account.xUserId}`]);
     expect(x.seen[0]?.url.searchParams.get("ids")).toBe(xId);
+    expect(x.seen[1]?.url.searchParams.get("user.fields")).toBe("public_metrics");
     const snapshots = await stores().metrics.latest([xPostId(xId)]);
     expect(snapshots.map((snapshot) => snapshot.xPostId)).toStrictEqual([xPostId(xId)]);
     expect(await stores().media.get(media.id)).toBeNull();
     expect(await env.MEDIA.get(media.storageKey)).toBeNull();
+  });
+});
+
+describe("the daily follower snapshot (GROKCHAT-15)", () => {
+  it("reads each connected account once per UTC day, metered and audited, and never again that day", async () => {
+    const account = await seedAccount();
+    const paused = await seedAccount();
+    await stores().accounts.save({ ...paused, status: "PAUSED" });
+    const lost = await seedAccount();
+    await stores().accounts.save({ ...lost, status: "NEEDS_RECONNECT" });
+    await tick(CRONS.metrics);
+    await tick(CRONS.metrics);
+    await tick(CRONS.metrics);
+    const reads = (id: string) => x.calls().filter((call) => call === `GET /2/users/${id}`);
+    expect(reads(account.xUserId)).toHaveLength(1);
+    expect(reads(paused.xUserId)).toHaveLength(1);
+    expect(reads(lost.xUserId)).toHaveLength(0);
+    const day = new Date().toISOString().slice(0, 10);
+    const row = await env.DB.prepare(
+      "SELECT followers, taken_at FROM follower_snapshots WHERE account_id = ?1 AND day = ?2",
+    )
+      .bind(account.id, day)
+      .first<{ followers: number | null; taken_at: number | null }>();
+    expect(row?.followers).toBe(x.emulator.followers);
+    expect(row?.taken_at).not.toBeNull();
+    const costs = await env.DB.prepare(
+      "SELECT micros FROM cost_entries WHERE account_id = ?1 AND operation = 'user_read'",
+    )
+      .bind(account.id)
+      .all<{ micros: number }>();
+    expect(costs.results).toStrictEqual([{ micros: 10_000 }]);
+    const audits = await stores().audit.list({ accountId: account.id });
+    expect(audits.filter((event) => event.action === "x.user_read")).toHaveLength(1);
   });
 });
 

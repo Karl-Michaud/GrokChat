@@ -12,7 +12,7 @@ import type { AccountXGateway, DeleteOutcome } from "../../use_cases/ports/accou
 import type { BudgetMeter } from "../../use_cases/ports/budget_meter";
 import type { Clock } from "../../use_cases/ports/clock";
 import type { AccessTokenResult, TokenProvider } from "../../use_cases/ports/token_provider";
-import type { CollectAccountMetrics } from "../../use_cases/run_services/collect_account_metrics";
+import type { AccountMetricsRun } from "../../use_cases/run_services/account_metrics_run";
 import type { PublishPost } from "../../use_cases/run_services/publish_post";
 import type { ReconcileAccount } from "../../use_cases/run_services/reconcile_account";
 import { InvocationBudgetMeter } from "../budget/invocation_meter";
@@ -64,7 +64,7 @@ export class InvocationAccountReconciler implements AccountReconciler {
 }
 
 export class InvocationMetricsCollector implements AccountMetricsCollector {
-  constructor(private readonly build: PerInvocation<CollectAccountMetrics>) {}
+  constructor(private readonly build: PerInvocation<AccountMetricsRun>) {}
 
   collect(account: AccountId, _now: Instant, deadline: Instant): Promise<MetricsSummary> {
     const meter = meterUntil(deadline);

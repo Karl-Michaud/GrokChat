@@ -5,6 +5,7 @@ import { totalCosts, type CostEntry, type CostTotals } from "../../entities/reco
 import { inWindow, type TimeWindow } from "../../entities/time/instant";
 import type { AuditFilter, AuditLog } from "../../use_cases/ports/audit_log";
 import type { CostLedger } from "../../use_cases/ports/cost_ledger";
+import type { MetricsHistory } from "../../use_cases/ports/metrics_history";
 import type { MetricsRepository } from "../../use_cases/ports/metrics_repository";
 
 export class MemoryAuditLog implements AuditLog {
@@ -43,7 +44,7 @@ export class MemoryCostLedger implements CostLedger {
   }
 }
 
-export class MemoryMetricsRepository implements MetricsRepository {
+export class MemoryMetricsRepository implements MetricsRepository, MetricsHistory {
   readonly snapshots: MetricsSnapshot[] = [];
 
   addSnapshots(snapshots: readonly MetricsSnapshot[]): Promise<void> {
@@ -71,4 +72,37 @@ export class MemoryMetricsRepository implements MetricsRepository {
     }
     return Promise.resolve([...newest.values()]);
   }
+
+  history(account: AccountId | null, window: TimeWindow): Promise<readonly MetricsSnapshot[]> {
+    const scoped = this.ordered().filter(
+      (snapshot) => account === null || snapshot.accountId === account,
+    );
+    const inside = scoped.filter((snapshot) => inWindow(window, snapshot.takenAt));
+    const posts = new Set(inside.map((snapshot) => snapshot.xPostId));
+    const before = new Map<XPostId, MetricsSnapshot>();
+    for (const snapshot of scoped) {
+      if (posts.has(snapshot.xPostId) && snapshot.takenAt < window.from) {
+        before.set(snapshot.xPostId, snapshot);
+      }
+    }
+    return Promise.resolve(byTime([...inside, ...before.values()]));
+  }
+
+  postSeries(xPostIds: readonly XPostId[]): Promise<readonly MetricsSnapshot[]> {
+    return Promise.resolve(
+      this.ordered().filter((snapshot) => xPostIds.includes(snapshot.xPostId)),
+    );
+  }
+
+  /** Oldest first; insertion order breaks a tie, as `seq` does in D1. */
+  private ordered(): readonly MetricsSnapshot[] {
+    return byTime(this.snapshots);
+  }
+}
+
+function byTime(snapshots: readonly MetricsSnapshot[]): MetricsSnapshot[] {
+  return snapshots
+    .map((snapshot, index) => ({ snapshot, index }))
+    .sort((a, b) => a.snapshot.takenAt - b.snapshot.takenAt || a.index - b.index)
+    .map(({ snapshot }) => snapshot);
 }

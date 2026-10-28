@@ -10,13 +10,13 @@ describe("login (plan §3.5, R12)", () => {
       password: "correct horse battery staple",
     });
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("/dashboard/backlog");
+    expect(response.headers.get("location")).toBe("/dashboard/analytics");
     const cookie = response.headers.getSetCookie().find((line) => line.startsWith(SESSION_COOKIE));
     expect(cookie).toMatch(/; Max-Age=43200; Path=\/; HttpOnly; Secure; SameSite=Strict$/);
     expect(world.audit.events.map((event) => event.action)).toStrictEqual(["session.login"]);
-    const page = await browser.page("/dashboard/backlog");
+    const page = await browser.page("/dashboard/posts");
     expect(page.status).toBe(200);
-    expect(page.html).toContain("<h1>Backlog</h1>");
+    expect(page.html).toContain("<h1>Posts</h1>");
   });
 
   it("a wrong password is 401 and sets no cookie; five failures throttle to 429", async () => {
@@ -79,7 +79,10 @@ describe("login (plan §3.5, R12)", () => {
     expect([away.status, away.headers.get("location")]).toStrictEqual([303, "/dashboard/login"]);
     await browser.login();
     const home = await browser.get("/dashboard");
-    expect([home.status, home.headers.get("location")]).toStrictEqual([303, "/dashboard/backlog"]);
+    expect([home.status, home.headers.get("location")]).toStrictEqual([
+      303,
+      "/dashboard/analytics",
+    ]);
     expect((await browser.get("/dashboard/accounts")).status).toBe(200);
     const out = await browser.post("/dashboard/logout");
     expect([out.status, out.headers.get("location")]).toStrictEqual([303, "/dashboard/login"]);
@@ -90,11 +93,11 @@ describe("login (plan §3.5, R12)", () => {
   it("refuses a forged or foreign session cookie", async () => {
     const { browser } = await dashboard();
     browser.cookies.set(SESSION_COOKIE, "eyJpZCI6ImEifQ.AAAA");
-    expect((await browser.get("/dashboard/backlog")).status).toBe(303);
+    expect((await browser.get("/dashboard/posts")).status).toBe(303);
     const other = await dashboard({ GROKCHAT_SESSION_SECRET: "another-secret-another-secret-123" });
     await other.browser.login();
     browser.cookies.set(SESSION_COOKIE, other.browser.cookies.get(SESSION_COOKIE) ?? "");
-    expect((await browser.get("/dashboard/backlog")).status).toBe(303);
+    expect((await browser.get("/dashboard/posts")).status).toBe(303);
   });
 
   it("refuses a form over 64 KiB before parsing it", async () => {

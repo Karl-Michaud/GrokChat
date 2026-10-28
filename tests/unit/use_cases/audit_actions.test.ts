@@ -1,13 +1,12 @@
 /** Every refusal is audited under the use case's own action name (I2, rev 4 B1). */
 import { describe, expect, it } from "vitest";
-import { personalityId } from "../../../src/entities/identity/ids";
 import { DAY } from "../../../src/entities/time/instant";
 import type { AccountCommandResult } from "../../../src/use_cases/admin/account_command";
 import { ConfirmDisclosureInteractor } from "../../../src/use_cases/confirm_disclosure/interactor";
 import { ConnectAccountBeginInteractor } from "../../../src/use_cases/connect_account_begin/interactor";
-import { CostTotalsInteractor } from "../../../src/use_cases/cost_totals/interactor";
-import { GetCalendarInteractor } from "../../../src/use_cases/get_calendar/interactor";
-import { SavePersonalityInteractor } from "../../../src/use_cases/save_personality/interactor";
+import { GetAnalyticsInteractor } from "../../../src/use_cases/get_analytics/interactor";
+import { ListActivityInteractor } from "../../../src/use_cases/list_activity/interactor";
+import { ListPostsInteractor } from "../../../src/use_cases/list_posts/interactor";
 import { SetPolicyInteractor } from "../../../src/use_cases/set_policy/interactor";
 import { StageMediaUploadInteractor } from "../../../src/use_cases/stage_media_upload/interactor";
 import { ACCOUNT, aPolicy, botActor, HUMAN, T0 } from "../support/builders";
@@ -19,40 +18,35 @@ const BOT = botActor();
 /** Human-only use cases, each run by a bot, with the action its refusal is audited under. */
 const HUMAN_ONLY: readonly [string, (world: World) => Promise<void>][] = [
   [
-    "calendar.get",
+    "analytics.get",
     (w) =>
-      new GetCalendarInteractor(w.reader, w.guard, new Capture()).execute({
-        actor: BOT,
-        window: WINDOW,
-      }),
-  ],
-  [
-    "costs.totals",
-    (w) =>
-      new CostTotalsInteractor(w.costs, w.guard, new Capture()).execute({
-        actor: BOT,
-        window: WINDOW,
-        accountId: null,
-      }),
-  ],
-  [
-    "personality.save",
-    (w) =>
-      new SavePersonalityInteractor(
-        w.personalities,
-        w.ids,
-        w.guard,
-        w.actionAudit,
+      new GetAnalyticsInteractor(
+        { ...w, followers: w.followers, metrics: w.metrics },
         new Capture(),
-      ).execute({
+      ).execute({ actor: BOT, range: "7d", accountId: null }),
+  ],
+  [
+    "activity.list",
+    (w) =>
+      new ListActivityInteractor(w.activity, w.guard, new Capture()).execute({
         actor: BOT,
-        id: personalityId("p"),
-        name: "n",
-        voiceGuide: "",
-        topics: [],
-        dos: [],
-        donts: [],
-        examples: [],
+        filter: {},
+        page: 1,
+        pageSize: 10,
+      }),
+  ],
+  [
+    "post.list",
+    (w) =>
+      new ListPostsInteractor(w, new Capture()).execute({
+        actor: BOT,
+        accountId: null,
+        statuses: null,
+        window: WINDOW,
+        sort: "time",
+        direction: "desc",
+        page: 1,
+        pageSize: 10,
       }),
   ],
   [

@@ -3,41 +3,36 @@
  */
 import type {
   AccountUseCases,
+  ActivityUseCases,
+  AnalyticsUseCases,
   OAuthUseCases,
-  PersonalityUseCases,
   PostCommandUseCases,
   PostPageUseCases,
-  ReportUseCases,
   SessionUseCases,
 } from "../../../src/interface_adapters/dashboard/use_cases";
 import { ApprovePostInteractor } from "../../../src/use_cases/approve_post/interactor";
-import { AuditListInteractor } from "../../../src/use_cases/audit_list/interactor";
 import { CancelPostInteractor } from "../../../src/use_cases/cancel_post/interactor";
 import { ConfirmDisclosureInteractor } from "../../../src/use_cases/confirm_disclosure/interactor";
 import { ConnectAccountBeginInteractor } from "../../../src/use_cases/connect_account_begin/interactor";
 import { ConnectAccountCompleteInteractor } from "../../../src/use_cases/connect_account_complete/interactor";
-import { CostTotalsInteractor } from "../../../src/use_cases/cost_totals/interactor";
 import { DeletePostInteractor } from "../../../src/use_cases/delete_post/interactor";
 import { EditPostInteractor } from "../../../src/use_cases/edit_post/interactor";
-import { GetAccountMetricsInteractor } from "../../../src/use_cases/get_account_metrics/interactor";
-import { GetCalendarInteractor } from "../../../src/use_cases/get_calendar/interactor";
+import { GetAnalyticsInteractor } from "../../../src/use_cases/get_analytics/interactor";
+import { GetPostInsightsInteractor } from "../../../src/use_cases/get_post_insights/interactor";
+import { ListActivityInteractor } from "../../../src/use_cases/list_activity/interactor";
+import { ListPostsInteractor } from "../../../src/use_cases/list_posts/interactor";
 import { GetMediaUsageInteractor } from "../../../src/use_cases/get_media_usage/interactor";
-import { GetPostInteractor } from "../../../src/use_cases/get_post/interactor";
-import { GetPostMetricsInteractor } from "../../../src/use_cases/get_post_metrics/interactor";
 import { ListAccountsInteractor } from "../../../src/use_cases/list_accounts/interactor";
-import { ListBacklogInteractor } from "../../../src/use_cases/list_backlog/interactor";
-import { ListPersonalitiesInteractor } from "../../../src/use_cases/list_personalities/interactor";
 import { LoginInteractor } from "../../../src/use_cases/login/interactor";
 import type { PasswordVerifier } from "../../../src/use_cases/ports/password_verifier";
 import { RejectPostInteractor } from "../../../src/use_cases/reject_post/interactor";
 import { ReschedulePostInteractor } from "../../../src/use_cases/reschedule_post/interactor";
-import { SavePersonalityInteractor } from "../../../src/use_cases/save_personality/interactor";
 import { SetAccountStatusInteractor } from "../../../src/use_cases/set_account_status/interactor";
 import { SetPolicyInteractor } from "../../../src/use_cases/set_policy/interactor";
 import type { Post } from "../../../src/entities/posts/post";
 import type { UseCaseFactory } from "../../../src/interface_adapters/dashboard/presenter";
 import { PostCommandsController } from "../../../src/interface_adapters/dashboard/post_commands_controller";
-import { PostPagesController } from "../../../src/interface_adapters/dashboard/post_pages_controller";
+import { PostsController } from "../../../src/interface_adapters/dashboard/posts_controller";
 import { makeWorld, type World } from "./world";
 
 export type DashboardUseCases = SessionUseCases &
@@ -45,8 +40,8 @@ export type DashboardUseCases = SessionUseCases &
   PostCommandUseCases &
   AccountUseCases &
   OAuthUseCases &
-  PersonalityUseCases &
-  ReportUseCases;
+  AnalyticsUseCases &
+  ActivityUseCases;
 
 /** Accepts exactly this password. */
 export const fixedPassword = (password: string): PasswordVerifier => ({
@@ -65,10 +60,26 @@ export function dashboardUseCases(
         p,
       ),
     listAccounts: (p) => new ListAccountsInteractor(world.accounts, guard, p),
-    listBacklog: (p) => new ListBacklogInteractor(reader, guard, p),
-    getCalendar: (p) => new GetCalendarInteractor(reader, guard, p),
-    getPost: (p) => new GetPostInteractor(reader, guard, p),
-    getPostMetrics: (p) => new GetPostMetricsInteractor(reader, world.metrics, guard, p),
+    listPosts: (p) => new ListPostsInteractor({ reader, metrics: world.metrics, guard }, p),
+    insights: (p) =>
+      new GetPostInsightsInteractor(
+        { reader, metrics: world.metrics, activity: world.activity, guard },
+        p,
+      ),
+    analytics: (p) =>
+      new GetAnalyticsInteractor(
+        {
+          accounts: world.accounts,
+          reader,
+          metrics: world.metrics,
+          followers: world.followers,
+          costs: world.costs,
+          guard,
+          clock,
+        },
+        p,
+      ),
+    activity: (p) => new ListActivityInteractor(world.activity, guard, p),
     editPost: (p) =>
       new EditPostInteractor(
         {
@@ -88,7 +99,6 @@ export function dashboardUseCases(
         p,
       ),
     reschedulePost: (p) => new ReschedulePostInteractor(command, clock, p),
-    listPersonalities: (p) => new ListPersonalitiesInteractor(world.personalities, guard, p),
     setAccountStatus: (p) => new SetAccountStatusInteractor(accountCommand, p),
     confirmDisclosure: (p) => new ConfirmDisclosureInteractor(accountCommand, p),
     setPolicy: (p) => new SetPolicyInteractor(accountCommand, p),
@@ -110,7 +120,6 @@ export function dashboardUseCases(
           states: world.states,
           connector: world.connector,
           accounts: world.accounts,
-          personalities: world.personalities,
           gateway: world.gateway,
           guard,
           audit: world.actionAudit,
@@ -119,12 +128,7 @@ export function dashboardUseCases(
         },
         p,
       ),
-    savePersonality: (p) =>
-      new SavePersonalityInteractor(world.personalities, world.ids, guard, world.actionAudit, p),
-    accountMetrics: (p) => new GetAccountMetricsInteractor(world.metrics, guard, p),
-    costTotals: (p) => new CostTotalsInteractor(world.costs, guard, p),
     mediaUsage: (p) => new GetMediaUsageInteractor(world.usage, guard, clock, p),
-    auditList: (p) => new AuditListInteractor(world.audit, guard, p),
   };
 }
 
@@ -149,7 +153,7 @@ export async function setupPosts(posts: readonly Post[] = []) {
   return {
     world,
     useCases,
-    pages: new PostPagesController(useCases, world.clock),
+    pages: new PostsController(useCases, world.clock),
     commands: new PostCommandsController(useCases),
   };
 }

@@ -1,19 +1,12 @@
 import type { Account, AccountStatus } from "../../entities/accounts/account";
 import type { PostingPolicy } from "../../entities/accounts/posting_policy";
-import {
-  accountId,
-  personalityId,
-  xUserId,
-  type AccountId,
-  type XUserId,
-} from "../../entities/identity/ids";
+import { accountId, xUserId, type AccountId, type XUserId } from "../../entities/identity/ids";
 import type { AccountRepository } from "../../use_cases/ports/account_repository";
 
 interface AccountRow {
   readonly id: string;
   readonly x_user_id: string;
   readonly handle: string;
-  readonly personality_id: string;
   readonly status: string;
   readonly bio_confirmed: number;
   readonly automated_label_confirmed: number;
@@ -22,7 +15,7 @@ interface AccountRow {
 }
 
 const COLUMNS =
-  "id, x_user_id, handle, personality_id, status, bio_confirmed, automated_label_confirmed, " +
+  "id, x_user_id, handle, status, bio_confirmed, automated_label_confirmed, " +
   "policy, is_app_owner";
 
 function fromRow(row: AccountRow): Account {
@@ -30,7 +23,6 @@ function fromRow(row: AccountRow): Account {
     id: accountId(row.id),
     xUserId: xUserId(row.x_user_id),
     handle: row.handle,
-    personalityId: personalityId(row.personality_id),
     status: row.status as AccountStatus,
     disclosure: {
       bioConfirmed: row.bio_confirmed === 1,
@@ -70,13 +62,12 @@ export class D1AccountRepository implements AccountRepository {
   async save(account: Account): Promise<void> {
     await this.db
       .prepare(
-        `INSERT OR REPLACE INTO accounts (${COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+        `INSERT OR REPLACE INTO accounts (${COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
       )
       .bind(
         account.id,
         account.xUserId,
         account.handle,
-        account.personalityId,
         account.status,
         account.disclosure.bioConfirmed ? 1 : 0,
         account.disclosure.automatedLabelConfirmed ? 1 : 0,

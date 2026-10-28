@@ -1,12 +1,11 @@
-/** Contracts for the account, personality and media repositories, the blob store and R2 usage. */
+/** Contracts for the account and media repositories, the blob store and R2 usage. */
 import { expect, it } from "vitest";
-import { accountId, personalityId, stagedMediaId, xUserId } from "../../src/entities/identity/ids";
+import { accountId, stagedMediaId, xUserId } from "../../src/entities/identity/ids";
 import type { AccountRepository } from "../../src/use_cases/ports/account_repository";
 import type { MediaBlobStore } from "../../src/use_cases/ports/media_blob_store";
 import type { MediaRepository } from "../../src/use_cases/ports/media_repository";
 import type { MediaUsageRepository } from "../../src/use_cases/ports/media_usage_repository";
-import type { PersonalityRepository } from "../../src/use_cases/ports/personality_repository";
-import { aMedia, aPersonality, anAccount, T0 } from "../unit/support/builders";
+import { aMedia, anAccount, T0 } from "../unit/support/builders";
 
 export function accountRepositoryContract(make: () => AccountRepository): void {
   it("save, get, find by X user, list by id; save replaces", async () => {
@@ -22,19 +21,6 @@ export function accountRepositoryContract(make: () => AccountRepository): void {
     expect(await repo.list()).toStrictEqual([a, b]);
     await repo.save({ ...a, status: "PAUSED" });
     expect((await repo.get(accountId("a")))?.status).toBe("PAUSED");
-  });
-}
-
-export function personalityRepositoryContract(make: () => PersonalityRepository): void {
-  it("save, get, list by id", async () => {
-    const repo = make();
-    const b = aPersonality({ id: personalityId("b") });
-    const a = aPersonality({ id: personalityId("a") });
-    await repo.save(b);
-    await repo.save(a);
-    expect(await repo.get(personalityId("b"))).toStrictEqual(b);
-    expect(await repo.get(personalityId("z"))).toBeNull();
-    expect(await repo.list()).toStrictEqual([a, b]);
   });
 }
 

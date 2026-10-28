@@ -4,7 +4,7 @@ import type { PostView } from "../../use_cases/views/post_view";
 import { ADMIN } from "./admin_actor";
 import { filled, parseList, parseUtcDateTime } from "./form_values";
 import { invalid, redirect, refused, type Outcome } from "./outcome";
-import { postHref } from "./post_views";
+import { postHref } from "./links";
 import { runUseCase } from "./presenter";
 import type { PostCommandUseCases } from "./use_cases";
 

@@ -1,18 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { personalityId } from "../../../src/entities/identity/ids";
 import { R2_FREE_ALLOWANCE, R2_GUARDS } from "../../../src/entities/media/r2_quota";
 import { MINUTE } from "../../../src/entities/time/instant";
 import { GetMediaUsageInteractor } from "../../../src/use_cases/get_media_usage/interactor";
 import type { GetMediaUsageOutputData } from "../../../src/use_cases/get_media_usage/output_data";
 import { ListAccountsInteractor } from "../../../src/use_cases/list_accounts/interactor";
 import type { ListAccountsOutputData } from "../../../src/use_cases/list_accounts/output_data";
-import { ListPersonalitiesInteractor } from "../../../src/use_cases/list_personalities/interactor";
-import type { ListPersonalitiesOutputData } from "../../../src/use_cases/list_personalities/output_data";
 import { LoginInteractor } from "../../../src/use_cases/login/interactor";
 import type { LoginOutputData } from "../../../src/use_cases/login/output_data";
 import type { PasswordVerifier } from "../../../src/use_cases/ports/password_verifier";
-import { accountId } from "../../../src/entities/identity/ids";
-import { aPersonality, botActor, HUMAN, T0 } from "../support/builders";
+import { botActor, HUMAN, T0 } from "../support/builders";
 import { Capture, makeWorld, type World } from "../support/world";
 
 class CountingVerifier implements PasswordVerifier {
@@ -96,7 +92,7 @@ describe("login", () => {
   });
 });
 
-describe("listAccounts, listPersonalities, getMediaUsage", () => {
+describe("listAccounts, getMediaUsage", () => {
   it("lists every account for a human and refuses a bot", async () => {
     const world = makeWorld();
     const account = await world.seedAccount();
@@ -107,23 +103,6 @@ describe("listAccounts, listPersonalities, getMediaUsage", () => {
     await list.execute({ actor: botActor() });
     expect(presenter.last).toStrictEqual({ ok: false, code: "human_only" });
     expect(world.audit.events.map((event) => event.action)).toStrictEqual(["refused.account.list"]);
-  });
-
-  it("lists every personality for a human and refuses a bot", async () => {
-    const world = makeWorld();
-    const first = aPersonality();
-    const second = aPersonality({ id: personalityId("pers-2"), name: "Second" });
-    await world.personalities.save(second);
-    await world.personalities.save(first);
-    const presenter = new Capture<ListPersonalitiesOutputData>();
-    const list = new ListPersonalitiesInteractor(world.personalities, world.guard, presenter);
-    await list.execute({ actor: HUMAN });
-    expect(presenter.last).toStrictEqual({ ok: true, personalities: [first, second] });
-    await list.execute({ actor: botActor([accountId("acc-1")]) });
-    expect(presenter.last).toStrictEqual({ ok: false, code: "human_only" });
-    expect(world.audit.events.map((event) => event.action)).toStrictEqual([
-      "refused.personality.list",
-    ]);
   });
 
   it("shows this month's R2 use against the guards and the free allowance", async () => {

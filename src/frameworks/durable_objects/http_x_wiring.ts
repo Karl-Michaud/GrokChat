@@ -15,6 +15,7 @@ import { HttpXMediaUploader, realWait, type Wait } from "../x_http/x_media_drive
 import { HttpXMetricsReader } from "../x_http/x_metrics_driver";
 import { HttpXPublisher } from "../x_http/x_publisher_driver";
 import { HttpXOwnTimelineReader } from "../x_http/x_timeline_driver";
+import { HttpXUserMetricsReader } from "../x_http/x_user_metrics_driver";
 import type { XUserDirectory } from "../x_http/x_user_directory";
 import type { AccountXCalls, AccountXWiring } from "./account_services";
 
@@ -57,6 +58,7 @@ export class HttpXWiring implements AccountXWiring {
       uploader: new HttpXMediaUploader(client, this.ports.wait ?? realWait),
       timeline: new HttpXOwnTimelineReader(client, users, clock),
       metrics: new HttpXMetricsReader(client, clock),
+      users: new HttpXUserMetricsReader(client, users),
     };
   }
 

@@ -5,10 +5,10 @@ import { OAUTH_STATE_TTL } from "../../use_cases/connect_account_begin/interacto
 import type { WebControllers } from "./controllers";
 import { formBody } from "./form_body";
 import { NO_PAGE, respond } from "./respond";
-import { bouncePage } from "./views/account_pages";
+import { bouncePage } from "./views/accounts_page";
 import { sessionOf, type WebApp, type WebContext } from "./web_context";
 
-/** Where the owner's choice (reconnect which account, or which personality) waits for X. */
+/** Where the owner's choice (reconnect which account, or a new one) waits for X. */
 export const CONNECT_COOKIE = "__Host-grokchat_connect";
 const COOKIE = { path: "/", secure: true, httpOnly: true, sameSite: "Strict" } as const;
 
@@ -19,7 +19,6 @@ export const OAUTH_FINISH = "/oauth/x/finish";
 interface Intent {
   readonly state: string | null;
   readonly reconnect: string | null;
-  readonly personalityId: string | null;
 }
 
 /** The intent cookie, once (it is cleared), and only when this session signed it. */
@@ -30,8 +29,8 @@ async function takeIntent(c: WebContext): Promise<Intent> {
     value === undefined ? null : await c.get("config").signer.verify("connect", value, Date.now());
   const text = (key: string) => (typeof payload?.[key] === "string" ? payload[key] : null);
   return text("session") === sessionOf(c).id
-    ? { state: text("state"), reconnect: text("reconnect"), personalityId: text("personalityId") }
-    : { state: null, reconnect: null, personalityId: null };
+    ? { state: text("state"), reconnect: text("reconnect") }
+    : { state: null, reconnect: null };
 }
 
 async function start(c: WebContext, oauth: OAuthController): Promise<Response> {
@@ -45,7 +44,6 @@ async function start(c: WebContext, oauth: OAuthController): Promise<Response> {
     session: session.id,
     state: new URL(outcome.location).searchParams.get("state"),
     reconnect: body.one("reconnect"),
-    personalityId: body.one("personality"),
   };
   const expiresAt = Date.now() + OAUTH_STATE_TTL;
   const value = await c.get("config").signer.sign("connect", expiresAt, intent);

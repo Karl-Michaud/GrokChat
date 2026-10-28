@@ -14,7 +14,7 @@ export interface FanOutResult<T> {
  * invocation, each costing the tick one Cloudflare-service call; `stopWhen` ends it early.
  */
 export async function fanOut<T>(
-  work: readonly AccountWork[],
+  work: readonly Pick<AccountWork, "accountId">[],
   meter: BudgetMeter,
   clock: Clock,
   dispatch: (account: AccountId) => Promise<T>,

@@ -1,4 +1,4 @@
-import { accountId, personalityId } from "../../entities/identity/ids";
+import { accountId } from "../../entities/identity/ids";
 import { ACCOUNTS_PAGE } from "./accounts_controller";
 import { ADMIN } from "./admin_actor";
 import { filled } from "./form_values";
@@ -9,7 +9,6 @@ import type { OAuthUseCases } from "./use_cases";
 /** What the owner chose on the accounts page before going to X: reconnect one, or a new one. */
 export interface ConnectIntent {
   readonly reconnect: string | null;
-  readonly personalityId: string | null;
 }
 
 export interface Callback {
@@ -42,7 +41,6 @@ export class OAuthController {
       return Promise.resolve(invalid("The callback is missing its code or its state."));
     }
     const reconnect = filled(callback.intent.reconnect);
-    const personality = filled(callback.intent.personalityId);
     const input = {
       actor: ADMIN,
       sessionId: callback.sessionId,
@@ -50,8 +48,6 @@ export class OAuthController {
       code,
       // Stryker disable next-line ConditionalExpression: the id brands are identity casts, so null maps to null either way.
       reconnect: reconnect === null ? null : accountId(reconnect),
-      // Stryker disable next-line ConditionalExpression: the id brands are identity casts, so null maps to null either way.
-      personalityId: personality === null ? null : personalityId(personality),
     };
     return runUseCase(this.useCases.connectComplete, input, (output) =>
       output.ok
