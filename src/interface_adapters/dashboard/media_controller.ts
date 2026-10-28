@@ -75,8 +75,6 @@ export interface MediaPageView {
   readonly accounts: readonly AccountOption[];
   /** The sections with media, in the upload select's order. */
   readonly sections: readonly MediaSection[];
-  /** Accounts in view with nothing staged. */
-  readonly emptyAccounts: number;
   /** Just uploaded: its media_id, to copy for a bot. */
   readonly uploaded: string | null;
   readonly accept: string;
@@ -194,7 +192,6 @@ export class MediaController {
       groups: groupsOf(rows, accounts, filter),
       accounts: accountOptions(accounts, filter),
       sections,
-      emptyAccounts: inView.length - sections.length,
       uploaded: filled(query.uploaded),
       accept: MEDIA_ACCEPT,
       maxLabel: MAX_LABEL_LENGTH,

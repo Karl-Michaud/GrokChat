@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { postId, stagedMediaId, xPostId } from "../../../../src/entities/identity/ids";
 import type { MetricsSnapshot } from "../../../../src/entities/metrics/metrics_snapshot";
-import { MINUTE } from "../../../../src/entities/time/instant";
+import { DAY, MINUTE } from "../../../../src/entities/time/instant";
 import {
   disclosureJson,
   isoTime,
@@ -11,7 +11,16 @@ import {
 } from "../../../../src/interface_adapters/mcp/json_views";
 import * as views from "../../../../src/interface_adapters/mcp/tool_views";
 import { toPostView } from "../../../../src/use_cases/views/post_view";
-import { ACCOUNT, anAccount, aPolicy, aPost, part, sentState, T0 } from "../../support/builders";
+import {
+  ACCOUNT,
+  aMedia,
+  anAccount,
+  aPolicy,
+  aPost,
+  part,
+  sentState,
+  T0,
+} from "../../support/builders";
 
 const SNAPSHOT: MetricsSnapshot = {
   xPostId: xPostId("x-1"),
@@ -154,6 +163,86 @@ describe("tool views", () => {
     expect(
       views.stageMediaView({ ok: true, mediaId: stagedMediaId("m-1"), kind: "GIF", size: 9 }),
     ).toStrictEqual({ ok: true, body: { media_id: "m-1", kind: "GIF", size_bytes: 9 } });
+  });
+
+  it("a host refusal names the allowed hosts and where an owner's file goes (GROKCHAT-18)", () => {
+    const refused = views.stageMediaView({
+      ok: false,
+      code: "host_not_allowed",
+      allowedHosts: ["imgen.x.ai", "cdn.example"],
+    });
+    expect(refused).toStrictEqual({
+      ok: false,
+      code: "host_not_allowed",
+      message: views.hostRefusalMessage(["imgen.x.ai", "cdn.example"]),
+    });
+    expect(views.hostRefusalMessage(["imgen.x.ai", "cdn.example"])).toBe(
+      "The URL's host is not allowed. Allowed hosts: imgen.x.ai, cdn.example. For a file the owner has, ask them to upload it on the GrokChat dashboard's Media page, then find its media_id with grokchat___list_media.",
+    );
+    expect(views.hostRefusalMessage([])).toMatch(
+      /^No media host is allowed: GROKCHAT_MEDIA_HOSTS is empty, so every URL is refused\. For a file/,
+    );
+    expect(views.stageMediaView({ ok: false, code: "bad_type" })).toStrictEqual({
+      ok: false,
+      code: "bad_type",
+      part: null,
+    });
+  });
+
+  it("list_media: each item's id, label, type, size, times, source and use (GROKCHAT-18)", () => {
+    const upload = aMedia({
+      id: stagedMediaId("m-up"),
+      label: "launch banner",
+      source: { kind: "dashboard" },
+      contentType: "image/webp",
+      size: 90_000,
+    });
+    const fetched = aMedia({
+      id: stagedMediaId("m-url"),
+      source: { kind: "url", host: "imgen.x.ai" },
+    });
+    expect(
+      views.listMediaView({
+        ok: true,
+        accountId: ACCOUNT,
+        items: [
+          { media: upload, used: false, expiresAt: T0 + 2 * DAY },
+          { media: fetched, used: true, expiresAt: null },
+        ],
+      }),
+    ).toStrictEqual({
+      ok: true,
+      body: {
+        account_id: ACCOUNT,
+        media: [
+          {
+            media_id: "m-up",
+            label: "launch banner",
+            content_type: "image/webp",
+            bytes: 90_000,
+            uploaded_at: "2026-10-27T12:00:00.000Z",
+            source: "dashboard",
+            used: false,
+            expires_at: "2026-10-29T12:00:00.000Z",
+          },
+          {
+            media_id: "m-url",
+            label: null,
+            content_type: "image/png",
+            bytes: 1000,
+            uploaded_at: "2026-10-27T12:00:00.000Z",
+            source: "imgen.x.ai",
+            used: true,
+            expires_at: null,
+          },
+        ],
+      },
+    });
+    expect(views.listMediaView({ ok: false, code: "scope" })).toStrictEqual({
+      ok: false,
+      code: "scope",
+      part: null,
+    });
   });
 
   it("edit_post / cancel_post, get_post and list_backlog show posts", () => {
