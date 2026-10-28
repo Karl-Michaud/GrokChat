@@ -45,6 +45,12 @@ const ADVANCE_SQL =
   nextMetricsAtSql("sent_at", "(SELECT MAX(taken_at) FROM metrics WHERE x_post_id = ?1)") +
   " WHERE x_post_id = ?1";
 
+/** The same for a post imported from the account's timeline (GROKCHAT-19), from its creation. */
+const ADVANCE_IMPORTED_SQL =
+  "UPDATE imported_posts SET metrics_next_at = " +
+  nextMetricsAtSql("created_at", "(SELECT MAX(taken_at) FROM metrics WHERE x_post_id = ?1)") +
+  " WHERE x_post_id = ?1";
+
 /** The newest snapshot of each listed post (the later insert wins a tie), in first-read order. */
 const LATEST_SQL =
   `SELECT ${COLUMNS} FROM metrics AS m WHERE x_post_id IN (SELECT value FROM json_each(?1)) ` +
@@ -78,7 +84,10 @@ export class D1MetricsRepository implements MetricsRepository, MetricsHistory {
     }
     const inserts = snapshots.map((snapshot) => this.insert(snapshot));
     const posts = [...new Set(snapshots.map((snapshot) => snapshot.xPostId))];
-    const advances = posts.map((id) => this.db.prepare(ADVANCE_SQL).bind(id));
+    const advances = posts.flatMap((id) => [
+      this.db.prepare(ADVANCE_SQL).bind(id),
+      this.db.prepare(ADVANCE_IMPORTED_SQL).bind(id),
+    ]);
     await this.db.batch([...inserts, ...advances]);
   }
 

@@ -1,4 +1,4 @@
-import type { PostId } from "../identity/ids";
+import type { PostId, XPostId } from "../identity/ids";
 import type { Instant } from "../time/instant";
 import { engagements, type MetricValues } from "./metric_values";
 
@@ -18,9 +18,12 @@ export const POST_SORT_KEYS: readonly PostSortKey[] = [
 
 export type SortDirection = "asc" | "desc";
 
-/** A post as it is sorted: its time and its metrics (null: never read). */
+/**
+ * A post as it is sorted: its time and its metrics (null: never read). The id is GrokChat's for
+ * its own posts and X's for a post made outside GrokChat (GROKCHAT-19).
+ */
 export interface Sortable {
-  readonly id: PostId;
+  readonly id: PostId | XPostId;
   readonly publishAt: Instant;
   readonly metrics: MetricValues | null;
 }

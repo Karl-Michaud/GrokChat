@@ -58,6 +58,7 @@ import {
 } from "../../../src/frameworks/memory/memory_people";
 import { MemoryActivityLog } from "../../../src/frameworks/memory/memory_activity";
 import { MemoryFollowerStore } from "../../../src/frameworks/memory/memory_followers";
+import { MemoryImportedPosts } from "../../../src/frameworks/memory/memory_imported_posts";
 import { FakeXTokenEndpoint, MemoryTokenStore } from "../../../src/frameworks/memory/memory_tokens";
 import { AccessGuard } from "../../../src/use_cases/access/access_guard";
 import { ActionAudit } from "../../../src/use_cases/access/action_audit";
@@ -69,7 +70,8 @@ import { MediaIntake } from "../../../src/use_cases/media/media_intake";
 import type { Locks } from "../../../src/use_cases/ports/locks";
 import { AccountRecovery } from "../../../src/use_cases/run_services/account_recovery";
 import { AccountXGatewayService } from "../../../src/use_cases/run_services/account_x_gateway_service";
-import { PostsThenFollowers } from "../../../src/use_cases/run_services/account_metrics_run";
+import { ImportPostsThenFollowers } from "../../../src/use_cases/run_services/account_metrics_run";
+import { ImportOwnPosts } from "../../../src/use_cases/run_services/import_own_posts";
 import { CollectAccountMetrics } from "../../../src/use_cases/run_services/collect_account_metrics";
 import { GuardedTransition } from "../../../src/use_cases/run_services/guarded_transition";
 import { MediaCleanup } from "../../../src/use_cases/run_services/media_cleanup";
@@ -133,6 +135,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const xMetrics = new FakeXMetrics(x);
   const xUsers = new FakeXUserMetrics(x);
   const followers = new MemoryFollowerStore(accounts);
+  const imported = new MemoryImportedPosts(table, accounts, metrics);
   const states = new MemoryOAuthStateStore();
   const throttle = new MemoryLoginThrottle();
   const pkce = new SequentialPkce();
@@ -167,10 +170,20 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     clock,
   });
   const reconciler = new InProcessAccountReconciler(reconcileAccount);
+  const importPosts = new ImportOwnPosts({
+    accounts,
+    imported,
+    timeline,
+    tokenStep,
+    recorder,
+    flights,
+    clock,
+  });
   const collectMetrics = new CollectAccountMetrics({
     reader,
     accounts,
     metrics,
+    imported,
     x: xMetrics,
     tokenStep,
     recorder,
@@ -187,7 +200,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     clock,
   });
   const collector = new InProcessMetricsCollector(
-    new PostsThenFollowers(collectMetrics, snapshotFollowers),
+    new ImportPostsThenFollowers(importPosts, collectMetrics, snapshotFollowers),
   );
   const gateway = new AccountXGatewayService({
     publisher: xPublisher,
@@ -279,6 +292,8 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     xMetrics,
     xUsers,
     followers,
+    imported,
+    importPosts,
     states,
     throttle,
     pkce,

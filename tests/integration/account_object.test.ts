@@ -71,6 +71,7 @@ describe("every method maps a failure to a result, so the object is never reset 
     });
     expect(await object.collect(id, T0, DEADLINE)).toStrictEqual({
       ran: false,
+      imported: 0,
       read: 0,
       followers: 0,
     });
@@ -108,6 +109,7 @@ describe("the Worker-side client", () => {
     });
     expect(await objects.collect(account.id, T0, DEADLINE)).toStrictEqual({
       ran: true,
+      imported: 0,
       read: 0,
       followers: 1,
     });

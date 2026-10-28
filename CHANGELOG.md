@@ -6,6 +6,15 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ### Added
 
+- **Posts made outside GrokChat on the dashboard** (GROKCHAT-19):
+  - the `*/15` metrics tick imports each connected account's own posts made outside GrokChat (the X app, the website) **every 6 hours**: `GET /2/users/:id/tweets` from the second after the newest post seen, retweets left out, up to 5 pages of 100 per run; the first import reads the last 30 days. Posts GrokChat published are never imported (matched by X id, and left out again if one was found before its send was committed);
+  - an imported post's metrics are read on the **same decaying schedule** as GrokChat's own (1 h, 6 h, 1 d, 3 d, 7 d, 29 d after it was made), into the same `metrics` table, so the analytics totals and series count them;
+  - the **posts page** lists them with GrokChat's posts, filtered by account, date and the Published status and sorted by any metric, marked **Posted on X** and linking to the post on X (there is no GrokChat page for them);
+  - every timeline page read is recorded like any X call, on Activity (`imported N of M`) and in the X spend, billed per post returned ($0.005, $0.001 on the app owner's account). A run the budget cuts short continues on the next tick; a failed read leaves the cursor, so the next import reads those posts again;
+  - migration `0007_imported_posts.sql`: `imported_posts` (with `metrics_next_at`, indexed like `post_parts`) and `post_imports` (each account's last import and newest post seen); ports `ImportedPostStore` and `ImportSchedule` (D1 and memory drivers on one contract suite), and `XOwnTimelineReader.page`;
+  - not yet counted as imported: the "posts published" figure and the top-posts table on Analytics, and the MCP tools, which stay about GrokChat's own posts;
+  - **Why:** the owner posts by hand and wants the dashboard to track those posts' analytics too.
+
 - **Images for bots** (GROKCHAT-18):
   - **Grok's image host is allowed**: `GROKCHAT_MEDIA_HOSTS` is `imgen.x.ai`, so a Grok-generated image link stages with `stage_media_from_url` and posts. Every fetch protection stays (https, exact host match, every redirect re-checked, no literal IP, size caps, magic bytes);
   - **a host refusal says what to do**: `host_not_allowed` carries a `message` naming the allowed hosts (or that none is set) and pointing at the dashboard upload;

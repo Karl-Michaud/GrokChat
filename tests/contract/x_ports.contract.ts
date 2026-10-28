@@ -3,7 +3,7 @@
  * alike. Failures are compared by what they mean (`mapXOutcome`), since a driver's detail text
  * comes from X's body.
  */
-import { expect, it } from "vitest";
+import { assert, expect, it } from "vitest";
 import { xPostId, type XPostId } from "../../src/entities/identity/ids";
 import { MINUTE, SECOND, type Instant } from "../../src/entities/time/instant";
 import type { RateScope, XResult } from "../../src/entities/x/x_failure";
@@ -143,6 +143,40 @@ export function xTimelineContract(
   it("maps every read failure to its outcome", async () => {
     const harness = make();
     await eachFailure(harness, () => harness.reader.recent(ACCOUNT, T0, 5));
+    await eachFailure(harness, () => harness.reader.page(ACCOUNT, T0, null));
+  });
+
+  it("pages the posts at or after `since`, newest first, 100 a page (GROKCHAT-19)", async () => {
+    const harness = make();
+    const at = (seconds: number) => T0 + seconds * SECOND;
+    const seeded = Array.from({ length: 101 }, (_, index) => ({
+      text: `p${String(index)}`,
+      createdAt: at(index),
+      inReplyTo: index === 100 ? xPostId("p0") : null,
+    }));
+    const ids = await harness.seed([
+      { text: "old", createdAt: at(-1), inReplyTo: null },
+      ...seeded,
+    ]);
+    const first = await harness.reader.page(ACCOUNT, T0, null);
+    assert(first.ok);
+    expect(first.value.posts).toHaveLength(100);
+    expect(first.value.posts[0]).toStrictEqual({
+      id: ids[101],
+      text: "p100",
+      createdAt: at(100),
+      inReplyTo: xPostId("p0"),
+    });
+    expect(first.value.next).not.toBeNull();
+    const second = await harness.reader.page(ACCOUNT, T0, first.value.next);
+    expect(second).toStrictEqual({
+      ok: true,
+      value: { posts: [{ id: ids[1], text: "p0", createdAt: at(0), inReplyTo: null }], next: null },
+    });
+    expect(await harness.reader.page(ACCOUNT, at(101), null)).toStrictEqual({
+      ok: true,
+      value: { posts: [], next: null },
+    });
   });
 }
 

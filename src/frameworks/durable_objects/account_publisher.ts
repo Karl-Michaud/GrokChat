@@ -12,7 +12,7 @@ import type { AccountServices } from "./account_services";
 
 const NOT_PUBLISHED: PublishSummary = { ran: false, sent: 0, touched: [], appRateLimited: false };
 const NOT_RECONCILED: ReconcileSummary = { ran: false, found: 0, notFound: 0 };
-const NOT_COLLECTED: MetricsSummary = { ran: false, read: 0, followers: 0 };
+const NOT_COLLECTED: MetricsSummary = { ran: false, imported: 0, read: 0, followers: 0 };
 const NOT_STORED: { readonly stored: boolean } = { stored: false };
 
 /** The storage key of the one account this object serves. */

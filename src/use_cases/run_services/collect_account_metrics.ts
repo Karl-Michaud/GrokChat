@@ -6,6 +6,7 @@ import type { Instant } from "../../entities/time/instant";
 import type { AccountRepository } from "../ports/account_repository";
 import type { BudgetMeter } from "../ports/budget_meter";
 import type { Clock } from "../ports/clock";
+import type { ImportedPostStore } from "../ports/imported_posts";
 import type { MetricsRepository } from "../ports/metrics_repository";
 import type { PostReader } from "../ports/post_reader";
 import type { SingleFlight } from "../ports/single_flight";
@@ -20,6 +21,7 @@ export interface CollectAccountMetricsPorts {
   readonly reader: PostReader;
   readonly accounts: AccountRepository;
   readonly metrics: MetricsRepository;
+  readonly imported: ImportedPostStore;
   readonly x: XMetricsReader;
   readonly tokenStep: TokenStep;
   readonly recorder: XCallRecorder;
@@ -37,6 +39,7 @@ const SKIPPED: PostMetricsSummary = { ran: false, read: 0 };
 
 /**
  * Inside the account's Durable Object, single-flight (m2): reads the posts whose metrics are due,
+ * its own and those imported from the account's timeline (GROKCHAT-19), on the same schedule,
  * after the token step (N1), so a refresh that does not fit the deadline yields before any read.
  */
 export class CollectAccountMetrics {
@@ -71,13 +74,20 @@ export class CollectAccountMetrics {
   private async duePosts(account: AccountId, now: Instant): Promise<readonly XPostId[]> {
     const posts = await this.ports.reader.list({ accountIds: [account], partStates: ["SENT"] });
     const sent = posts.flatMap((post) =>
-      post.parts.flatMap((part) => (part.state.kind === "SENT" ? [part.state] : [])),
+      post.parts.flatMap((part) =>
+        part.state.kind === "SENT" ? [{ id: part.state.xPostId, at: part.state.at }] : [],
+      ),
     );
-    const latest = await this.ports.metrics.latest(sent.map((state) => state.xPostId));
+    const imported = (await this.ports.imported.list({ accountIds: [account] })).map((post) => ({
+      id: post.xPostId,
+      at: post.createdAt,
+    }));
+    const published = [...sent, ...imported];
+    const latest = await this.ports.metrics.latest(published.map((post) => post.id));
     const lastTaken = new Map(latest.map((snapshot) => [snapshot.xPostId, snapshot.takenAt]));
-    return sent
-      .filter((state) => metricsDue(state.at, lastTaken.get(state.xPostId) ?? null, now))
-      .map((state) => state.xPostId);
+    return published
+      .filter((post) => metricsDue(post.at, lastTaken.get(post.id) ?? null, now))
+      .map((post) => post.id);
   }
 
   private async readBatch(account: Account, ids: readonly XPostId[]): Promise<number> {

@@ -87,7 +87,8 @@ function postUseCases(b: WorkerGraph): PostPageUseCases & PostCommandUseCases {
   const insights = { reader, metrics: b.metrics, activity: b.activity, guard };
   return {
     ...directory(b),
-    listPosts: (p) => new ListPostsInteractor({ reader, metrics: b.metrics, guard }, p),
+    listPosts: (p) =>
+      new ListPostsInteractor({ reader, metrics: b.metrics, imported: b.imported, guard }, p),
     insights: (p) => new GetPostInsightsInteractor(insights, p),
     editPost: (p) => new EditPostInteractor(b, p),
     approvePost: (p) => new ApprovePostInteractor(command, clock, p),

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { FOLLOWER_READ_COST, TOKEN_REFRESH_MILLIS } from "../../../../src/entities/budget/budget";
-import { accountId, xUserId } from "../../../../src/entities/identity/ids";
+import { accountId, xPostId, xUserId } from "../../../../src/entities/identity/ids";
 import { DAY, HOUR, MINUTE } from "../../../../src/entities/time/instant";
 import type { XFailure } from "../../../../src/entities/x/x_failure";
-import { PostsThenFollowers } from "../../../../src/use_cases/run_services/account_metrics_run";
+import { ImportPostsThenFollowers } from "../../../../src/use_cases/run_services/account_metrics_run";
 import { ACCOUNT, OTHER_ACCOUNT, T0 } from "../../support/builders";
 import { meter } from "../../support/publishing";
 import { makeWorld, type World } from "../../support/world";
@@ -135,14 +135,37 @@ describe("the daily follower snapshot (GROKCHAT-15)", () => {
     });
   });
 
-  it("the metrics run reads the posts, then the followers", async () => {
+  it("the metrics run imports, reads the posts, then the followers", async () => {
     const world = makeWorld();
     await world.seedAccount();
-    const run = new PostsThenFollowers(world.collectMetrics, world.snapshotFollowers);
-    expect(await run.collect(ACCOUNT, meter())).toStrictEqual({ ran: true, read: 0, followers: 1 });
-    expect(await run.collect(ACCOUNT, meter())).toStrictEqual({ ran: true, read: 0, followers: 0 });
+    world.x.posts.set(xPostId("x-own"), {
+      id: xPostId("x-own"),
+      account: ACCOUNT,
+      text: "from the X app",
+      media: [],
+      inReplyTo: null,
+      createdAt: world.clock.now() - 2 * DAY,
+    });
+    const run = new ImportPostsThenFollowers(
+      world.importPosts,
+      world.collectMetrics,
+      world.snapshotFollowers,
+    );
+    expect(await run.collect(ACCOUNT, meter())).toStrictEqual({
+      ran: true,
+      imported: 1,
+      read: 1,
+      followers: 1,
+    });
+    expect(await run.collect(ACCOUNT, meter())).toStrictEqual({
+      ran: true,
+      imported: 0,
+      read: 0,
+      followers: 0,
+    });
     expect(await run.collect(accountId("nobody"), meter())).toStrictEqual({
       ran: true,
+      imported: 0,
       read: 0,
       followers: 0,
     });

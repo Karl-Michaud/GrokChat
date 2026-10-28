@@ -101,10 +101,28 @@ describe("dashboard connect → bot create_post → scheduled() → dashboard po
     // An hour later the metrics tick reads it; the bot and the dashboard both see the numbers.
     expect(await tool(bot, "get_post_metrics", { post_id: postId })).toMatchObject({ parts: [] });
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + HOUR + MINUTE });
+    // The owner also posted by hand in the X app, two hours ago (GROKCHAT-19).
+    const byHand = x.emulator.newId();
+    const madeAt = Date.now() - 2 * HOUR;
+    x.emulator.posts.set(byHand, {
+      id: byHand,
+      text: "by hand",
+      createdAt: madeAt,
+      inReplyTo: null,
+    });
     const before = x.calls().length;
     await tick("metrics", dashboardEnv);
-    // The post's metrics, then the account's follower snapshot for the day (GROKCHAT-15).
-    expect(x.calls().slice(before)).toStrictEqual(["GET /2/tweets", `GET /2/users/${x.me.id}`]);
+    // The import finds the post made by hand, then both posts' metrics are read in one call,
+    // then the account's follower snapshot for the day (GROKCHAT-15).
+    expect(x.calls().slice(before)).toStrictEqual([
+      `GET /2/users/${x.me.id}/tweets`,
+      "GET /2/tweets",
+      `GET /2/users/${x.me.id}`,
+    ]);
+    expect(x.seen.at(-2)?.url.searchParams.get("ids")).toBe(`${xId},${byHand}`);
+    const posts = (await browser.page("/dashboard/posts")).html;
+    expect(posts).toContain(`href="https://x.com/${x.me.username}/status/${byHand}"`);
+    expect(posts).toContain('class="chip neutral">Posted on X</span>');
     expect(await tool(bot, "get_post_metrics", { post_id: postId })).toMatchObject({
       parts: [{ x_post_id: xId, impressions: 100, likes: 10 }],
     });

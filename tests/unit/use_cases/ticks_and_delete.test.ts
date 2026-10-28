@@ -212,6 +212,7 @@ describe("reconcileTick and metricsTick", () => {
       {
         reader: world.reader,
         followers: world.followers,
+        imports: world.imported,
         collector: world.collector,
         cleanup: world.cleanup,
         meter: budget,
@@ -224,17 +225,21 @@ describe("reconcileTick and metricsTick", () => {
       job: "cron",
       dispatched: 1,
       waiting: 0,
+      imported: 0,
       read: 1,
       followers: 1,
       mediaDeleted: 1,
     });
     const fake = readerWith([work("a", { metrics: false }), work("b")]);
-    const collector = { collect: () => Promise.resolve({ ran: true, read: 7, followers: 0 }) };
+    const collector = {
+      collect: () => Promise.resolve({ ran: true, imported: 2, read: 7, followers: 0 }),
+    };
     const none = { accountsDue: () => Promise.resolve([]) };
     const other = new MetricsTickInteractor(
       {
         reader: fake,
         followers: none,
+        imports: none,
         collector,
         cleanup: world.cleanup,
         meter: budget,
@@ -247,6 +252,7 @@ describe("reconcileTick and metricsTick", () => {
       job: "cron",
       dispatched: 1,
       waiting: 0,
+      imported: 2,
       read: 7,
       followers: 0,
       mediaDeleted: 0,
@@ -255,7 +261,7 @@ describe("reconcileTick and metricsTick", () => {
 });
 
 describe("metricsTick and the follower snapshot (GROKCHAT-15)", () => {
-  it("visits post-metrics accounts first, then accounts due a follower read, each once", async () => {
+  it("visits post-metrics accounts, then follower reads, then imports (GROKCHAT-19), each once", async () => {
     const world = makeWorld();
     const presenter = new Capture<MetricsTickOutputData>();
     const visited: string[] = [];
@@ -263,7 +269,7 @@ describe("metricsTick and the follower snapshot (GROKCHAT-15)", () => {
     const collector = {
       collect: (account: string) => {
         visited.push(account);
-        return Promise.resolve({ ran: true, read: 0, followers: 1 });
+        return Promise.resolve({ ran: true, imported: 0, read: 0, followers: 1 });
       },
     };
     const followers = {
@@ -276,6 +282,7 @@ describe("metricsTick and the follower snapshot (GROKCHAT-15)", () => {
       {
         reader: readerWith([work("a"), work("b"), work("d", { metrics: false })]),
         followers,
+        imports: { accountsDue: () => Promise.resolve([accountId("c"), accountId("e")]) },
         collector,
         cleanup: world.cleanup,
         meter: meter(T0 + DAY),
@@ -284,9 +291,9 @@ describe("metricsTick and the follower snapshot (GROKCHAT-15)", () => {
       presenter,
     );
     await interactor.execute({ actor: SYSTEM_ACTOR });
-    expect(visited).toStrictEqual(["a", "b", "c"]);
+    expect(visited).toStrictEqual(["a", "b", "c", "e"]);
     expect(days).toStrictEqual(["2026-10-27"]);
-    expect(presenter.last).toMatchObject({ dispatched: 3, followers: 3 });
+    expect(presenter.last).toMatchObject({ dispatched: 4, followers: 4 });
   });
 });
 

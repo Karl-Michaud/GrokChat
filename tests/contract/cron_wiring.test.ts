@@ -200,7 +200,7 @@ describe("MeteredAccountDispatch, for any fan-out", () => {
       publishDue: () => Promise.resolve(summary),
       publishNow: () => Promise.resolve(summary),
       reconcile: () => Promise.resolve({ ran: true, found: 0, notFound: 0 }),
-      collect: () => Promise.resolve({ ran: true, read: 0, followers: 0 }),
+      collect: () => Promise.resolve({ ran: true, imported: 0, read: 0, followers: 0 }),
     };
     await fc.assert(
       fc.asyncProperty(fc.nat({ max: FANOUT_LIMIT }), async (n) => {

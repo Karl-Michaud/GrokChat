@@ -2,7 +2,11 @@ import { xPostId, type AccountId, type XPostId } from "../../entities/identity/i
 import { MINUTE, SECOND, type Instant, type Millis } from "../../entities/time/instant";
 import type { XResult } from "../../entities/x/x_failure";
 import type { Clock } from "../../use_cases/ports/clock";
-import type { XOwnTimelineReader, XPostSummary } from "../../use_cases/ports/x_own_timeline_reader";
+import type {
+  XOwnTimelineReader,
+  XPostSummary,
+  XPostsPage,
+} from "../../use_cases/ports/x_own_timeline_reader";
 import { field, list, text } from "./json_fields";
 import type { XApiClient } from "./x_api_client";
 import { FIELDS_PARAM } from "./x_metrics_driver";
@@ -80,6 +84,34 @@ export class HttpXOwnTimelineReader implements XOwnTimelineReader {
       })
       .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
     return { ok: true, value: posts.slice(0, Math.max(0, maxResults)) };
+  }
+
+  async page(
+    account: AccountId,
+    since: Instant,
+    token: string | null,
+  ): Promise<XResult<XPostsPage>> {
+    const user = await this.users.xUserIdOf(account);
+    if (user === null) {
+      return { ok: false, failure: { kind: "not_sent" } };
+    }
+    const result = await this.client.call(account, {
+      method: "GET",
+      path: `/2/users/${encodeURIComponent(user)}/tweets`,
+      query: {
+        start_time: xTime(since),
+        max_results: String(PAGE_SIZE),
+        exclude: "retweets",
+        [FIELDS_PARAM]: "created_at,referenced_tweets",
+        ...(token === null ? {} : { pagination_token: token }),
+      },
+    });
+    if (!result.ok) {
+      return result;
+    }
+    const posts = list(field(result.value, "data")).flatMap((post) => summary(post) ?? []);
+    const next = text(field(field(result.value, "meta"), "next_token"));
+    return { ok: true, value: { posts, next } };
   }
 
   private query(since: Instant): Record<string, string> {

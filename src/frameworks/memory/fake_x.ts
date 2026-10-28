@@ -13,7 +13,11 @@ import type { XFailure, XResult } from "../../entities/x/x_failure";
 import type { Clock } from "../../use_cases/ports/clock";
 import type { XMediaUploader } from "../../use_cases/ports/x_media_uploader";
 import type { XMetricsReader } from "../../use_cases/ports/x_metrics_reader";
-import type { XOwnTimelineReader, XPostSummary } from "../../use_cases/ports/x_own_timeline_reader";
+import type {
+  XOwnTimelineReader,
+  XPostSummary,
+  XPostsPage,
+} from "../../use_cases/ports/x_own_timeline_reader";
 import type { XPublisher } from "../../use_cases/ports/x_publisher";
 import type { XUserMetricsReader } from "../../use_cases/ports/x_user_metrics_reader";
 
@@ -48,6 +52,8 @@ export class FakeXWorld {
   };
   /** Runs before every create reaches X (the R4 test asserts the part is SENDING here). */
   beforeCreate: (account: AccountId, text: string) => Promise<void> = () => Promise.resolve();
+  /** The timeline's page size (X's is 100); tests lower it to see paging. */
+  pageSize = 100;
   private next = 0;
 
   constructor(readonly clock: Clock) {}
@@ -145,6 +151,27 @@ export class FakeXTimeline implements XOwnTimelineReader {
       .slice(0, maxResults)
       .map(({ id, text, createdAt, inReplyTo }) => ({ id, text, createdAt, inReplyTo }));
     return Promise.resolve({ ok: true, value: posts });
+  }
+
+  /** Pages of `pageSize` (X's is 100), newest first; the token is the next page's offset. */
+  page(account: AccountId, since: Instant, token: string | null): Promise<XResult<XPostsPage>> {
+    const script = this.world.take("timeline");
+    if (script.kind === "fail") {
+      return Promise.resolve(failed(script.failure));
+    }
+    const all = this.world
+      .postsBy(account)
+      .filter((post) => post.createdAt >= since)
+      .sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id));
+    const start = token === null ? 0 : Number(token);
+    const end = start + this.world.pageSize;
+    const posts = all
+      .slice(start, end)
+      .map(({ id, text, createdAt, inReplyTo }) => ({ id, text, createdAt, inReplyTo }));
+    return Promise.resolve({
+      ok: true,
+      value: { posts, next: end < all.length ? String(end) : null },
+    });
   }
 }
 
