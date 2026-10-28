@@ -13,9 +13,9 @@ const THREAD = { account_id: "a", parts: [{ text: "hi" }], idempotency_key: "k" 
 const WINDOW = { account_id: "a", from: "2026-10-27T00:00:00Z", to: "2026-10-28T00:00:00+02:00" };
 
 describe("tool input schemas", () => {
-  it("has a schema for exactly the 14 catalogued tools", () => {
+  it("has a schema for exactly the 15 catalogued tools", () => {
     expect(Object.keys(TOOL_SCHEMAS).sort()).toStrictEqual([...TOOL_NAMES].sort());
-    expect(TOOL_NAMES).toHaveLength(14);
+    expect(TOOL_NAMES).toHaveLength(15);
   });
 
   it("lists every derived status for list_backlog (compile-time check)", () => {

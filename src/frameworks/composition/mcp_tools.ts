@@ -1,5 +1,6 @@
 /**
- * The 14 MCP tools (plan §3.4; list_accounts since GROKCHAT-16, list_media since GROKCHAT-18) over the Worker's production graph: the same D1 records, account
+ * The 15 MCP tools (plan §3.4; list_accounts since GROKCHAT-16, list_media since GROKCHAT-18,
+ * upload_media since GROKCHAT-20) over the Worker's production graph: the same D1 records, account
  * Durable Objects and R2 media as the dashboard, so a bot sees what the dashboard connected.
  */
 import {
@@ -9,6 +10,7 @@ import {
   DeletePostController,
   EditPostController,
   StageMediaFromUrlController,
+  UploadMediaController,
 } from "../../interface_adapters/mcp/authoring_controllers";
 import {
   ComparePostsController,
@@ -36,6 +38,7 @@ import { ListBacklogInteractor } from "../../use_cases/list_backlog/interactor";
 import { ListMediaInteractor } from "../../use_cases/list_media/interactor";
 import { ListOwnAccountsInteractor } from "../../use_cases/list_own_accounts/interactor";
 import { StageMediaFromUrlInteractor } from "../../use_cases/stage_media_from_url/interactor";
+import { UploadMediaInteractor } from "../../use_cases/upload_media/interactor";
 import type { ToolHandlers } from "../mcp/mcp_server";
 import type { WorkerGraph } from "./worker_graph";
 
@@ -58,6 +61,10 @@ function authoringTools(g: WorkerGraph) {
           call.actor,
           args,
         ),
+      ),
+    upload_media: (call, args) =>
+      presentTool(views.uploadMediaView, call.secrets, (p) =>
+        new UploadMediaController(new UploadMediaInteractor(g, p)).handle(call.actor, args),
       ),
     edit_post: (call, args) =>
       presentTool(views.postCommandView, call.secrets, (p) =>

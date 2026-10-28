@@ -19,6 +19,13 @@ const mediaIds = z.array(id).max(MAX_PHOTOS).optional();
  * account published it (`reply_target_not_own`, GROKCHAT-17).
  */
 const replyTarget = z.string().min(1).max(512).optional();
+/** A SHA-256 as hex, either case (the controller lowercases it). */
+const sha256 = z.string().regex(/^[0-9a-fA-F]{64}$/);
+/**
+ * Only a size cap, well above one part's base64 (about 350,000 characters) and its line breaks:
+ * the use case refuses a larger part with `part_too_large`, which a bot can act on.
+ */
+export const MAX_PART_BASE64_CHARS = 1_000_000;
 /** A time without an offset is ambiguous and refused (m5). */
 const time = z.iso.datetime({ offset: true });
 
@@ -66,6 +73,16 @@ export const TOOL_SCHEMAS = {
     idempotency_key: id,
   }),
   stage_media_from_url: z.object({ account_id: id, url: z.string().min(1).max(2_048) }),
+  upload_media: z.object({
+    account_id: id,
+    label: z.string().max(1_000).optional(),
+    sha256,
+    data_base64: z.string().min(1).max(MAX_PART_BASE64_CHARS),
+    part_sha256: sha256,
+    upload_id: id.optional(),
+    part_index: z.number().int().min(0).max(10_000).optional(),
+    part_count: z.number().int().min(1).max(10_000).optional(),
+  }),
   edit_post: z.object({ post_id: id, parts: parts.optional(), publish_at: time.optional() }),
   cancel_post: postOnly,
   delete_post: postOnly,

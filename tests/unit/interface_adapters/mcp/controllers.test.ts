@@ -8,6 +8,7 @@ import {
   DeletePostController,
   EditPostController,
   StageMediaFromUrlController,
+  UploadMediaController,
 } from "../../../../src/interface_adapters/mcp/authoring_controllers";
 import type { CreatePostInputData } from "../../../../src/use_cases/create_post/input_data";
 import {
@@ -158,6 +159,39 @@ describe("authoring controllers build each use case's input from the arguments",
     });
     expect(spy.inputs).toStrictEqual([
       { actor: ACTOR, accountId: "acc-1", url: "https://x/a.png" },
+    ]);
+  });
+
+  it("upload_media: hashes lowercased; a single part is part 0 of 1 with no upload id (GROKCHAT-20)", async () => {
+    const spy = new Spy();
+    const controller = new UploadMediaController(spy);
+    const hash = "AB".repeat(32);
+    await controller.handle(ACTOR, {
+      account_id: "acc-1",
+      sha256: hash,
+      data_base64: "AAEC",
+      part_sha256: "CD".repeat(32),
+    });
+    await controller.handle(ACTOR, {
+      account_id: "acc-1",
+      label: "mascot",
+      sha256: hash,
+      data_base64: "AAEC",
+      part_sha256: "cd".repeat(32),
+      upload_id: "u-1",
+      part_index: 2,
+      part_count: 3,
+    });
+    const common = {
+      actor: ACTOR,
+      accountId: "acc-1",
+      fileSha256: "ab".repeat(32),
+      data: "AAEC",
+      partSha256: "cd".repeat(32),
+    };
+    expect(spy.inputs).toStrictEqual([
+      { ...common, label: "", uploadId: null, partIndex: 0, partCount: 1 },
+      { ...common, label: "mascot", uploadId: "u-1", partIndex: 2, partCount: 3 },
     ]);
   });
 
