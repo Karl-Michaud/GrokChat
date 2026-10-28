@@ -13,5 +13,6 @@ GROKCHAT_ADMIN_PASSWORD_HASH=
 # Vars: wrangler.jsonc sets the production values; a value here overrides it for `wrangler dev`.
 # Exactly as browsers send Origin: http://localhost:8787 for `wrangler dev`.
 GROKCHAT_PUBLIC_ORIGIN=
-# Comma-separated hosts stage_media_from_url may fetch from; empty refuses every media URL.
+# Comma-separated hosts stage_media_from_url may fetch from (production: imgen.x.ai, Grok's image
+# host); empty refuses every media URL.
 GROKCHAT_MEDIA_HOSTS=
