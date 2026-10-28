@@ -32,18 +32,13 @@ export function followersAt(snapshots: readonly FollowerSnapshot[], at: Instant)
  */
 export function followerGrowth(snapshots: readonly FollowerSnapshot[], window: TimeWindow): number {
   const before = latestBefore(snapshots, window.from);
-  const inside = snapshots.filter((snapshot) => inWindow(window, snapshot.takenAt));
-  const first = new Map<AccountId, number>();
-  const last = new Map<AccountId, number>();
-  for (const snapshot of inside) {
-    if (!first.has(snapshot.accountId)) {
-      first.set(snapshot.accountId, snapshot.followers);
-    }
-    last.set(snapshot.accountId, snapshot.followers);
+  const counts = new Map<AccountId, { readonly first: number; readonly last: number }>();
+  for (const snapshot of snapshots.filter((item) => inWindow(window, item.takenAt))) {
+    const first = counts.get(snapshot.accountId)?.first ?? snapshot.followers;
+    counts.set(snapshot.accountId, { first, last: snapshot.followers });
   }
-  return [...last].reduce(
-    (growth, [account, count]) =>
-      growth + count - (before.get(account) ?? first.get(account) ?? count),
+  return [...counts].reduce(
+    (growth, [account, { first, last }]) => growth + last - (before.get(account) ?? first),
     0,
   );
 }

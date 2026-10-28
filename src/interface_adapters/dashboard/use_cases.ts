@@ -1,5 +1,5 @@
-import type { AuditListInputData } from "../../use_cases/audit_list/input_data";
-import type { AuditListOutputData } from "../../use_cases/audit_list/output_data";
+import type { ApprovePostInputData } from "../../use_cases/approve_post/input_data";
+import type { ApprovePostOutputData } from "../../use_cases/approve_post/output_data";
 import type { CancelPostInputData } from "../../use_cases/cancel_post/input_data";
 import type { CancelPostOutputData } from "../../use_cases/cancel_post/output_data";
 import type { ConfirmDisclosureInputData } from "../../use_cases/confirm_disclosure/input_data";
@@ -8,30 +8,24 @@ import type { ConnectAccountBeginInputData } from "../../use_cases/connect_accou
 import type { ConnectAccountBeginOutputData } from "../../use_cases/connect_account_begin/output_data";
 import type { ConnectAccountCompleteInputData } from "../../use_cases/connect_account_complete/input_data";
 import type { ConnectAccountCompleteOutputData } from "../../use_cases/connect_account_complete/output_data";
-import type { CostTotalsInputData } from "../../use_cases/cost_totals/input_data";
-import type { CostTotalsOutputData } from "../../use_cases/cost_totals/output_data";
 import type { DeletePostInputData } from "../../use_cases/delete_post/input_data";
 import type { DeletePostOutputData } from "../../use_cases/delete_post/output_data";
 import type { EditPostInputData } from "../../use_cases/edit_post/input_data";
 import type { EditPostOutputData } from "../../use_cases/edit_post/output_data";
-import type { GetAccountMetricsInputData } from "../../use_cases/get_account_metrics/input_data";
-import type { GetAccountMetricsOutputData } from "../../use_cases/get_account_metrics/output_data";
-import type { GetCalendarInputData } from "../../use_cases/get_calendar/input_data";
-import type { GetCalendarOutputData } from "../../use_cases/get_calendar/output_data";
+import type { GetAnalyticsInputData } from "../../use_cases/get_analytics/input_data";
+import type { GetAnalyticsOutputData } from "../../use_cases/get_analytics/output_data";
 import type { GetMediaUsageInputData } from "../../use_cases/get_media_usage/input_data";
 import type { GetMediaUsageOutputData } from "../../use_cases/get_media_usage/output_data";
-import type { GetPostInputData } from "../../use_cases/get_post/input_data";
-import type { GetPostOutputData } from "../../use_cases/get_post/output_data";
-import type { GetPostMetricsInputData } from "../../use_cases/get_post_metrics/input_data";
-import type { GetPostMetricsOutputData } from "../../use_cases/get_post_metrics/output_data";
+import type { GetPostInsightsInputData } from "../../use_cases/get_post_insights/input_data";
+import type { GetPostInsightsOutputData } from "../../use_cases/get_post_insights/output_data";
 import type { ListAccountsInputData } from "../../use_cases/list_accounts/input_data";
 import type { ListAccountsOutputData } from "../../use_cases/list_accounts/output_data";
-import type { ListBacklogInputData } from "../../use_cases/list_backlog/input_data";
-import type { ListBacklogOutputData } from "../../use_cases/list_backlog/output_data";
+import type { ListActivityInputData } from "../../use_cases/list_activity/input_data";
+import type { ListActivityOutputData } from "../../use_cases/list_activity/output_data";
+import type { ListPostsInputData } from "../../use_cases/list_posts/input_data";
+import type { ListPostsOutputData } from "../../use_cases/list_posts/output_data";
 import type { LoginInputData } from "../../use_cases/login/input_data";
 import type { LoginOutputData } from "../../use_cases/login/output_data";
-import type { ApprovePostInputData } from "../../use_cases/approve_post/input_data";
-import type { ApprovePostOutputData } from "../../use_cases/approve_post/output_data";
 import type { RejectPostInputData } from "../../use_cases/reject_post/input_data";
 import type { RejectPostOutputData } from "../../use_cases/reject_post/output_data";
 import type { ReschedulePostInputData } from "../../use_cases/reschedule_post/input_data";
@@ -56,11 +50,17 @@ export interface AccountDirectory {
   readonly listAccounts: UseCaseFactory<ListAccountsInputData, ListAccountsOutputData>;
 }
 
+export interface AnalyticsSource {
+  readonly analytics: UseCaseFactory<GetAnalyticsInputData, GetAnalyticsOutputData>;
+}
+
+export interface AnalyticsUseCases extends AccountDirectory, AnalyticsSource {
+  readonly mediaUsage: UseCaseFactory<GetMediaUsageInputData, GetMediaUsageOutputData>;
+}
+
 export interface PostPageUseCases extends AccountDirectory {
-  readonly listBacklog: UseCaseFactory<ListBacklogInputData, ListBacklogOutputData>;
-  readonly getCalendar: UseCaseFactory<GetCalendarInputData, GetCalendarOutputData>;
-  readonly getPost: UseCaseFactory<GetPostInputData, GetPostOutputData>;
-  readonly getPostMetrics: UseCaseFactory<GetPostMetricsInputData, GetPostMetricsOutputData>;
+  readonly listPosts: UseCaseFactory<ListPostsInputData, ListPostsOutputData>;
+  readonly insights: UseCaseFactory<GetPostInsightsInputData, GetPostInsightsOutputData>;
 }
 
 export interface PostCommandUseCases {
@@ -72,7 +72,7 @@ export interface PostCommandUseCases {
   readonly reschedulePost: UseCaseFactory<ReschedulePostInputData, ReschedulePostOutputData>;
 }
 
-export interface AccountUseCases extends AccountDirectory {
+export interface AccountUseCases extends AccountDirectory, AnalyticsSource {
   readonly setAccountStatus: UseCaseFactory<SetAccountStatusInputData, SetAccountStatusOutputData>;
   readonly confirmDisclosure: UseCaseFactory<
     ConfirmDisclosureInputData,
@@ -92,9 +92,6 @@ export interface OAuthUseCases {
   >;
 }
 
-export interface ReportUseCases extends AccountDirectory {
-  readonly accountMetrics: UseCaseFactory<GetAccountMetricsInputData, GetAccountMetricsOutputData>;
-  readonly costTotals: UseCaseFactory<CostTotalsInputData, CostTotalsOutputData>;
-  readonly mediaUsage: UseCaseFactory<GetMediaUsageInputData, GetMediaUsageOutputData>;
-  readonly auditList: UseCaseFactory<AuditListInputData, AuditListOutputData>;
+export interface ActivityUseCases extends AccountDirectory {
+  readonly activity: UseCaseFactory<ListActivityInputData, ListActivityOutputData>;
 }

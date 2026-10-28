@@ -7,7 +7,6 @@ import {
   formatUtc,
   formatUtcDate,
   parseClock,
-  parseLines,
   parseList,
   parseMinutes,
   parseUtcDate,
@@ -94,9 +93,7 @@ describe("form values (UTC)", () => {
     fc.assert(fc.property(fc.nat(), (n) => parseWhole(String(n)) === n));
   });
 
-  it("splits lines and lists, dropping blanks", () => {
-    expect(parseLines(" a \r\n\n b\n")).toStrictEqual(["a", "b"]);
-    expect(parseLines("")).toStrictEqual([]);
+  it("splits lists, dropping blanks", () => {
     expect(parseList(" m-1, ,m-2 ")).toStrictEqual(["m-1", "m-2"]);
     expect(parseList("")).toStrictEqual([]);
     expect(filled(null)).toBeNull();

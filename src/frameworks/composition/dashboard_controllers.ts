@@ -1,37 +1,36 @@
 /**
- * The dashboard's controllers (plan §3.4) over the Worker's production graph: the D1 records, X
- * reached only through the account's Durable Object (deletes, storing a connect's tokens) and the
- * X OAuth connector. The MCP tools run on the same graph (mcp_tools.ts).
+ * The dashboard's controllers (plan §3.4, GROKCHAT-15) over the Worker's production graph: the D1
+ * records and read models, X reached only through the account's Durable Object (deletes, storing
+ * a connect's tokens) and the X OAuth connector. The MCP tools run on the same graph.
  */
 import { AccountsController } from "../../interface_adapters/dashboard/accounts_controller";
+import { ActivityController } from "../../interface_adapters/dashboard/activity_controller";
+import { AnalyticsController } from "../../interface_adapters/dashboard/analytics_controller";
 import { OAuthController } from "../../interface_adapters/dashboard/oauth_controller";
 import { PostCommandsController } from "../../interface_adapters/dashboard/post_commands_controller";
-import { PostPagesController } from "../../interface_adapters/dashboard/post_pages_controller";
-import { ReportsController } from "../../interface_adapters/dashboard/reports_controller";
+import { PostsController } from "../../interface_adapters/dashboard/posts_controller";
 import { SessionController } from "../../interface_adapters/dashboard/session_controller";
 import type {
+  AccountDirectory,
   AccountUseCases,
+  AnalyticsSource,
   OAuthUseCases,
   PostCommandUseCases,
   PostPageUseCases,
-  ReportUseCases,
 } from "../../interface_adapters/dashboard/use_cases";
 import { ApprovePostInteractor } from "../../use_cases/approve_post/interactor";
-import { AuditListInteractor } from "../../use_cases/audit_list/interactor";
 import { CancelPostInteractor } from "../../use_cases/cancel_post/interactor";
 import { ConfirmDisclosureInteractor } from "../../use_cases/confirm_disclosure/interactor";
 import { ConnectAccountBeginInteractor } from "../../use_cases/connect_account_begin/interactor";
 import { ConnectAccountCompleteInteractor } from "../../use_cases/connect_account_complete/interactor";
-import { CostTotalsInteractor } from "../../use_cases/cost_totals/interactor";
 import { DeletePostInteractor } from "../../use_cases/delete_post/interactor";
 import { EditPostInteractor } from "../../use_cases/edit_post/interactor";
-import { GetAccountMetricsInteractor } from "../../use_cases/get_account_metrics/interactor";
-import { GetCalendarInteractor } from "../../use_cases/get_calendar/interactor";
+import { GetAnalyticsInteractor } from "../../use_cases/get_analytics/interactor";
 import { GetMediaUsageInteractor } from "../../use_cases/get_media_usage/interactor";
-import { GetPostMetricsInteractor } from "../../use_cases/get_post_metrics/interactor";
-import { GetPostInteractor } from "../../use_cases/get_post/interactor";
+import { GetPostInsightsInteractor } from "../../use_cases/get_post_insights/interactor";
 import { ListAccountsInteractor } from "../../use_cases/list_accounts/interactor";
-import { ListBacklogInteractor } from "../../use_cases/list_backlog/interactor";
+import { ListActivityInteractor } from "../../use_cases/list_activity/interactor";
+import { ListPostsInteractor } from "../../use_cases/list_posts/interactor";
 import { LoginInteractor } from "../../use_cases/login/interactor";
 import type { PasswordVerifier } from "../../use_cases/ports/password_verifier";
 import { RejectPostInteractor } from "../../use_cases/reject_post/interactor";
@@ -41,15 +40,24 @@ import { SetPolicyInteractor } from "../../use_cases/set_policy/interactor";
 import type { WebControllers } from "../web/controllers";
 import type { WorkerGraph } from "./worker_graph";
 
+function directory(b: WorkerGraph): AccountDirectory {
+  return { listAccounts: (p) => new ListAccountsInteractor(b.accounts, b.guard, p) };
+}
+
+function analyticsSource(b: WorkerGraph): AnalyticsSource {
+  const { accounts, reader, metrics, followers, costs, guard, clock } = b;
+  const ports = { accounts, reader, metrics, followers, costs, guard, clock };
+  return { analytics: (p) => new GetAnalyticsInteractor(ports, p) };
+}
+
 function postUseCases(b: WorkerGraph): PostPageUseCases & PostCommandUseCases {
   const { reader, guard, command, clock } = b;
   const deleting = { reader, gateway: b.objects, steps: b.steps, guard, audit: b.actionAudit };
+  const insights = { reader, metrics: b.metrics, activity: b.activity, guard };
   return {
-    listAccounts: (p) => new ListAccountsInteractor(b.accounts, guard, p),
-    listBacklog: (p) => new ListBacklogInteractor(reader, guard, p),
-    getCalendar: (p) => new GetCalendarInteractor(reader, guard, p),
-    getPost: (p) => new GetPostInteractor(reader, guard, p),
-    getPostMetrics: (p) => new GetPostMetricsInteractor(reader, b.metrics, guard, p),
+    ...directory(b),
+    listPosts: (p) => new ListPostsInteractor({ reader, metrics: b.metrics, guard }, p),
+    insights: (p) => new GetPostInsightsInteractor(insights, p),
     editPost: (p) => new EditPostInteractor(b, p),
     approvePost: (p) => new ApprovePostInteractor(command, clock, p),
     rejectPost: (p) => new RejectPostInteractor(command, p),
@@ -63,7 +71,8 @@ function accountUseCases(b: WorkerGraph): AccountUseCases & OAuthUseCases {
   const { guard, accountCommand, states, ids, clock } = b;
   const connect = { states, ids, clock, guard, audit: b.actionAudit, accounts: b.accounts };
   return {
-    listAccounts: (p) => new ListAccountsInteractor(b.accounts, guard, p),
+    ...directory(b),
+    ...analyticsSource(b),
     setAccountStatus: (p) => new SetAccountStatusInteractor(accountCommand, p),
     confirmDisclosure: (p) => new ConfirmDisclosureInteractor(accountCommand, p),
     setPolicy: (p) => new SetPolicyInteractor(accountCommand, p),
@@ -80,33 +89,34 @@ function accountUseCases(b: WorkerGraph): AccountUseCases & OAuthUseCases {
   };
 }
 
-function reportUseCases(b: WorkerGraph): ReportUseCases {
-  const { guard } = b;
-  return {
-    listAccounts: (p) => new ListAccountsInteractor(b.accounts, guard, p),
-    accountMetrics: (p) => new GetAccountMetricsInteractor(b.metrics, guard, p),
-    costTotals: (p) => new CostTotalsInteractor(b.costs, guard, p),
-    mediaUsage: (p) => new GetMediaUsageInteractor(b.usage, guard, b.clock, p),
-    auditList: (p) => new AuditListInteractor(b.audit, guard, p),
-  };
+function session(b: WorkerGraph) {
+  return (verifier: PasswordVerifier) =>
+    new SessionController({
+      login: (p) =>
+        new LoginInteractor(
+          { throttle: b.throttle, verifier, audit: b.actionAudit, clock: b.clock },
+          p,
+        ),
+    });
 }
 
 export function dashboardControllers(b: WorkerGraph): WebControllers {
   const posts = postUseCases(b);
   const accounts = accountUseCases(b);
   return {
-    session: (verifier: PasswordVerifier) =>
-      new SessionController({
-        login: (p) =>
-          new LoginInteractor(
-            { throttle: b.throttle, verifier, audit: b.actionAudit, clock: b.clock },
-            p,
-          ),
-      }),
-    postPages: new PostPagesController(posts, b.clock),
+    session: session(b),
+    analytics: new AnalyticsController({
+      ...directory(b),
+      ...analyticsSource(b),
+      mediaUsage: (p) => new GetMediaUsageInteractor(b.usage, b.guard, b.clock, p),
+    }),
+    posts: new PostsController(posts, b.clock),
     postCommands: new PostCommandsController(posts),
     accounts: new AccountsController(accounts),
     oauth: new OAuthController(accounts),
-    reports: new ReportsController(reportUseCases(b), b.clock),
+    activity: new ActivityController(
+      { ...directory(b), activity: (p) => new ListActivityInteractor(b.activity, b.guard, p) },
+      b.clock,
+    ),
   };
 }

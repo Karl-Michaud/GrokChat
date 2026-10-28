@@ -27,7 +27,8 @@
     "dev": "wrangler dev",
     "provision-secrets": "node scripts/provision-secrets.mjs",
     "set-admin-password": "node scripts/set-admin-password.mjs",
-    "add-bot": "node scripts/add-bot.mjs"
+    "add-bot": "node scripts/add-bot.mjs",
+    "seed:local": "node scripts/seed-local.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

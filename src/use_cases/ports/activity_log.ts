@@ -26,6 +26,6 @@ export interface ActivityPage {
 
 /** The dashboard's history of requests (GROKCHAT-15): the audit log, joined to its costs. */
 export interface ActivityLog {
-  /** Newest first, `limit` entries after skipping `offset`. */
+  /** Newest first (by time; the later write first in a tie), `limit` entries after `offset`. */
   page(filter: ActivityFilter, offset: number, limit: number): Promise<ActivityPage>;
 }

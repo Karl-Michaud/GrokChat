@@ -1,23 +1,26 @@
 import type { WebControllers } from "./controllers";
 import { formBody } from "./form_body";
 import { NO_PAGE, respond } from "./respond";
-import { backlogPage, calendarPage, postPage } from "./views/post_pages";
+import { postPage } from "./views/post_page";
+import { postsPage } from "./views/posts_page";
 import type { WebApp } from "./web_context";
 
-/** Backlog, calendar, post detail and the post's commands (plan §3.4). */
-export function postRoutes(app: WebApp, { postPages, postCommands }: WebControllers): void {
-  app.get("/dashboard/backlog", async (c) => {
+/** The posts page, a post's page and the post's commands (GROKCHAT-15, plan §3.4). */
+export function postRoutes(app: WebApp, { posts, postCommands }: WebControllers): void {
+  app.get("/dashboard/posts", async (c) => {
     const query = {
       account: c.req.query("account") ?? null,
       status: c.req.query("status") ?? null,
+      from: c.req.query("from") ?? null,
+      to: c.req.query("to") ?? null,
+      sort: c.req.query("sort") ?? null,
+      dir: c.req.query("dir") ?? null,
+      page: c.req.query("page") ?? null,
     };
-    return respond(c, await postPages.backlog(query), backlogPage);
+    return respond(c, await posts.posts(query), postsPage);
   });
-  app.get("/dashboard/calendar", async (c) =>
-    respond(c, await postPages.calendar({ start: c.req.query("start") ?? null }), calendarPage),
-  );
   app.get("/dashboard/posts/:id", async (c) =>
-    respond(c, await postPages.detail(c.req.param("id")), postPage),
+    respond(c, await posts.detail(c.req.param("id")), postPage),
   );
   app.post("/dashboard/posts/:id/edit", async (c) => {
     const body = await formBody(c);

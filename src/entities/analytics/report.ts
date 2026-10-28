@@ -24,8 +24,8 @@ export interface RankedPost {
   readonly accountId: AccountId;
   /** Every part's text, in order. */
   readonly text: string;
-  /** The first part's id on X, for the link. */
-  readonly xPostId: XPostId | null;
+  /** The first of its parts that gained in the window, for the link to X. */
+  readonly xPostId: XPostId;
   readonly publishedAt: Instant | null;
   readonly values: MetricValues;
 }
@@ -76,18 +76,21 @@ export function topPosts(
 ): readonly RankedPost[] {
   const gains = perPost(found, window);
   const ranked = posts.flatMap((post): RankedPost[] => {
-    const ids = xIdsOf(post);
-    const own = ids.flatMap((id) => gains.get(id) ?? []);
-    return own.length === 0
+    const gained = xIdsOf(post).flatMap((id) => {
+      const values = gains.get(id);
+      return values === undefined ? [] : [{ id, values }];
+    });
+    const [lead] = gained;
+    return lead === undefined
       ? []
       : [
           {
             postId: post.id,
             accountId: post.accountId,
             text: post.parts.map((part) => part.text).join(" "),
-            xPostId: ids[0] ?? null,
+            xPostId: lead.id,
             publishedAt: publishedAt(post),
-            values: sum(own),
+            values: sum(gained.map((item) => item.values)),
           },
         ];
   });

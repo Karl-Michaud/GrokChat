@@ -1,14 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { accountId, xUserId } from "../../../../src/entities/identity/ids";
-import { MINUTE } from "../../../../src/entities/time/instant";
-import { AccountsController } from "../../../../src/interface_adapters/dashboard/accounts_controller";
+import { HOUR, MINUTE } from "../../../../src/entities/time/instant";
+import {
+  AccountsController,
+  limitsOf,
+} from "../../../../src/interface_adapters/dashboard/accounts_controller";
 import { OAuthController } from "../../../../src/interface_adapters/dashboard/oauth_controller";
 import {
   parsePolicyForm,
   policyForm,
   type PolicyForm,
 } from "../../../../src/interface_adapters/dashboard/policy_form";
-import { ACCOUNT, aPolicy, anAccount } from "../../support/builders";
+import {
+  ACCOUNT,
+  aFollowerSnapshot,
+  aPolicy,
+  anAccount,
+  aPost,
+  part,
+  sentState,
+  T0,
+} from "../../support/builders";
 import { dashboardUseCases, presenting } from "../../support/dashboard";
 import { makeWorld, type World } from "../../support/world";
 
@@ -44,35 +56,59 @@ const FORM: PolicyForm = {
   graceMinutes: "30",
 };
 
+const ORIGIN = "https://grokchat.test";
+
 const REDIRECT = { kind: "redirect", location: "/dashboard/accounts" };
 
 describe("the accounts page", () => {
-  it("shows each account's status, disclosure and policy", async () => {
-    const { controller } = await setup();
-    expect(await controller.accounts({ connected: null })).toStrictEqual({
+  it("a card per account: status, mode, limits, disclosure, numbers, policy; and the bot setup", async () => {
+    const { controller, world } = await setup();
+    await world.writer.add(
+      aPost({ lifecycle: "DONE", parts: [part("p", sentState("x-1", T0 - HOUR))] }),
+    );
+    const snapshot = aFollowerSnapshot(T0 - HOUR, 1_234);
+    await world.followers.claim(ACCOUNT, snapshot.day, T0 - HOUR);
+    await world.followers.record(snapshot);
+    expect(await controller.accounts({ connected: null, origin: ORIGIN })).toStrictEqual({
       kind: "page",
       view: {
         accounts: [
           {
             id: "acc-1",
-            handle: "@musechat_one",
-            status: "ACTIVE",
+            badge: { id: "acc-1", handle: "@musechat_one", initials: "MO", tone: 1 },
+            status: { label: "Active", tone: "good" },
             needsReconnect: false,
-            bioConfirmed: true,
-            automatedLabelConfirmed: true,
             canActivate: false,
             canPause: true,
+            mode: "Auto-publish",
+            limits: ["10 posts a day", "30 min apart", "No quiet hours", "UTC", "Links allowed"],
+            bioConfirmed: true,
+            automatedLabelConfirmed: true,
+            disclosed: true,
+            followers: "1.2K",
+            posts7d: "1",
             policy: FORM,
           },
           {
             id: "acc-2",
-            handle: "@two",
-            status: "NEEDS_RECONNECT",
+            badge: { id: "acc-2", handle: "@two", initials: "TW", tone: 2 },
+            status: { label: "Reconnect needed", tone: "critical" },
             needsReconnect: true,
-            bioConfirmed: false,
-            automatedLabelConfirmed: true,
             canActivate: false,
             canPause: false,
+            mode: "Review first",
+            limits: [
+              "10 posts a day",
+              "30 min apart",
+              "Quiet 22:00–06:30",
+              "UTC",
+              "No https:// links",
+            ],
+            bioConfirmed: false,
+            automatedLabelConfirmed: true,
+            disclosed: false,
+            followers: "—",
+            posts7d: "0",
             policy: {
               ...FORM,
               mode: "REVIEW",
@@ -83,15 +119,28 @@ describe("the accounts page", () => {
           },
         ],
         notice: null,
+        mcpUrl: "https://grokchat.test/mcp",
+        addBot: "npm run add-bot -- --id <bot name> --accounts acc-1,acc-2",
       },
     });
+  });
+
+  it("states the limits in words", () => {
+    expect(limitsOf(aPolicy({ dailyCap: 1, minGap: 0, tz: "Europe/Paris" }))).toStrictEqual([
+      "1 post a day",
+      "No minimum gap",
+      "No quiet hours",
+      "Europe/Paris",
+      "Links allowed",
+    ]);
+    expect(limitsOf(aPolicy({ minGap: 90 * MINUTE }))[1]).toBe("90 min apart");
   });
 
   it("marks a disconnected account for reconnecting, a paused one for activating", async () => {
     const { controller, world } = await setup();
     await world.accounts.save(anAccount({ status: "PAUSED" }));
     await world.accounts.save(anAccount({ id: accountId("acc-2"), status: "DISCONNECTED" }));
-    const outcome = await controller.accounts({ connected: "@new" });
+    const outcome = await controller.accounts({ connected: "@new", origin: ORIGIN });
     expect(outcome).toMatchObject({
       view: {
         accounts: [
@@ -101,7 +150,25 @@ describe("the accounts page", () => {
         notice: "Connected @new. It starts paused.",
       },
     });
-    expect(await controller.accounts({ connected: " " })).toMatchObject({ view: { notice: null } });
+    expect(await controller.accounts({ connected: " ", origin: ORIGIN })).toMatchObject({
+      view: { notice: null },
+    });
+  });
+
+  it("without the week's analytics, a card shows no followers and no posts", async () => {
+    const { useCases } = await setup();
+    const refusing = new AccountsController({
+      ...useCases,
+      analytics: presenting({ ok: false, code: "human_only" }),
+    });
+    expect(await refusing.accounts({ connected: null, origin: ORIGIN })).toMatchObject({
+      view: {
+        accounts: [
+          { followers: "—", posts7d: "0" },
+          { followers: "—", posts7d: "0" },
+        ],
+      },
+    });
   });
 
   it("lists nothing when the use cases refuse", async () => {
@@ -110,9 +177,14 @@ describe("the accounts page", () => {
       ...useCases,
       listAccounts: presenting({ ok: false, code: "human_only" }),
     });
-    expect(await refusing.accounts({ connected: null })).toStrictEqual({
+    expect(await refusing.accounts({ connected: null, origin: ORIGIN })).toStrictEqual({
       kind: "page",
-      view: { accounts: [], notice: null },
+      view: {
+        accounts: [],
+        notice: null,
+        mcpUrl: "https://grokchat.test/mcp",
+        addBot: "npm run add-bot -- --id <bot name> --accounts <account id>",
+      },
     });
   });
 

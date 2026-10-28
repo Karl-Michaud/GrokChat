@@ -104,7 +104,8 @@ export class GetAnalyticsInteractor implements GetAnalyticsInputBoundary {
     const now = clock.now();
     const fixed = range === "all" ? null : rangeWindow(range, now, null);
     // Stryker disable next-line all: reading from further back changes no figure (every one is windowed); this only narrows the read to the range and the period before it.
-    const span = { from: fixed?.previous?.from ?? 0, to: now };
+    const from = fixed?.previous?.from ?? 0;
+    const span = { from, to: now + 1 };
     // Stryker disable next-line all: a post never sent adds to no figure; this only narrows the read.
     const filter = { partStates: ["SENT", "DELETED"] as const };
     const posts = await reader.list(id === null ? filter : { ...filter, accountIds: [id] });

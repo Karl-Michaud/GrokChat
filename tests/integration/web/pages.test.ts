@@ -1,9 +1,18 @@
+/** Every dashboard page through the web app, over the in-memory world (GROKCHAT-15). */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { postId, xPostId } from "../../../src/entities/identity/ids";
-import { HOUR } from "../../../src/entities/time/instant";
+import { accountId, postId, xUserId } from "../../../src/entities/identity/ids";
+import { DAY, HOUR } from "../../../src/entities/time/instant";
+import { APP_CSS, APP_JS, fingerprint, HTMX } from "../../../src/frameworks/web/static_assets";
 import { buildWebApp } from "../../../src/frameworks/web/web_app";
-import { HTMX } from "../../../src/frameworks/web/static_assets";
-import { ACCOUNT, aPost, part, sentState, T0 } from "../../unit/support/builders";
+import {
+  ACCOUNT,
+  aFollowerSnapshot,
+  aPost,
+  aSnapshot,
+  part,
+  sentState,
+  T0,
+} from "../../unit/support/builders";
 import { Browser, controllersFor, dashboard, ORIGIN, PASSWORD } from "./browser";
 
 async function loggedIn() {
@@ -13,55 +22,188 @@ async function loggedIn() {
   return setup;
 }
 
+/** A small, realistic dashboard: two accounts, posts with metrics, followers, costs. */
+async function populated() {
+  const setup = await loggedIn();
+  const { world } = setup;
+  await world.seedAccount({ id: accountId("acc-2"), xUserId: xUserId("x-2"), handle: "second" });
+  await world.writer.add(
+    aPost({
+      id: postId("p-live"),
+      lifecycle: "DONE",
+      publishAt: T0 - DAY,
+      parts: [part("<b>hi</b> live", sentState("x-1", T0 - DAY))],
+    }),
+  );
+  await world.writer.add(
+    aPost({ id: postId("p-next"), publishAt: T0 + HOUR, parts: [part("coming up")] }),
+  );
+  await world.metrics.addSnapshots([
+    aSnapshot("x-1", T0 - 20 * HOUR, 900),
+    aSnapshot("x-1", T0 - HOUR, 4_321),
+  ]);
+  const snapshot = aFollowerSnapshot(T0 - HOUR, 2_048);
+  await world.followers.claim(ACCOUNT, snapshot.day, T0 - HOUR);
+  await world.followers.record(snapshot);
+  await world.audit.append({
+    at: T0 - DAY,
+    actor: "bot:muse",
+    action: "post.create",
+    accountId: ACCOUNT,
+    postId: postId("p-live"),
+    detail: "",
+  });
+  return setup;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("the dashboard pages (plan §3.4)", () => {
-  it("every page renders behind the session with the nav, the CSRF token and htmx", async () => {
-    const { browser, world } = await loggedIn();
-    await world.writer.add(aPost({ publishAt: T0 + HOUR, parts: [part("<b>hi</b>")] }));
-    const pages: [string, string][] = [
-      ["/dashboard/backlog", "<td>SCHEDULED</td>"],
-      ["/dashboard/backlog?status=SCHEDULED&account=acc-1", "&lt;b&gt;hi&lt;/b&gt;"],
-      ["/dashboard/calendar", "Week of 2026-10-27 (UTC)"],
-      ["/dashboard/calendar?start=2026-11-02", "Mon 2026-11-02"],
-      ["/dashboard/posts/post-1", "<h1>Post post-1</h1>"],
-      ["/dashboard/accounts", "<h2>@musechat_one</h2>"],
-      ["/dashboard/metrics", "@musechat_one: 0 posts read in the last 7 days"],
-      ["/dashboard/costs", "All accounts"],
-      ["/dashboard/media", "Stored bytes"],
-      ["/dashboard/audit", "session.login"],
-    ];
-    for (const [path, text] of pages) {
+const PAGES: readonly (readonly [string, string, string])[] = [
+  ["/dashboard/analytics", "Analytics", "4.3K"],
+  ["/dashboard/analytics?range=24h&metric=likes", "Analytics", "Last 24 hours"],
+  ["/dashboard/analytics?range=all&account=acc-1", "Analytics", "All time"],
+  ["/dashboard/posts", "Posts", "&lt;b&gt;hi&lt;/b&gt; live"],
+  [
+    "/dashboard/posts?account=acc-1&status=PUBLISHED&from=2026-10-01&sort=impressions&dir=desc",
+    "Posts",
+    "4.3K",
+  ],
+  ["/dashboard/posts/p-live", "Post", "https://x.com/musechat_one/status/x-1"],
+  ["/dashboard/accounts", "Accounts", "@second"],
+  ["/dashboard/activity", "Activity", "Created a post"],
+  ["/dashboard/activity?actor=bot&kind=posts&account=acc-1", "Activity", "muse"],
+];
+
+describe("the dashboard pages (GROKCHAT-15)", () => {
+  it("every page renders in the shell: sidebar, the current item, CSRF, stylesheet, scripts", async () => {
+    const { browser } = await populated();
+    for (const [path, title, text] of PAGES) {
       const page = await browser.page(path);
       expect([path, page.status]).toStrictEqual([path, 200]);
+      expect(page.html).toContain(`<h1>${title}</h1>`);
       expect(page.html).toContain(text);
-      expect(page.html).toContain('<a href="/dashboard/audit">Audit</a>');
-      expect(page.html).toContain(`name="_csrf" value="${browser.csrf}"`);
+      expect(page.html).toContain(`<link rel="stylesheet" href="${APP_CSS.path}" />`);
       expect(page.html).toContain(`src="${HTMX.path}"`);
       expect(page.html).toContain(`integrity="${HTMX.integrity}"`);
+      expect(page.html).toContain(`<script src="${APP_JS.path}" defer></script>`);
+      expect(page.html).toContain(`name="_csrf" value="${browser.csrf}"`);
+      const section = path.split("?")[0]?.split("/")[2] ?? "";
+      expect(page.html).toMatch(new RegExp(`<a href="/dashboard/${section}" aria-current="page"`));
+      expect(page.html).toContain('action="/dashboard/theme"');
+      expect(page.html).not.toContain("<b>hi</b>");
     }
-    expect((await browser.page("/dashboard/backlog")).html).not.toContain("<b>hi</b>");
   });
 
-  it("shows refusals with their status", async () => {
+  it("no page carries an inline script, style element or style attribute (CSP: same-origin only)", async () => {
+    const { browser } = await populated();
+    for (const [path] of PAGES) {
+      const { html } = await browser.page(path);
+      expect([path, /<script(?![^>]*\bsrc=)[^>]*>/i.test(html)]).toStrictEqual([path, false]);
+      expect([path, /<style\b/i.test(html)]).toStrictEqual([path, false]);
+      expect([path, /\sstyle=/i.test(html)]).toStrictEqual([path, false]);
+      expect([path, /\son[a-z]+=/i.test(html)]).toStrictEqual([path, false]);
+    }
+  });
+
+  it("analytics: KPI tiles, server-rendered SVG charts with a table view, accounts, top posts, spend, R2", async () => {
+    const { browser } = await populated();
+    const { html } = await browser.page("/dashboard/analytics");
+    expect(html).toContain('<span class="kpi-label">Impressions</span>');
+    expect(html).toContain('class="chart-line"');
+    expect(html).toContain('preserveAspectRatio="none"');
+    expect(html).toContain("Show as a table");
+    expect(html).toMatch(/class="chart-cols"\s+tabindex="0"/);
+    expect(html).toContain("2,048");
+    expect(html).toContain("Top posts");
+    expect(html).toContain("X API spend");
+    expect(html).toContain("Media storage (R2)");
+    expect(html).toContain('href="/dashboard/analytics?range=24h&amp;metric=impressions"');
+    expect(html).toMatch(/<option value="acc-1"\s*>\s*@musechat_one\s*<\/option>/);
+  });
+
+  it("posts: sortable columns, status chips, links to X, pages; a post's page with its history", async () => {
+    const { browser } = await populated();
+    const list = await browser.page("/dashboard/posts?sort=impressions&dir=desc");
+    expect(list.html).toContain('aria-sort="descending"');
+    expect(list.html).toContain('class="chip good">Published</span>');
+    expect(list.html).toContain('class="chip info">Scheduled</span>');
+    expect(list.html).toContain("2 posts · page 1 of 1");
+    const post = await browser.page("/dashboard/posts/p-live");
+    expect(post.html).toContain("Metrics on X");
+    expect(post.html).toContain("Created a post");
+    expect(post.html).toContain('action="/dashboard/posts/p-live/delete"');
+  });
+
+  it("accounts: a card each, the kill switch, the bot setup with the MCP URL", async () => {
+    const { browser } = await populated();
+    const { html } = await browser.page("/dashboard/accounts");
+    expect(html).toMatch(/class="switch"\s+role="switch"\s+aria-checked="true"/);
+    expect(html).toContain(`data-copy="${ORIGIN}/mcp"`);
+    expect(html).toContain("npm run add-bot -- --id &lt;bot name&gt; --accounts acc-1,acc-2");
+    expect(html).toContain('data-copy="acc-1"');
+    expect(html).toContain("Connect X account");
+    expect(html).toContain('hx-boost="false"');
+  });
+
+  it("empty states say what to do next", async () => {
+    const { browser } = await dashboard();
+    await browser.login();
+    expect((await browser.page("/dashboard/accounts")).html).toContain("No accounts yet");
+    expect((await browser.page("/dashboard/posts")).html).toContain("No posts yet");
+    expect((await browser.page("/dashboard/posts?status=FAILED")).html).toContain(
+      "No post matches these filters",
+    );
+    expect((await browser.page("/dashboard/analytics")).html).toContain("No account connected");
+    expect((await browser.page("/dashboard/activity?kind=reads")).html).toContain(
+      "Nothing here yet",
+    );
+  });
+
+  it("refusals show with their status; the old pages are gone", async () => {
     const { browser } = await loggedIn();
     const missing = await browser.page("/dashboard/posts/nope");
     expect([missing.status, missing.html.includes("Not found.")]).toStrictEqual([404, true]);
-    expect((await browser.page("/dashboard/backlog?status=LOST")).status).toBe(400);
-    expect((await browser.page("/dashboard/calendar?start=soon")).status).toBe(400);
-    expect((await browser.page("/dashboard/metrics?days=0")).status).toBe(400);
-    expect((await browser.page("/dashboard/costs?days=x")).status).toBe(400);
-    expect((await browser.page("/dashboard/audit?limit=9999")).status).toBe(400);
+    for (const path of [
+      "/dashboard/posts?status=LOST",
+      "/dashboard/posts?from=soon",
+      "/dashboard/analytics?range=1y",
+      "/dashboard/activity?actor=robot",
+      "/dashboard/activity?page=0",
+    ]) {
+      expect([path, (await browser.page(path)).status]).toStrictEqual([path, 400]);
+    }
+    for (const path of [
+      "backlog",
+      "calendar",
+      "metrics",
+      "costs",
+      "media",
+      "audit",
+      "personalities",
+    ]) {
+      expect([path, (await browser.get(`/dashboard/${path}`)).status]).toStrictEqual([path, 404]);
+    }
   });
 
-  it("sets the security headers and never caches a page", async () => {
+  it("the dashboard root goes to the analytics", async () => {
     const { browser } = await loggedIn();
-    const response = await browser.get("/dashboard/backlog");
+    const response = await browser.get("/dashboard");
+    expect([response.status, response.headers.get("location")]).toStrictEqual([
+      303,
+      "/dashboard/analytics",
+    ]);
+  });
+});
+
+describe("headers and static files", () => {
+  it("sets the security headers, with same-origin styles, and never caches a page", async () => {
+    const { browser } = await loggedIn();
+    const response = await browser.get("/dashboard/analytics");
     expect(Object.fromEntries(response.headers)).toMatchObject({
       "content-security-policy":
-        "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self' https://x.com; frame-ancestors 'none'; base-uri 'none'",
+        "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; form-action 'self' https://x.com; frame-ancestors 'none'; base-uri 'none'",
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY",
       // Not no-referrer: a form POST from a no-referrer page sends `Origin: null`, refused.
@@ -70,158 +212,34 @@ describe("the dashboard pages (plan §3.4)", () => {
     });
   });
 
-  it("serves the vendored htmx with a long cache, without a session", async () => {
+  it.each([
+    [HTMX.path, "text/javascript; charset=utf-8", HTMX.source],
+    [APP_CSS.path, "text/css; charset=utf-8", APP_CSS.source],
+    [APP_JS.path, "text/javascript; charset=utf-8", APP_JS.source],
+  ])("serves %s with a long cache, without a session", async (path, type, source) => {
     const { browser } = await dashboard();
-    const response = await browser.get(HTMX.path);
+    const response = await browser.get(path);
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("text/javascript; charset=utf-8");
+    expect(response.headers.get("content-type")).toBe(type);
     expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
-    expect(await response.text()).toBe(HTMX.source);
-  });
-});
-
-describe("the dashboard's commands, through forms", () => {
-  it("approve, then the post page shows it scheduled", async () => {
-    const { browser, world } = await loggedIn();
-    await world.writer.add(aPost({ lifecycle: "PENDING_REVIEW" }));
-    const page = await browser.page("/dashboard/posts/post-1");
-    expect(page.html).toContain('action="/dashboard/posts/post-1/approve"');
-    expect(page.html).toContain('action="/dashboard/posts/post-1/reject"');
-    const response = await browser.post("/dashboard/posts/post-1/approve");
-    expect([response.status, response.headers.get("location")]).toStrictEqual([
-      303,
-      "/dashboard/posts/post-1",
-    ]);
-    expect((await browser.page("/dashboard/posts/post-1")).html).toContain("SCHEDULED");
-    const again = await browser.post("/dashboard/posts/post-1/approve");
-    expect(again.status).toBe(409);
+    expect(await response.text()).toBe(source);
   });
 
-  it("edit keeps media, reject, cancel, reschedule and delete", async () => {
-    const { browser, world } = await loggedIn();
-    const media = await world.stage(ACCOUNT, "PHOTO", "m-a");
-    await world.writer.add(aPost({ parts: [part("a", undefined, [media.id]), part("b")] }));
-    const page = await browser.page("/dashboard/posts/post-1");
-    expect(page.html).toContain('<input type="hidden" name="media" value="m-a" />');
-    const edited = await browser.post("/dashboard/posts/post-1/edit", {
-      text: ["new a", "new b"],
-      media: ["m-a", ""],
-      publishAt: "2026-10-28T09:00",
-    });
-    expect(edited.status).toBe(303);
-    const post = await world.reader.get(postId("post-1"));
-    expect(post?.parts.map((p) => [p.text, p.media])).toStrictEqual([
-      ["new a", [media.id]],
-      ["new b", []],
-    ]);
-    expect((await browser.post("/dashboard/posts/post-1/cancel")).status).toBe(303);
-    await world.writer.add(aPost({ id: postId("post-2"), lifecycle: "PENDING_REVIEW" }));
-    expect((await browser.post("/dashboard/posts/post-2/reject")).status).toBe(303);
-    await world.writer.add(aPost({ id: postId("post-3"), lifecycle: "MISSED" }));
-    const reschedule = await browser.page("/dashboard/posts/post-3");
-    expect(reschedule.html).toContain('action="/dashboard/posts/post-3/reschedule"');
-    const moved = await browser.post("/dashboard/posts/post-3/reschedule", {
-      publishAt: "2026-10-29T10:00",
-    });
-    expect(moved.status).toBe(303);
-    await world.writer.add(
-      aPost({
-        id: postId("post-4"),
-        lifecycle: "DONE",
-        parts: [part("a", { kind: "NOT_FOUND", attemptAt: T0 })],
-      }),
+  it("the stylesheet and script paths carry their content's fingerprint", () => {
+    expect(APP_CSS.path).toBe(`/dashboard/static/app.${fingerprint(APP_CSS.source)}.css`);
+    expect(APP_JS.path).toBe(`/dashboard/static/app.${fingerprint(APP_JS.source)}.js`);
+    expect(fingerprint("")).toBe("811c9dc5");
+    expect(fingerprint("a")).toBe("e40c292c");
+    expect(fingerprint("a")).not.toBe(fingerprint("b"));
+  });
+
+  it("the stylesheet defines its colours as tokens, with a dark mode for the system and the toggle", () => {
+    expect(APP_CSS.source).toContain(":root {");
+    expect(APP_CSS.source).toContain(
+      '@media (prefers-color-scheme: dark) {\n  :root:not([data-theme="light"]) {',
     );
-    expect((await browser.page("/dashboard/posts/post-4")).html).toContain(
-      'name="confirmedNotOnX"',
-    );
-    expect(
-      (await browser.post("/dashboard/posts/post-4/reschedule", { publishAt: "2026-10-29T10:00" }))
-        .status,
-    ).toBe(400);
-    expect(
-      (
-        await browser.post("/dashboard/posts/post-4/reschedule", {
-          publishAt: "2026-10-29T10:00",
-          confirmedNotOnX: "yes",
-        })
-      ).status,
-    ).toBe(303);
-    await world.writer.add(
-      aPost({ id: postId("post-5"), lifecycle: "DONE", parts: [part("a", sentState("x-5"))] }),
-    );
-    await world.metrics.addSnapshots([
-      {
-        xPostId: xPostId("x-5"),
-        accountId: ACCOUNT,
-        takenAt: T0,
-        impressions: 7,
-        likes: 0,
-        reposts: 0,
-        replies: 0,
-        quotes: 0,
-        bookmarks: 0,
-        urlLinkClicks: null,
-        userProfileClicks: null,
-      },
-    ]);
-    const published = await browser.page("/dashboard/posts/post-5");
-    expect(published.html).toContain("<td>x-5</td>");
-    expect(published.html).toContain("Delete on X");
-    expect((await browser.post("/dashboard/posts/post-5/delete")).status).toBe(303);
-    expect((await browser.page("/dashboard/posts/post-5")).html).toContain("DELETED");
-  });
-
-  it("the kill switch, the disclosure and the policy", async () => {
-    const { browser, world } = await loggedIn();
-    const accounts = await browser.page("/dashboard/accounts");
-    expect(accounts.html).toContain('action="/dashboard/accounts/acc-1/status?to=PAUSED"');
-    expect(accounts.html).toContain('hx-boost="false"');
-    expect(accounts.html).toContain("<code>acc-1</code>");
-    expect((await browser.post("/dashboard/accounts/acc-1/status?to=PAUSED")).status).toBe(303);
-    expect((await world.accounts.list())[0]?.status).toBe("PAUSED");
-    expect((await browser.page("/dashboard/accounts")).html).toContain("Activate");
-    expect(
-      (await browser.post("/dashboard/accounts/acc-1/disclosure", { bioConfirmed: "yes" })).status,
-    ).toBe(303);
-    expect((await world.accounts.list())[0]?.disclosure).toStrictEqual({
-      bioConfirmed: true,
-      automatedLabelConfirmed: false,
-    });
-    const policy = {
-      mode: "REVIEW",
-      dailyCap: "5",
-      minGapMinutes: "10",
-      quietStart: "22:00",
-      quietEnd: "06:00",
-      tz: "Europe/Paris",
-      linkPolicy: "REFUSE",
-      graceMinutes: "15",
-    };
-    expect((await browser.post("/dashboard/accounts/acc-1/policy", policy)).status).toBe(303);
-    expect((await world.accounts.list())[0]?.policy).toMatchObject({ mode: "REVIEW", dailyCap: 5 });
-    expect(
-      (await browser.post("/dashboard/accounts/acc-1/policy", { ...policy, tz: "Mars/Base" }))
-        .status,
-    ).toBe(400);
-  });
-
-  it("shows NEEDS_RECONNECT, and connects a new account with no personality", async () => {
-    const { browser, world } = await dashboard();
-    await world.seedAccount({ status: "NEEDS_RECONNECT" });
-    await browser.login();
-    const page = await browser.page("/dashboard/accounts");
-    expect(page.html).toContain("<strong>NEEDS_RECONNECT</strong>");
-    expect(page.html).toContain("Publishing is refused until this account is reconnected on X.");
-    expect(page.html).not.toContain('name="personality"');
-    expect(page.html).toContain("Connect on X");
-  });
-
-  it("an empty dashboard says so", async () => {
-    const { browser } = await dashboard();
-    await browser.login();
-    expect((await browser.page("/dashboard/accounts")).html).toContain("No accounts yet.");
-    expect((await browser.page("/dashboard/backlog")).html).toContain("No posts.");
-    expect((await browser.page("/dashboard/metrics")).html).toContain("No accounts yet.");
+    expect(APP_CSS.source).toContain(':root[data-theme="dark"] {');
+    expect(APP_CSS.source).not.toMatch(/https?:\/\//);
   });
 });
 
@@ -236,7 +254,7 @@ describe("logs (m3, I6)", () => {
     const { browser, world } = await dashboard();
     await browser.login();
     const session = browser.cookies.get("__Host-grokchat_session") ?? "";
-    await browser.get("/dashboard/backlog", { authorization: "Bearer sekrit-bearer-token" });
+    await browser.get("/dashboard/analytics", { authorization: "Bearer sekrit-bearer-token" });
     await browser.post("/oauth/x/start", {});
     const state = [...world.states.records.keys()][0] ?? "";
     await browser.get(`/oauth/x/callback?code=code-SEKRIT&state=${state}`);
@@ -269,13 +287,17 @@ describe("logs (m3, I6)", () => {
     const controllers = controllersFor(world);
     const failing = buildWebApp({
       ...controllers,
-      reports: Object.assign(Object.create(controllers.reports) as typeof controllers.reports, {
-        media: () => Promise.reject(new TypeError("token=sekrit leaked in a message")),
-      }),
+      analytics: Object.assign(
+        Object.create(controllers.analytics) as typeof controllers.analytics,
+        {
+          analytics: () => Promise.reject(new TypeError("token=sekrit leaked in a message")),
+        },
+      ),
     });
     const browser = new Browser((request, e) => failing.fetch(request, e), env);
     await browser.login();
-    const response = await browser.get("/dashboard/media");
+    lines.length = 0;
+    const response = await browser.get("/dashboard/analytics");
     expect(response.status).toBe(500);
     expect(await response.text()).toContain("Something went wrong.");
     expect(lines).toStrictEqual(['{"route":"web","error":"TypeError"}']);
@@ -302,6 +324,5 @@ describe("logs (m3, I6)", () => {
       path: "/dashboard/login",
       status: 200,
     });
-    expect(ORIGIN).toBe("https://grokchat.test");
   });
 });

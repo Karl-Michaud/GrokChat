@@ -180,6 +180,29 @@ describe("getAnalytics (GROKCHAT-15)", () => {
     expect(presenter.last).toStrictEqual({ ok: false, code: "not_found" });
   });
 
+  it("a read taken at this very instant counts", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    await world.writer.add(
+      aPost({
+        id: postId("now"),
+        lifecycle: "DONE",
+        parts: [part("n", sentState("x-now", T0 - HOUR))],
+      }),
+    );
+    await world.metrics.addSnapshots([aSnapshot("x-now", T0, 77)]);
+    await record(world, T0, 5);
+    for (const range of ["24h", "all"] as const) {
+      const out = await analytics(world, { range });
+      expect([
+        range,
+        out.current.values.impressions,
+        out.followers,
+        out.topPosts.length,
+      ]).toStrictEqual([range, 77, 5, 1]);
+    }
+  });
+
   it("the period before compares a same-length slice", async () => {
     const world = await populated();
     world.clock.advance(30 * MINUTE);

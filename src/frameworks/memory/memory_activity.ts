@@ -25,7 +25,10 @@ export class MemoryActivityLog implements ActivityLog {
   ) {}
 
   page(filter: ActivityFilter, offset: number, limit: number): Promise<ActivityPage> {
-    const found = [...this.audit.events].reverse().filter((event) => matches(event, filter));
+    const found = [...this.audit.events]
+      .reverse()
+      .filter((event) => matches(event, filter))
+      .sort((a, b) => b.at - a.at);
     const entries = found
       .slice(offset, offset + limit)
       .map((event) => ({ ...event, cost: this.costOf(event) }));

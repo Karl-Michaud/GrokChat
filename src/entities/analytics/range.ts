@@ -13,7 +13,7 @@ export const ALL_TIME_DAILY_LIMIT = 120;
 /** Where a range starts and ends, the period before it, and the buckets its charts use. */
 export interface RangeWindow {
   readonly range: AnalyticsRange;
-  /** `[from, to)`: from the start of the first bucket to now. */
+  /** `[from, to)`: from the start of the first bucket to now, now included (`to` = now + 1 ms). */
   readonly window: TimeWindow;
   /** The same length just before `window`, for the deltas; null for all time. */
   readonly previous: TimeWindow | null;
@@ -51,10 +51,11 @@ export function rangeWindow(
   }
   const [bucket, count] = FIXED[range];
   const first = floorTo(now, bucket) - (count - 1) * bucket;
-  const length = now - first;
+  const to = now + 1;
+  const length = to - first;
   return {
     range,
-    window: { from: first, to: now },
+    window: { from: first, to },
     previous: { from: first - length, to: first },
     bucket,
     starts: buckets(first, bucket, count),
@@ -69,7 +70,7 @@ function allTime(now: Instant, earliest: Instant | null): RangeWindow {
   const count = Math.floor((today - first) / bucket) + 1;
   return {
     range: "all",
-    window: { from: first, to: now },
+    window: { from: first, to: now + 1 },
     previous: null,
     bucket,
     starts: buckets(first, bucket, count),

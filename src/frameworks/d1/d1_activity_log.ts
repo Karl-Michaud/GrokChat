@@ -88,7 +88,7 @@ function fromRow(row: ActivityRow): ActivityEntry {
   };
 }
 
-/** The activity page over `audit_events` and `cost_entries` (GROKCHAT-15), newest first. */
+/** The activity page over `audit_events` and `cost_entries` (GROKCHAT-15), newest first (by time, then insertion). */
 export class D1ActivityLog implements ActivityLog {
   constructor(private readonly db: D1Database) {}
 
@@ -97,7 +97,7 @@ export class D1ActivityLog implements ActivityLog {
     const [rows, count] = await this.db.batch([
       this.db
         .prepare(
-          `SELECT ${COLUMNS} FROM audit_events AS a ${sql} ORDER BY a.seq DESC LIMIT ? OFFSET ?`,
+          `SELECT ${COLUMNS} FROM audit_events AS a ${sql} ORDER BY a.at DESC, a.seq DESC LIMIT ? OFFSET ?`,
         )
         .bind(...values, limit, offset),
       this.db.prepare(`SELECT COUNT(*) AS n FROM audit_events AS a ${sql}`).bind(...values),

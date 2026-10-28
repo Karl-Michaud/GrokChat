@@ -72,14 +72,6 @@ export function parseMinutes(value: string): number | null {
   return minutes === null ? null : minutes * MINUTE;
 }
 
-/** One entry per non-empty line, trimmed. */
-export function parseLines(value: string): readonly string[] {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-}
-
 /** A comma-separated list, trimmed, without empty entries. */
 export function parseList(value: string): readonly string[] {
   return value

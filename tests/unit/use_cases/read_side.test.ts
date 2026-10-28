@@ -3,16 +3,10 @@ import { accountId, postId, stagedMediaId, xPostId } from "../../../src/entities
 import { PENDING } from "../../../src/entities/posts/part_state";
 import type { MetricsSnapshot } from "../../../src/entities/metrics/metrics_snapshot";
 import { DAY, HOUR } from "../../../src/entities/time/instant";
-import { AuditListInteractor } from "../../../src/use_cases/audit_list/interactor";
-import type { AuditListOutputData } from "../../../src/use_cases/audit_list/output_data";
 import { ComparePostsInteractor } from "../../../src/use_cases/compare_posts/interactor";
 import type { ComparePostsOutputData } from "../../../src/use_cases/compare_posts/output_data";
-import { CostTotalsInteractor } from "../../../src/use_cases/cost_totals/interactor";
-import type { CostTotalsOutputData } from "../../../src/use_cases/cost_totals/output_data";
 import { GetAccountMetricsInteractor } from "../../../src/use_cases/get_account_metrics/interactor";
 import type { GetAccountMetricsOutputData } from "../../../src/use_cases/get_account_metrics/output_data";
-import { GetCalendarInteractor } from "../../../src/use_cases/get_calendar/interactor";
-import type { GetCalendarOutputData } from "../../../src/use_cases/get_calendar/output_data";
 import { GetPolicyInteractor } from "../../../src/use_cases/get_policy/interactor";
 import type { GetPolicyOutputData } from "../../../src/use_cases/get_policy/output_data";
 import { GetPostInteractor } from "../../../src/use_cases/get_post/interactor";
@@ -122,7 +116,7 @@ describe("listBacklog and getCalendar", () => {
     });
     return presenter.last;
   };
-  const ids = (out: ListBacklogOutputData | GetCalendarOutputData): readonly string[] =>
+  const ids = (out: ListBacklogOutputData): readonly string[] =>
     out.ok ? out.posts.map((post) => post.id) : [];
 
   it("a bot sees its scope; a human sees everything; filters by account, status and window", async () => {
@@ -140,16 +134,6 @@ describe("listBacklog and getCalendar", () => {
       ok: false,
       code: "scope",
     });
-  });
-
-  it("the calendar is for humans, across accounts, by window", async () => {
-    const world = await populated();
-    const presenter = new Capture<GetCalendarOutputData>();
-    const calendar = new GetCalendarInteractor(world.reader, world.guard, presenter);
-    await calendar.execute({ actor: HUMAN, window: { from: T0 - DAY, to: T0 + 3 * DAY } });
-    expect(ids(presenter.last)).toStrictEqual(["a2", "a1", "b1"]);
-    await calendar.execute({ actor: botActor(), window: WINDOW });
-    expect(presenter.last).toStrictEqual({ ok: false, code: "human_only" });
   });
 });
 
@@ -252,7 +236,7 @@ describe("metrics reads", () => {
   });
 });
 
-describe("policy, costs and audit", () => {
+describe("policy", () => {
   it("getPolicy for an account in scope", async () => {
     const world = await populated();
     const policy = new Capture<GetPolicyOutputData>();
@@ -271,45 +255,5 @@ describe("policy, costs and audit", () => {
     expect(policy.last).toStrictEqual({ ok: false, code: "scope" });
     await getPolicy.execute({ actor: HUMAN, accountId: accountId("zz") });
     expect(policy.last).toStrictEqual({ ok: false, code: "not_found" });
-  });
-
-  it("costTotals and auditList are human only", async () => {
-    const world = await populated();
-    await world.costs.append({
-      at: T0,
-      accountId: ACCOUNT,
-      operation: "create",
-      estimate: { kind: "usd", micros: 15_000 },
-    });
-    await world.costs.append({
-      at: T0,
-      accountId: OTHER_ACCOUNT,
-      operation: "read",
-      estimate: { kind: "unknown" },
-    });
-    const costs = new Capture<CostTotalsOutputData>();
-    const totals = new CostTotalsInteractor(world.costs, world.guard, costs);
-    await totals.execute({ actor: HUMAN, window: WINDOW, accountId: null });
-    expect(costs.last).toStrictEqual({
-      ok: true,
-      totals: { micros: 15_000, calls: 2, unknownPriced: 1 },
-    });
-    await totals.execute({ actor: HUMAN, window: WINDOW, accountId: ACCOUNT });
-    expect(costs.last).toStrictEqual({
-      ok: true,
-      totals: { micros: 15_000, calls: 1, unknownPriced: 0 },
-    });
-    await totals.execute({ actor: botActor(), window: WINDOW, accountId: null });
-    expect(costs.last).toStrictEqual({ ok: false, code: "human_only" });
-
-    const audit = new Capture<AuditListOutputData>();
-    const listAudit = new AuditListInteractor(world.audit, world.guard, audit);
-    await listAudit.execute({ actor: botActor(), filter: {} });
-    expect(audit.last).toStrictEqual({ ok: false, code: "human_only" });
-    await listAudit.execute({ actor: HUMAN, filter: { limit: 1 } });
-    expect(audit.last).toMatchObject({
-      ok: true,
-      events: [{ action: "refused.audit.list", detail: "human_only" }],
-    });
   });
 });

@@ -30,8 +30,8 @@ describe("analytics ranges (GROKCHAT-15)", () => {
       expect(found.bucket).toBe(bucket);
       expect(found.starts).toHaveLength(n);
       expect(found.starts.at(-1)).toBe(last);
-      expect(found.window).toStrictEqual({ from: last - (n - 1) * bucket, to: NOW });
-      const length = NOW - found.window.from;
+      expect(found.window).toStrictEqual({ from: last - (n - 1) * bucket, to: NOW + 1 });
+      const length = NOW + 1 - found.window.from;
       expect(found.previous).toStrictEqual({
         from: found.window.from - length,
         to: found.window.from,
@@ -44,9 +44,10 @@ describe("analytics ranges (GROKCHAT-15)", () => {
     expect(rangeWindow("7d", NOW, null).window.from).toBe(Date.UTC(2026, 9, 21));
   });
 
-  it("all time: from the earliest day, daily up to the limit, weekly beyond, no previous", () => {
+  it("all time: from the earliest day to now included, daily up to the limit, weekly beyond, no previous", () => {
     const today = Math.floor(NOW / DAY) * DAY;
     const none = rangeWindow("all", NOW, null);
+    expect(none.window).toStrictEqual({ from: today, to: NOW + 1 });
     expect([none.range, none.starts, none.previous, none.bucket]).toStrictEqual([
       "all",
       [today],

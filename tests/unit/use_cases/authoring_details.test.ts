@@ -10,8 +10,6 @@ import type { CreatePostOutputData } from "../../../src/use_cases/create_post/ou
 import { DeletePostInteractor } from "../../../src/use_cases/delete_post/interactor";
 import type { DeletePostOutputData } from "../../../src/use_cases/delete_post/output_data";
 import { EditPostInteractor } from "../../../src/use_cases/edit_post/interactor";
-import { GetCalendarInteractor } from "../../../src/use_cases/get_calendar/interactor";
-import type { GetCalendarOutputData } from "../../../src/use_cases/get_calendar/output_data";
 import { GetPostMetricsInteractor } from "../../../src/use_cases/get_post_metrics/interactor";
 import type { GetPostMetricsOutputData } from "../../../src/use_cases/get_post_metrics/output_data";
 import { ListBacklogInteractor } from "../../../src/use_cases/list_backlog/interactor";
@@ -92,7 +90,7 @@ describe("createPost details", () => {
   });
 });
 
-describe("edit, delete, calendar and backlog details", () => {
+describe("edit, delete and backlog details", () => {
   it("a bot may edit a post of its own account", async () => {
     const world = makeWorld();
     await world.seedAccount();
@@ -132,18 +130,6 @@ describe("edit, delete, calendar and backlog details", () => {
       presenter,
     ).execute({ actor: HUMAN, postId: postId("post-1") });
     expect(presenter.last).toMatchObject({ ok: true, deleted: 1, post: { status: "DELETED" } });
-  });
-
-  it("the calendar shows only the window", async () => {
-    const world = makeWorld();
-    world.table.rows.set(postId("in"), aPost({ id: postId("in"), publishAt: T0 }));
-    world.table.rows.set(postId("out"), aPost({ id: postId("out"), publishAt: T0 + 2 * DAY }));
-    const presenter = new Capture<GetCalendarOutputData>();
-    await new GetCalendarInteractor(world.reader, world.guard, presenter).execute({
-      actor: HUMAN,
-      window: { from: T0, to: T0 + DAY },
-    });
-    expect(presenter.last).toMatchObject({ ok: true, posts: [{ id: postId("in") }] });
   });
 
   it("a human's backlog asks the reader for everything; a bot's for its scope", async () => {

@@ -19,6 +19,6 @@ CREATE INDEX follower_snapshots_taken ON follower_snapshots (taken_at) WHERE tak
 -- The analytics read models (GROKCHAT-15): all-accounts metrics windows read by time; the
 -- activity page filters the audit log by actor and action.
 CREATE INDEX metrics_taken ON metrics (taken_at);
-CREATE INDEX audit_events_actor ON audit_events (actor, seq);
-CREATE INDEX audit_events_action ON audit_events (action, seq);
+CREATE INDEX audit_events_actor ON audit_events (actor, at);
+CREATE INDEX audit_events_action ON audit_events (action, at);
 CREATE INDEX cost_entries_account_at ON cost_entries (account_id, at);

@@ -1,0 +1,57 @@
+// GrokChat dashboard (GROKCHAT-15): the only script besides htmx, served by the Worker itself.
+// Progressive: every page works without it. It marks <html> with .js, copies values, submits
+// filter forms on change, and lets the keyboard read a chart column by column.
+(function () {
+  "use strict";
+  var root = document.documentElement;
+  root.classList.add("js");
+
+  document.addEventListener("click", function (event) {
+    var button = event.target instanceof Element ? event.target.closest("[data-copy]") : null;
+    if (button === null || !navigator.clipboard) {
+      return;
+    }
+    navigator.clipboard.writeText(button.getAttribute("data-copy") || "").then(function () {
+      button.setAttribute("data-copied", "");
+      window.setTimeout(function () {
+        button.removeAttribute("data-copied");
+      }, 1600);
+    });
+  });
+
+  document.addEventListener("change", function (event) {
+    var form = event.target instanceof Element ? event.target.closest("form[data-autosubmit]") : null;
+    if (form !== null && typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+    }
+  });
+
+  var KEYS = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity };
+
+  document.addEventListener("keydown", function (event) {
+    var cols = event.target instanceof Element ? event.target.closest(".chart-cols") : null;
+    if (cols === null || !(event.key in KEYS)) {
+      return;
+    }
+    event.preventDefault();
+    var items = cols.querySelectorAll(".chart-col");
+    var current = cols.querySelector(".chart-col.is-active");
+    var index = Array.prototype.indexOf.call(items, current);
+    var step = KEYS[event.key];
+    var next = Math.max(0, Math.min(items.length - 1, index < 0 ? items.length - 1 : index + step));
+    if (current !== null) {
+      current.classList.remove("is-active");
+    }
+    items[next].classList.add("is-active");
+    cols.setAttribute("aria-label", items[next].getAttribute("aria-label") || "");
+  });
+
+  document.addEventListener("focusout", function (event) {
+    if (event.target instanceof Element && event.target.matches(".chart-cols")) {
+      var active = event.target.querySelector(".is-active");
+      if (active !== null) {
+        active.classList.remove("is-active");
+      }
+    }
+  });
+})();

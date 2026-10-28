@@ -5,7 +5,7 @@ import { OAUTH_STATE_TTL } from "../../use_cases/connect_account_begin/interacto
 import type { WebControllers } from "./controllers";
 import { formBody } from "./form_body";
 import { NO_PAGE, respond } from "./respond";
-import { bouncePage } from "./views/account_pages";
+import { bouncePage } from "./views/accounts_page";
 import { sessionOf, type WebApp, type WebContext } from "./web_context";
 
 /** Where the owner's choice (reconnect which account, or a new one) waits for X. */
