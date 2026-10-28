@@ -51,7 +51,11 @@ export function joinParts(parts: readonly Uint8Array[]): Uint8Array {
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-const SEXTETS = new Map(Array.from({ length: 64 }, (_, index) => [ALPHABET.charAt(index), index]));
+/** Each character code's sextet, or -1: a table, since a part is up to 350,000 characters. */
+const SEXTETS = new Int8Array(128).fill(-1);
+for (let index = 0; index < ALPHABET.length; index += 1) {
+  SEXTETS[ALPHABET.charCodeAt(index)] = index;
+}
 /** Line breaks (a wrapped `base64` output) are the only thing tolerated besides the alphabet. */
 const LINE_BREAKS = /[\r\n]/g;
 
@@ -70,9 +74,10 @@ export function decodeBase64(text: string): Uint8Array | null {
   let buffer = 0;
   let bits = 0;
   let at = 0;
-  for (const char of clean.slice(0, clean.length - padding)) {
-    const sextet = SEXTETS.get(char);
-    if (sextet === undefined) {
+  for (let index = 0; index < clean.length - padding; index += 1) {
+    // A code past the table reads undefined, which is not a sextet either.
+    const sextet = SEXTETS[clean.charCodeAt(index)] ?? -1;
+    if (sextet < 0) {
       return null;
     }
     buffer = (buffer << 6) | sextet;
