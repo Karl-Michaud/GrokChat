@@ -5,7 +5,7 @@ import {
   CONNECTOR_NAME,
   PeopleController,
 } from "../../../../src/interface_adapters/dashboard/people_controller";
-import { setupPrompt } from "../../../../src/interface_adapters/dashboard/setup_prompt";
+import { setupPrompt, wrapList } from "../../../../src/interface_adapters/dashboard/setup_prompt";
 import { TOOL_NAMES } from "../../../../src/interface_adapters/mcp/tool_catalog";
 import { ACCOUNT, anAccount, aPerson, PERSON } from "../../support/builders";
 import { dashboardUseCases, presenting } from "../../support/dashboard";
@@ -150,6 +150,13 @@ describe("the setup prompt", () => {
     expect(prompt).toContain("so it NEVER changes when\nan account is added");
     expect(prompt).toContain("set its Owner to Aaron");
     expect(prompt).not.toMatch(/token,? which I put in your config|old one stops working/);
+  });
+
+  it("wraps a list at the width exactly", () => {
+    // "   ab, cd," is 10 characters: it fits a width of 10, not of 9.
+    expect(wrapList(["ab", "cd", "ef"], 10)).toBe("   ab, cd,\n   ef.");
+    expect(wrapList(["ab", "cd", "ef"], 9)).toBe("   ab,\n   cd,\n   ef.");
+    expect(wrapList(["ab"], 3)).toBe("   ab.");
   });
 
   it("with no account yet, says to assign one first", () => {

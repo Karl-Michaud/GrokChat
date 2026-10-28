@@ -61,8 +61,9 @@ export function sameName(a: string, b: string): boolean {
  * words ("Karl Michaud" → KM), else its first two ("karl" → KA).
  */
 export function personInitials(name: string): string {
-  const [first = "", second = ""] = name.split(" ");
   const head = (word: string, count: number): string => Array.from(word).slice(0, count).join("");
-  const letters = second === "" ? head(first, 2) : `${head(first, 1)}${head(second, 1)}`;
+  const space = name.indexOf(" ");
+  // Stryker disable next-line EqualityOperator: a space at 0 gives the same two letters either way.
+  const letters = space < 0 ? head(name, 2) : `${head(name, 1)}${head(name.slice(space + 1), 1)}`;
   return letters.toUpperCase();
 }

@@ -25,13 +25,16 @@ const tool = (name: string): string => `grokchat___${name}`;
 
 const WIDTH = 90;
 
-/** The tool names, comma-separated, wrapped under the list item at most WIDTH wide. */
-function toolList(): string {
+/**
+ * The names, comma-separated and ending in a full stop, as lines indented three spaces and at
+ * most `width` characters wide.
+ */
+export function wrapList(names: readonly string[], width: number): string {
   const lines: string[] = [];
   let line = "  ";
-  for (const [index, name] of TOOL_NAMES.entries()) {
-    const word = ` ${name}${index === TOOL_NAMES.length - 1 ? "." : ","}`;
-    if (line.length + word.length > WIDTH) {
+  for (const [index, name] of names.entries()) {
+    const word = ` ${name}${index === names.length - 1 ? "." : ","}`;
+    if (line !== "  " && line.length + word.length > width) {
       lines.push(line);
       line = "  ";
     }
@@ -71,7 +74,7 @@ function phaseOne(input: PromptInput): string {
    what to add to your configuration. Don't guess.
 2. List your GrokChat tools. They show up as grokchat___<name>. There should be
    ${String(TOOL_NAMES.length)}:
-${toolList()}
+${wrapList(TOOL_NAMES, WIDTH)}
    Tell me if any are missing.
 3. Call ${tool("list_accounts")}. It returns every account you may post for, with its
    account_id (every other account tool needs it), handle, status, mode and whether
