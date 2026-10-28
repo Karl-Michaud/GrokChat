@@ -4,7 +4,6 @@ import type { AccountId, XPostId } from "../../entities/identity/ids";
 import { metricsDue } from "../../entities/metrics/metrics_due";
 import type { Instant } from "../../entities/time/instant";
 import type { AccountRepository } from "../ports/account_repository";
-import type { MetricsSummary } from "../ports/account_metrics_collector";
 import type { BudgetMeter } from "../ports/budget_meter";
 import type { Clock } from "../ports/clock";
 import type { MetricsRepository } from "../ports/metrics_repository";
@@ -28,7 +27,13 @@ export interface CollectAccountMetricsPorts {
   readonly clock: Clock;
 }
 
-const SKIPPED: MetricsSummary = { ran: false, read: 0 };
+/** The posts part of a metrics run; the follower snapshot is `SnapshotFollowers`. */
+export interface PostMetricsSummary {
+  readonly ran: boolean;
+  readonly read: number;
+}
+
+const SKIPPED: PostMetricsSummary = { ran: false, read: 0 };
 
 /**
  * Inside the account's Durable Object, single-flight (m2): reads the posts whose metrics are due,
@@ -37,14 +42,14 @@ const SKIPPED: MetricsSummary = { ran: false, read: 0 };
 export class CollectAccountMetrics {
   constructor(private readonly ports: CollectAccountMetricsPorts) {}
 
-  async collect(account: AccountId, meter: BudgetMeter): Promise<MetricsSummary> {
+  async collect(account: AccountId, meter: BudgetMeter): Promise<PostMetricsSummary> {
     const flight = await this.ports.flights.tryRun(`metrics:${account}`, () =>
       this.run(account, meter),
     );
     return flight.ran ? flight.value : SKIPPED;
   }
 
-  private async run(id: AccountId, meter: BudgetMeter): Promise<MetricsSummary> {
+  private async run(id: AccountId, meter: BudgetMeter): Promise<PostMetricsSummary> {
     const account = await this.ports.accounts.get(id);
     if (account === null) {
       return { ran: true, read: 0 };

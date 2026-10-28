@@ -282,10 +282,10 @@ describe("R16: the metrics tick's staged-media cleanup stays inside the tick's b
     const lines: string[] = [];
     await runTick(metricsTick(clock, d1.db, room), clock, (line) => lines.push(line));
     expect(lines).toStrictEqual([
-      `tick metrics: dispatched=0 waiting=0 read=0 mediaDeleted=${String(fits)}`,
+      `tick metrics: dispatched=0 waiting=0 read=0 followers=0 mediaDeleted=${String(fits)}`,
     ]);
-    // The cleanup's D1 calls and one R2 delete per item; the tick's own work query is not its.
-    const cleanupCalls = d1.calls - 1 + fits;
+    // The cleanup's D1 calls and one R2 delete per item; the tick's two work queries are not its.
+    const cleanupCalls = d1.calls - 2 + fits;
     expect(cleanupCalls).toBeLessThanOrEqual(room);
     expect(await objects()).toBe(total - fits);
 
@@ -293,14 +293,14 @@ describe("R16: the metrics tick's staged-media cleanup stays inside the tick's b
     const full = metered(env.DB);
     lines.length = 0;
     await runTick(metricsTick(clock, full.db), clock, (line) => lines.push(line));
-    expect(full.calls - 1 + MEDIA_CLEANUP_BATCH).toBeLessThanOrEqual(
+    expect(full.calls - 2 + MEDIA_CLEANUP_BATCH).toBeLessThanOrEqual(
       MEDIA_CLEANUP_QUERY_COST.cloudflareCalls +
         MEDIA_CLEANUP_BATCH * MEDIA_CLEANUP_ITEM_COST.cloudflareCalls,
     );
     await runTick(metricsTick(clock, env.DB), clock, (line) => lines.push(line));
     expect(lines).toStrictEqual([
-      `tick metrics: dispatched=0 waiting=0 read=0 mediaDeleted=${String(MEDIA_CLEANUP_BATCH)}`,
-      `tick metrics: dispatched=0 waiting=0 read=0 mediaDeleted=${String(total - fits - MEDIA_CLEANUP_BATCH)}`,
+      `tick metrics: dispatched=0 waiting=0 read=0 followers=0 mediaDeleted=${String(MEDIA_CLEANUP_BATCH)}`,
+      `tick metrics: dispatched=0 waiting=0 read=0 followers=0 mediaDeleted=${String(total - fits - MEDIA_CLEANUP_BATCH)}`,
     ]);
     expect(await objects()).toBe(0);
     expect(await stores().media.list()).toStrictEqual([]);
@@ -323,9 +323,12 @@ describe("R16: the metrics tick's staged-media cleanup stays inside the tick's b
     const d1 = metered(env.DB);
     const lines: string[] = [];
     await runTick(metricsTick(clock, d1.db), clock, (line) => lines.push(line));
-    expect(lines).toStrictEqual(["tick metrics: dispatched=0 waiting=0 read=0 mediaDeleted=2"]);
-    // The work query, the candidates query, and two D1 writes per deleted item.
-    expect(d1.calls).toBe(1 + 1 + 2 * 2);
+    expect(lines).toStrictEqual([
+      "tick metrics: dispatched=0 waiting=0 read=0 followers=0 mediaDeleted=2",
+    ]);
+    // The two work queries (post metrics, follower snapshots), the candidates query, and two D1
+    // writes per deleted item.
+    expect(d1.calls).toBe(2 + 1 + 2 * 2);
     expect(await stores().media.list()).toHaveLength(MEDIA_CLEANUP_BATCH + 10);
   });
 });

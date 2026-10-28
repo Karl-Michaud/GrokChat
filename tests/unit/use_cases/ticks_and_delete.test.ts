@@ -211,6 +211,7 @@ describe("reconcileTick and metricsTick", () => {
     const interactor = new MetricsTickInteractor(
       {
         reader: world.reader,
+        followers: world.followers,
         collector: world.collector,
         cleanup: world.cleanup,
         meter: budget,
@@ -224,12 +225,21 @@ describe("reconcileTick and metricsTick", () => {
       dispatched: 1,
       waiting: 0,
       read: 1,
+      followers: 1,
       mediaDeleted: 1,
     });
     const fake = readerWith([work("a", { metrics: false }), work("b")]);
-    const collector = { collect: () => Promise.resolve({ ran: true, read: 7 }) };
+    const collector = { collect: () => Promise.resolve({ ran: true, read: 7, followers: 0 }) };
+    const none = { accountsDue: () => Promise.resolve([]) };
     const other = new MetricsTickInteractor(
-      { reader: fake, collector, cleanup: world.cleanup, meter: budget, clock: world.clock },
+      {
+        reader: fake,
+        followers: none,
+        collector,
+        cleanup: world.cleanup,
+        meter: budget,
+        clock: world.clock,
+      },
       presenter,
     );
     await other.execute({ actor: SYSTEM_ACTOR });
@@ -238,8 +248,45 @@ describe("reconcileTick and metricsTick", () => {
       dispatched: 1,
       waiting: 0,
       read: 7,
+      followers: 0,
       mediaDeleted: 0,
     });
+  });
+});
+
+describe("metricsTick and the follower snapshot (GROKCHAT-15)", () => {
+  it("visits post-metrics accounts first, then accounts due a follower read, each once", async () => {
+    const world = makeWorld();
+    const presenter = new Capture<MetricsTickOutputData>();
+    const visited: string[] = [];
+    const days: string[] = [];
+    const collector = {
+      collect: (account: string) => {
+        visited.push(account);
+        return Promise.resolve({ ran: true, read: 0, followers: 1 });
+      },
+    };
+    const followers = {
+      accountsDue: (day: string) => {
+        days.push(day);
+        return Promise.resolve([accountId("b"), accountId("c")]);
+      },
+    };
+    const interactor = new MetricsTickInteractor(
+      {
+        reader: readerWith([work("a"), work("b"), work("d", { metrics: false })]),
+        followers,
+        collector,
+        cleanup: world.cleanup,
+        meter: meter(T0 + DAY),
+        clock: world.clock,
+      },
+      presenter,
+    );
+    await interactor.execute({ actor: SYSTEM_ACTOR });
+    expect(visited).toStrictEqual(["a", "b", "c"]);
+    expect(days).toStrictEqual(["2026-10-27"]);
+    expect(presenter.last).toMatchObject({ dispatched: 3, followers: 3 });
   });
 });
 

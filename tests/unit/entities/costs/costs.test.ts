@@ -16,6 +16,7 @@ describe("estimateCost (plan §1.1, U4)", () => {
       delete: 10_000,
       read: 5_000,
       ownedRead: 1_000,
+      userRead: 10_000,
     });
   });
 
@@ -35,6 +36,8 @@ describe("estimateCost (plan §1.1, U4)", () => {
     [{ kind: "delete" }, false, { kind: "usd", micros: 10_000 }],
     [{ kind: "read", resources: 3 }, false, { kind: "usd", micros: 15_000 }],
     [{ kind: "read", resources: 3 }, true, { kind: "usd", micros: 3_000 }],
+    [{ kind: "user_read" }, false, { kind: "usd", micros: 10_000 }],
+    [{ kind: "user_read" }, true, { kind: "usd", micros: 10_000 }],
     [{ kind: "media_upload" }, false, { kind: "unknown" }],
     [{ kind: "oauth" }, false, { kind: "usd", micros: 0 }],
   ] as const)("%j (app owner: %s) → %j", (operation: XOperation, owner, expected) => {

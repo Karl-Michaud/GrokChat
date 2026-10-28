@@ -40,9 +40,16 @@ describe("TickPresenter", () => {
     expect(present({ job: "reconcile", dispatched: 0, waiting: 0, found: 2, notFound: 1 })).toBe(
       "tick reconcile: dispatched=0 waiting=0 found=2 notFound=1",
     );
-    expect(present({ job: "metrics", dispatched: 1, waiting: 0, read: 5, mediaDeleted: 2 })).toBe(
-      "tick metrics: dispatched=1 waiting=0 read=5 mediaDeleted=2",
-    );
+    expect(
+      present({
+        job: "metrics",
+        dispatched: 1,
+        waiting: 0,
+        read: 5,
+        followers: 1,
+        mediaDeleted: 2,
+      }),
+    ).toBe("tick metrics: dispatched=1 waiting=0 read=5 followers=1 mediaDeleted=2");
   });
 });
 
@@ -56,12 +63,20 @@ describe("TickPresenter, for any summary", () => {
         count,
         count,
         count,
-        (job, dispatched, waiting, read, mediaDeleted) => {
+        count,
+        (job, dispatched, waiting, read, followers, mediaDeleted) => {
           const view = new TickViewModel();
-          new TickPresenter(view).present({ job, dispatched, waiting, read, mediaDeleted });
+          new TickPresenter(view).present({
+            job,
+            dispatched,
+            waiting,
+            read,
+            followers,
+            mediaDeleted,
+          });
           expect(view.current()?.line).toBe(
             `tick ${job}: dispatched=${String(dispatched)} waiting=${String(waiting)} ` +
-              `read=${String(read)} mediaDeleted=${String(mediaDeleted)}`,
+              `read=${String(read)} followers=${String(followers)} mediaDeleted=${String(mediaDeleted)}`,
           );
         },
       ),

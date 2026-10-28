@@ -50,6 +50,9 @@ export class XEmulator {
     if (request.method === "GET" && /^\/2\/users\/[^/]+\/tweets$/.test(path)) {
       return this.timeline(request.url.searchParams);
     }
+    if (request.method === "GET" && /^\/2\/users\/[^/]+$/.test(path) && path !== "/2/users/me") {
+      return this.user(path.slice("/2/users/".length));
+    }
     return this.media(request);
   };
 
@@ -122,6 +125,26 @@ export class XEmulator {
         result_count: page.length,
         newest_id: page[0]?.id,
         oldest_id: page.at(-1)?.id,
+      },
+    });
+  }
+
+  /** `GET /2/users/:id?user.fields=public_metrics`: a user with `followers` followers. */
+  followers = 1_234;
+
+  private user(id: string): TransportResult {
+    return respond(200, {
+      data: {
+        id,
+        name: "Muse",
+        username: "muse",
+        public_metrics: {
+          followers_count: this.followers,
+          following_count: 56,
+          tweet_count: 789,
+          listed_count: 3,
+          like_count: 10,
+        },
       },
     });
   }

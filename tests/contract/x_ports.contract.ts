@@ -12,6 +12,7 @@ import type { XMediaUploader } from "../../src/use_cases/ports/x_media_uploader"
 import type { XMetricsReader } from "../../src/use_cases/ports/x_metrics_reader";
 import type { XOwnTimelineReader } from "../../src/use_cases/ports/x_own_timeline_reader";
 import type { XPublisher } from "../../src/use_cases/ports/x_publisher";
+import type { XUserMetricsReader } from "../../src/use_cases/ports/x_user_metrics_reader";
 import { ACCOUNT, T0 } from "../unit/support/builders";
 
 /** What the next X call does, in terms every implementation can be scripted with. */
@@ -177,5 +178,26 @@ export function xMetricsContract(
   it("maps every read failure to its outcome", async () => {
     const harness = make();
     await eachFailure(harness, () => harness.reader.read(ACCOUNT, [xPostId("1")]));
+  });
+}
+
+/** The account's own follower counts (GROKCHAT-15). */
+export function xUserMetricsContract(
+  make: () => Scriptable & { reader: XUserMetricsReader; setFollowers(count: number): void },
+): void {
+  it("reads the account's follower counts", async () => {
+    const harness = make();
+    harness.setFollowers(4_321);
+    const result = await harness.reader.read(ACCOUNT);
+    expect(result.ok).toBe(true);
+    expect(result.ok ? result.value.followers : null).toBe(4_321);
+    for (const count of Object.values(result.ok ? result.value : {})) {
+      expect(Number.isSafeInteger(count) && count >= 0).toBe(true);
+    }
+  });
+
+  it("maps every read failure to its outcome", async () => {
+    const harness = make();
+    await eachFailure(harness, () => harness.reader.read(ACCOUNT));
   });
 }

@@ -101,7 +101,8 @@ describe("dashboard connect → bot create_post → scheduled() → dashboard ba
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() + HOUR + MINUTE });
     const before = x.calls().length;
     await tick("metrics", dashboardEnv);
-    expect(x.calls().slice(before)).toStrictEqual(["GET /2/tweets"]);
+    // The post's metrics, then the account's follower snapshot for the day (GROKCHAT-15).
+    expect(x.calls().slice(before)).toStrictEqual(["GET /2/tweets", `GET /2/users/${x.me.id}`]);
     expect(await tool(bot, "get_post_metrics", { post_id: postId })).toMatchObject({
       parts: [{ x_post_id: xId, impressions: 100, likes: 10 }],
     });

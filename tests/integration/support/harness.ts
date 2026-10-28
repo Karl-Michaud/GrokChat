@@ -14,6 +14,7 @@ import {
   FakeXMetrics,
   FakeXPublisher,
   FakeXTimeline,
+  FakeXUserMetrics,
   FakeXWorld,
 } from "../../../src/frameworks/memory/fake_x";
 import { ManualClock } from "../../../src/frameworks/memory/manual_clock";
@@ -33,6 +34,7 @@ export interface Harness {
   readonly publisher: FakeXPublisher;
   readonly uploader: FakeXMediaUploader;
   readonly timeline: FakeXTimeline;
+  readonly users: FakeXUserMetrics;
   readonly endpoint: FakeXTokenEndpoint;
   readonly meter: Meter;
   readonly locks: "mutex" | "none";
@@ -51,6 +53,7 @@ export function newHarness(options: { readonly locks?: "mutex" | "none" } = {}):
     publisher: new FakeXPublisher(x),
     uploader: new FakeXMediaUploader(x),
     timeline: new FakeXTimeline(x),
+    users: new FakeXUserMetrics(x),
     endpoint: new FakeXTokenEndpoint(clock),
     meter: metered(env.DB),
     locks: options.locks ?? "mutex",
@@ -75,6 +78,7 @@ export function testRuntime(ctx: DurableObjectState): AccountRuntime {
     uploader: h.uploader,
     timeline: h.timeline,
     metrics: new FakeXMetrics(h.x),
+    users: h.users,
   };
   const x: AccountXWiring = { refresher: () => h.endpoint, calls: () => calls };
   return {

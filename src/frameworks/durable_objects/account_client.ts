@@ -13,7 +13,7 @@ import type { AccountPublisherObject } from "./account_publisher";
 
 const NOT_PUBLISHED: PublishSummary = { ran: false, sent: 0, touched: [], appRateLimited: false };
 const NOT_RECONCILED: ReconcileSummary = { ran: false, found: 0, notFound: 0 };
-const NOT_COLLECTED: MetricsSummary = { ran: false, read: 0 };
+const NOT_COLLECTED: MetricsSummary = { ran: false, read: 0, followers: 0 };
 
 /**
  * The Worker's side of the account Durable Objects: each call goes to `idFromName(accountId)`.

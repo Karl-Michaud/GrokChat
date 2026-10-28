@@ -69,7 +69,11 @@ describe("every method maps a failure to a result, so the object is never reset 
       found: 0,
       notFound: 0,
     });
-    expect(await object.collect(id, T0, DEADLINE)).toStrictEqual({ ran: false, read: 0 });
+    expect(await object.collect(id, T0, DEADLINE)).toStrictEqual({
+      ran: false,
+      read: 0,
+      followers: 0,
+    });
     h.x.scripts.delete.push({ kind: "ok" });
     expect(await object.deletePost(id, [xPostId("x-1")])).toStrictEqual([]);
     expect(await object.storeConnectedTokens(accountId("not-this"), TOKENS)).toStrictEqual({
@@ -102,7 +106,12 @@ describe("the Worker-side client", () => {
       found: 0,
       notFound: 0,
     });
-    expect(await objects.collect(account.id, T0, DEADLINE)).toStrictEqual({ ran: true, read: 0 });
+    expect(await objects.collect(account.id, T0, DEADLINE)).toStrictEqual({
+      ran: true,
+      read: 0,
+      followers: 1,
+    });
+    expect(h.users.reads).toStrictEqual([account.id]);
     const [sent] = [...h.x.posts.keys()];
     expect(await objects.deletePost(account.id, [sent ?? xPostId("")])).toStrictEqual([
       { xPostId: sent, deleted: true },

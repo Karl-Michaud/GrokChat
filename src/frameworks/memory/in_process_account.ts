@@ -3,7 +3,7 @@ import {
   InvocationAccountReconciler,
   InvocationMetricsCollector,
 } from "../durable_objects/invocation_services";
-import type { CollectAccountMetrics } from "../../use_cases/run_services/collect_account_metrics";
+import type { AccountMetricsRun } from "../../use_cases/run_services/account_metrics_run";
 import type { PublishPost } from "../../use_cases/run_services/publish_post";
 import type { ReconcileAccount } from "../../use_cases/run_services/reconcile_account";
 
@@ -25,7 +25,7 @@ export class InProcessAccountReconciler extends InvocationAccountReconciler {
 }
 
 export class InProcessMetricsCollector extends InvocationMetricsCollector {
-  constructor(service: CollectAccountMetrics) {
+  constructor(service: AccountMetricsRun) {
     super(() => service);
   }
 }

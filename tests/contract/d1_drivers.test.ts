@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe } from "vitest";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { freshStorage } from "../integration/support/fresh_d1";
+import { followerStoreContract } from "./followers.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import { postStoreContract } from "./post_store.contract";
 import {
@@ -40,6 +41,10 @@ describe("D1 repositories", () => {
   accountRepositoryContract(() => stores().accounts);
   mediaRepositoryContract(() => stores().media);
   mediaUsageContract(() => stores().usage);
+});
+
+describe("D1 follower store", () => {
+  followerStoreContract(() => ({ store: stores().followers, accounts: stores().accounts }));
 });
 
 describe("D1 records", () => {

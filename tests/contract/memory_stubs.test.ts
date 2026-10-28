@@ -43,6 +43,8 @@ import {
   locksContract,
   singleFlightContract,
 } from "./coordination.contract";
+import { MemoryFollowerStore } from "../../src/frameworks/memory/memory_followers";
+import { followerStoreContract } from "./followers.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import { postStoreContract } from "./post_store.contract";
 import {
@@ -95,6 +97,10 @@ describe("memory repositories", () => {
 });
 
 describe("memory records", () => {
+  followerStoreContract(() => {
+    const accounts = new MemoryAccountRepository();
+    return { store: new MemoryFollowerStore(accounts), accounts };
+  });
   auditLogContract(() => new MemoryAuditLog());
   costLedgerContract(() => new MemoryCostLedger());
   metricsRepositoryContract(() => new MemoryMetricsRepository());

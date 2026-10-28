@@ -4,5 +4,7 @@ export interface MetricsTickOutputData {
   readonly dispatched: number;
   readonly waiting: number;
   readonly read: number;
+  /** Follower snapshots read (GROKCHAT-15): at most one per account per UTC day. */
+  readonly followers: number;
   readonly mediaDeleted: number;
 }

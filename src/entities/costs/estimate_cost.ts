@@ -5,6 +5,7 @@ export type XOperation =
   | { readonly kind: "create"; readonly text: string }
   | { readonly kind: "delete" }
   | { readonly kind: "read"; readonly resources: number }
+  | { readonly kind: "user_read" }
   | { readonly kind: "media_upload" }
   | { readonly kind: "oauth" };
 
@@ -21,6 +22,8 @@ export const PRICES = {
   delete: 10_000,
   read: 5_000,
   ownedRead: 1_000,
+  /** User: Read, one user's `public_metrics` (the daily follower snapshot, GROKCHAT-15). */
+  userRead: 10_000,
 } as const;
 
 const usd = (micros: number): CostEstimate => ({ kind: "usd", micros });
@@ -43,6 +46,8 @@ export function estimateCost(operation: XOperation, isAppOwner: boolean): CostEs
       return usd(PRICES.delete);
     case "read":
       return usd(operation.resources * (isAppOwner ? PRICES.ownedRead : PRICES.read));
+    case "user_read":
+      return usd(PRICES.userRead);
     case "media_upload":
       return { kind: "unknown" };
     case "oauth":

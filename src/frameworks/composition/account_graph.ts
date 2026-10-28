@@ -11,6 +11,7 @@ import type { SingleFlight } from "../../use_cases/ports/single_flight";
 import type { TokenStore } from "../../use_cases/ports/token_store";
 import { AccountRecovery } from "../../use_cases/run_services/account_recovery";
 import { AccountXGatewayService } from "../../use_cases/run_services/account_x_gateway_service";
+import { PostsThenFollowers } from "../../use_cases/run_services/account_metrics_run";
 import { CollectAccountMetrics } from "../../use_cases/run_services/collect_account_metrics";
 import { GuardedTransition } from "../../use_cases/run_services/guarded_transition";
 import { MediaStager } from "../../use_cases/run_services/media_stager";
@@ -18,6 +19,7 @@ import { PartSender } from "../../use_cases/run_services/part_sender";
 import { PublishPost } from "../../use_cases/run_services/publish_post";
 import { ReconcileAccount } from "../../use_cases/run_services/reconcile_account";
 import { RefreshingTokenProvider } from "../../use_cases/run_services/refreshing_token_provider";
+import { SnapshotFollowers } from "../../use_cases/run_services/snapshot_followers";
 import { TokenStep } from "../../use_cases/run_services/token_step";
 import { XCallRecorder } from "../../use_cases/run_services/x_call_recorder";
 import { TokenVault } from "../crypto/token_vault";
@@ -117,15 +119,8 @@ export function accountGraph(
   const { tokens, x } = invocationX(runtime, id, meter);
   const blobs = new R2MediaBlobStore(runtime.bucket);
   const stager = new MediaStager({ ...stores, blobs, uploader: x.uploader, recorder });
-  const sender = new PartSender({
-    ...stores,
-    tokens,
-    publisher: x.publisher,
-    stager,
-    recorder,
-    steps,
-    clock,
-  });
+  const publisher = x.publisher;
+  const sender = new PartSender({ ...stores, tokens, publisher, stager, recorder, steps, clock });
   const recovery = new AccountRecovery(reader, writer);
   const tokenStep = new TokenStep(tokens, clock);
   const shared = { reader, accounts, recorder, flights: runtime.flights, clock, tokenStep };
@@ -133,7 +128,10 @@ export function accountGraph(
     tokens,
     publish: new PublishPost({ reader, accounts, locks, clock, recovery, steps, sender }),
     reconcile: new ReconcileAccount({ ...shared, timeline: x.timeline, steps }),
-    collect: new CollectAccountMetrics({ ...shared, metrics: stores.metrics, x: x.metrics }),
+    collect: new PostsThenFollowers(
+      new CollectAccountMetrics({ ...shared, metrics: stores.metrics, x: x.metrics }),
+      new SnapshotFollowers({ ...shared, days: stores.followers, x: x.users }),
+    ),
     gateway: new AccountXGatewayService({
       publisher: x.publisher,
       store: runtime.tokens,

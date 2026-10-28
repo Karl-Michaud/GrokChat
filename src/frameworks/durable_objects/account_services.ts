@@ -10,6 +10,7 @@ import type { XMetricsReader } from "../../use_cases/ports/x_metrics_reader";
 import type { XOwnTimelineReader } from "../../use_cases/ports/x_own_timeline_reader";
 import type { XPublisher } from "../../use_cases/ports/x_publisher";
 import type { XTokenRefresher } from "../../use_cases/ports/x_token_refresher";
+import type { XUserMetricsReader } from "../../use_cases/ports/x_user_metrics_reader";
 
 /** The X API ports an account's Durable Object calls; tokens are fetched inside it (A1). */
 export interface AccountXCalls {
@@ -17,6 +18,8 @@ export interface AccountXCalls {
   readonly uploader: XMediaUploader;
   readonly timeline: XOwnTimelineReader;
   readonly metrics: XMetricsReader;
+  /** The account's own follower counts, for the daily snapshot (GROKCHAT-15). */
+  readonly users: XUserMetricsReader;
 }
 
 /**

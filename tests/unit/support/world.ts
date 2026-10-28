@@ -9,6 +9,7 @@ import { HOUR } from "../../../src/entities/time/instant";
 import {
   FakeXMediaUploader,
   FakeXMetrics,
+  FakeXUserMetrics,
   FakeXPublisher,
   FakeXTimeline,
   FakeXWorld,
@@ -50,6 +51,7 @@ import {
   MemoryAccountRepository,
   MemoryMediaRepository,
 } from "../../../src/frameworks/memory/memory_repositories";
+import { MemoryFollowerStore } from "../../../src/frameworks/memory/memory_followers";
 import { FakeXTokenEndpoint, MemoryTokenStore } from "../../../src/frameworks/memory/memory_tokens";
 import { AccessGuard } from "../../../src/use_cases/access/access_guard";
 import { ActionAudit } from "../../../src/use_cases/access/action_audit";
@@ -61,6 +63,7 @@ import { MediaIntake } from "../../../src/use_cases/media/media_intake";
 import type { Locks } from "../../../src/use_cases/ports/locks";
 import { AccountRecovery } from "../../../src/use_cases/run_services/account_recovery";
 import { AccountXGatewayService } from "../../../src/use_cases/run_services/account_x_gateway_service";
+import { PostsThenFollowers } from "../../../src/use_cases/run_services/account_metrics_run";
 import { CollectAccountMetrics } from "../../../src/use_cases/run_services/collect_account_metrics";
 import { GuardedTransition } from "../../../src/use_cases/run_services/guarded_transition";
 import { MediaCleanup } from "../../../src/use_cases/run_services/media_cleanup";
@@ -70,6 +73,7 @@ import { PartSender } from "../../../src/use_cases/run_services/part_sender";
 import { PublishPost } from "../../../src/use_cases/run_services/publish_post";
 import { ReconcileAccount } from "../../../src/use_cases/run_services/reconcile_account";
 import { RefreshingTokenProvider } from "../../../src/use_cases/run_services/refreshing_token_provider";
+import { SnapshotFollowers } from "../../../src/use_cases/run_services/snapshot_followers";
 import { TokenStep } from "../../../src/use_cases/run_services/token_step";
 import { XCallRecorder } from "../../../src/use_cases/run_services/x_call_recorder";
 import { anAccount, T0 } from "./builders";
@@ -118,6 +122,8 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const uploader = new FakeXMediaUploader(x);
   const timeline = new FakeXTimeline(x);
   const xMetrics = new FakeXMetrics(x);
+  const xUsers = new FakeXUserMetrics(x);
+  const followers = new MemoryFollowerStore(accounts);
   const states = new MemoryOAuthStateStore();
   const throttle = new MemoryLoginThrottle();
   const pkce = new SequentialPkce();
@@ -162,7 +168,18 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     flights,
     clock,
   });
-  const collector = new InProcessMetricsCollector(collectMetrics);
+  const snapshotFollowers = new SnapshotFollowers({
+    accounts,
+    days: followers,
+    x: xUsers,
+    tokenStep,
+    recorder,
+    flights,
+    clock,
+  });
+  const collector = new InProcessMetricsCollector(
+    new PostsThenFollowers(collectMetrics, snapshotFollowers),
+  );
   const gateway = new AccountXGatewayService({
     publisher: xPublisher,
     store: tokenStore,
@@ -241,6 +258,8 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     uploader,
     timeline,
     xMetrics,
+    xUsers,
+    followers,
     states,
     throttle,
     pkce,
@@ -257,6 +276,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     reconcileAccount,
     reconciler,
     collectMetrics,
+    snapshotFollowers,
     collector,
     gateway,
     cleanup,
