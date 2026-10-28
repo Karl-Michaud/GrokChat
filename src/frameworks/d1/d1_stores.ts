@@ -25,6 +25,8 @@ export function d1Stores(db: D1Database) {
   const reader = new D1PostReader(db);
   return {
     reader,
+    /** The reader answers whether an X post is the account's own (GROKCHAT-17 reply policy). */
+    ownPosts: reader,
     writer: new D1PostWriter(db, reader),
     accounts: new D1AccountRepository(db),
     people: new D1PersonRepository(db),

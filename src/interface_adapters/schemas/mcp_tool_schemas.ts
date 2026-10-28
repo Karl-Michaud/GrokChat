@@ -14,7 +14,10 @@ const id = z.string().min(1).max(128);
 /** 280 weighted characters can be longer raw (a URL counts as 23), so this is only a size cap. */
 const text = z.string().max(4_000);
 const mediaIds = z.array(id).max(MAX_PHOTOS).optional();
-/** An X post id or a post URL; the use case checks which (`reply_target_invalid`). */
+/**
+ * An X post id or a post URL; the use case checks which (`reply_target_invalid`) and that the
+ * account published it (`reply_target_not_own`, GROKCHAT-17).
+ */
 const replyTarget = z.string().min(1).max(512).optional();
 /** A time without an offset is ambiguous and refused (m5). */
 const time = z.iso.datetime({ offset: true });

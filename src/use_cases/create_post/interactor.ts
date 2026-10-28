@@ -15,6 +15,7 @@ import type { AccountPublisher } from "../ports/account_publisher";
 import type { AccountRepository } from "../ports/account_repository";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id_generator";
+import type { OwnXPosts } from "../ports/own_x_posts";
 import type { PostReader } from "../ports/post_reader";
 import type { PostWriter } from "../ports/post_writer";
 import type { CreatePostInputBoundary } from "./input_boundary";
@@ -28,6 +29,7 @@ export const PUBLISH_NOW_BUDGET = 10 * SECOND;
 export interface CreatePostPorts {
   readonly accounts: AccountRepository;
   readonly reader: PostReader;
+  readonly ownPosts: OwnXPosts;
   readonly writer: PostWriter;
   readonly attachments: MediaAttachments;
   readonly validator: PartsValidator;
@@ -82,6 +84,9 @@ export class CreatePostInteractor implements CreatePostInputBoundary {
     const replyTo = input.replyTo === null ? null : replyTargetId(input.replyTo);
     if (input.replyTo !== null && replyTo === null) {
       return refuse("reply_target_invalid");
+    }
+    if (replyTo !== null && !(await this.ports.ownPosts.isOwnPublishedXPost(account.id, replyTo))) {
+      return refuse("reply_target_not_own");
     }
     const hash = requestHash(account.id, input.parts, input.publishAt, replyTo);
     if (input.actor.kind !== "bot") {

@@ -89,6 +89,19 @@ export function aPost(overrides: Partial<Post> = {}): Post {
   };
 }
 
+/**
+ * A post the account published through GrokChat a day ago (clear of the cap and the gap), whose
+ * one part has X id `xId`: the only kind of post a reply may answer (GROKCHAT-17).
+ */
+export function anOwnPublishedPost(xId: string, overrides: Partial<Post> = {}): Post {
+  return aPost({
+    id: postId(`own-${xId}`),
+    lifecycle: "DONE",
+    parts: [part("an earlier post", sentState(xId, T0 - 24 * 60 * 60 * 1000))],
+    ...overrides,
+  });
+}
+
 export function aMedia(overrides: Partial<StagedMedia> = {}): StagedMedia {
   return {
     id: stagedMediaId("media-1"),

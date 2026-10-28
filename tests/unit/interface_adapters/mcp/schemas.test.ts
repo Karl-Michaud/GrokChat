@@ -62,6 +62,11 @@ describe("tool input schemas", () => {
     }
   });
 
+  it("edit_post cannot add a reply target: in_reply_to is not one of its fields (GROKCHAT-17)", () => {
+    const parsed = TOOL_SCHEMAS.edit_post.parse({ post_id: "p", in_reply_to: "1" });
+    expect(parsed).toStrictEqual({ post_id: "p" });
+  });
+
   it("create_thread: 1 to 25 parts", () => {
     const parts = (n: number) => Array.from({ length: n }, () => ({ text: "p" }));
     expect(ok("create_thread", THREAD)).toBe(true);

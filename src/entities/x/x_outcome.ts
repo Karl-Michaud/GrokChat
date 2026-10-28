@@ -58,3 +58,40 @@ function mapHttpStatus(failure: Extract<XFailure, { kind: "http" }>, now: Instan
   }
   return rejected(failure.status, failure.detail);
 }
+
+/** The reason a reply X refused with a 403 is REJECTED with (GROKCHAT-17, incident 2026-10-28). */
+export const REPLY_REFUSED = "reply_refused";
+
+/** X's answer to a failed call, its status and detail; null when X sent none. */
+function answerOf(failure: XFailure): { readonly status: number; readonly detail: string } | null {
+  return failure.kind === "http" || failure.kind === "content_refused" ? failure : null;
+}
+
+/**
+ * A failed create. X allows API replies only to the account's own posts or to authors who engaged
+ * with it, and refuses any other reply with a 403 whose wording has changed before; so a 403 on a
+ * part sent as a reply is X refusing that reply, never the token: the part is rejected as
+ * `reply_refused` (the post ends FAILED, the account stays ACTIVE, nothing is retried). A 401
+ * stays a reconnect, and every other create maps as `mapXOutcome`.
+ */
+export function mapCreateOutcome(failure: XFailure, now: Instant, reply: boolean): XOutcome {
+  return reply && answerOf(failure)?.status === 403
+    ? { kind: "rejected", reason: REPLY_REFUSED }
+    : mapXOutcome(failure, now);
+}
+
+/**
+ * The audit detail of a failed create: what it meant (`reply_refused` for a refused reply, else
+ * the outcome's kind) and, when X answered, its status and detail (already cut to 300
+ * characters), redacted, so X's real wording is on record.
+ */
+export function createFailureDetail(outcome: XOutcome, failure: XFailure): string {
+  const meaning = outcome.kind === "rejected" ? rejectedMeaning(outcome.reason) : outcome.kind;
+  const answer = answerOf(failure);
+  const said = answer === null ? "" : `: x_${String(answer.status)}: ${answer.detail}`;
+  return redactCredentials(`${meaning}${said}`);
+}
+
+function rejectedMeaning(reason: string): string {
+  return reason === REPLY_REFUSED ? REPLY_REFUSED : "rejected";
+}

@@ -135,41 +135,4 @@ describe("dashboard connect → bot create_post → scheduled() → dashboard po
     expect(analytics).toContain(`href="${detail}"`);
     expect(analytics).toContain(">1,234</span>");
   });
-
-  it("a bot's reply is sent to X as a reply to the post it named (GROKCHAT-17)", async () => {
-    const dashboardEnv = await webEnv();
-    const browser = browserFor(dashboardEnv);
-    const account = await connectThroughDashboard(browser, x);
-    await setUpAccount(browser, account);
-    const bot = await connect(await botEnv([account.id], [], dashboardEnv));
-
-    expect(
-      await tool(bot, "create_post", {
-        account_id: account.id,
-        text: "a reply",
-        in_reply_to: "not a post",
-        idempotency_key: "e2e-reply-bad",
-      }),
-    ).toMatchObject({ error: "reply_target_invalid" });
-    const created = await tool(bot, "create_post", {
-      account_id: account.id,
-      text: "great point",
-      in_reply_to: "https://x.com/someone/status/1850000000000000001?s=20",
-      idempotency_key: "e2e-reply",
-    });
-    const postId = String(created["post_id"]);
-    const detail = `/dashboard/posts/${postId}`;
-    expect((await browser.page(detail)).html).toContain(
-      "https://x.com/i/web/status/1850000000000000001",
-    );
-    expect((await browser.post(`${detail}/approve`)).status).toBeLessThan(400);
-
-    await tick("publish", dashboardEnv);
-    expect([...x.emulator.posts.values()].map((post) => [post.text, post.inReplyTo])).toStrictEqual(
-      [["great point", "1850000000000000001"]],
-    );
-    expect(await tool(bot, "get_post", { post_id: postId })).toMatchObject({
-      post: { status: "PUBLISHED", in_reply_to: "1850000000000000001" },
-    });
-  });
 });

@@ -344,3 +344,20 @@ Media page removes unused media at once; media a waiting post holds cannot be de
 (`staged_media.label`, `staged_media.source` and an index). Then stage one Grok image and post
 it on a test account, and upload one file on **Media** and have the bot find it with
 `list_media`.
+
+## 11. Replies
+
+A bot replies with `create_post` or `create_thread` and `in_reply_to` (a post id or its
+`x.com` URL), **only to a post its own account already published through GrokChat**. X allows
+API replies only to the account's own posts or to people who already engaged with it, so
+GrokChat refuses any other target with `reply_target_not_own` and stores nothing. A reply
+under someone else's post is drafted by the bot for a person to post by hand on X.
+
+If X still refuses a reply (any 403), the post ends **FAILED** with `reply_refused`, the
+account stays active, and nothing retries it. The Activity page's `x.create` row carries X's
+own wording (`reply_refused: x_403: …`); every failed create records X's status and detail the
+same way. A 403 on an original post still marks the account for reconnect, as before.
+
+A reply stored before this rule whose target is not the account's own is never sent: at its
+next publish attempt it ends FAILED with `reply_target_not_own`, without calling X.
+No migration; deploy as in section 7.

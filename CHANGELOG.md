@@ -4,6 +4,15 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ## [Unreleased]
 
+### Fixed
+
+- **Replies only to the account's own posts; a refused reply never disconnects the account** (GROKCHAT-17, incident 2026-10-28):
+  - `create_post` and `create_thread` refuse an `in_reply_to` that is not a post the same account published through GrokChat with **`reply_target_not_own`**, before anything is stored or audited (port `OwnXPosts`, D1 and memory drivers on the post store's contract suite). `edit_post` has no reply field. A reply stored before the rule is never sent: it ends FAILED with `reply_target_not_own` without an X call;
+  - **a 403 on a create sent as a reply** (part 1 of a reply, or a thread's later part) ends the post FAILED with `reply_refused`, keeps the account ACTIVE and is not retried; a 401 is still a reconnect, and a 403 on an original post is unchanged;
+  - every failed create's audit `detail` now carries X's status and wording (`<outcome>: x_<status>: <detail>`, redacted, at most 300 characters of X's detail), not just the outcome's kind;
+  - the tool descriptions, the setup prompt, the plan (§16) and the runbook (§11) say to reply only to the account's own posts and to draft other replies for a person to post by hand;
+  - **Why:** X allows API replies only to the account's own posts or to people who engaged with it. Replies to `@XDevelopers` and `@clavicular` came back as 403s whose wording the content check missed, so they were read as auth failures: the account was disconnected, and after each reconnect the same post retried and disconnected it again, five times. The owner judged that a repeat risks a ban.
+
 ### Added
 
 - **Posts made outside GrokChat on the dashboard** (GROKCHAT-19):

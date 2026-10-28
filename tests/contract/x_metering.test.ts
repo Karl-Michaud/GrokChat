@@ -153,6 +153,7 @@ describe("a publish run on the fetch drivers yields when the subrequests run out
     const publisher = new HttpXPublisher(client);
     const sender = new PartSender({
       reader,
+      ownPosts: reader,
       accounts,
       tokens: world.tokens,
       publisher,
