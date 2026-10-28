@@ -6,6 +6,16 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ### Added
 
+- **People: accounts grouped per person, one bot token per person, managed on the dashboard** (GROKCHAT-16):
+  - a `Person` (name, the token's SHA-256 only, when it was created and last generated) in D1, migration `0004_people.sql`; each account belongs to at most one person (`accounts.person_id`). Ports `PersonRepository`, `AccountOwners` and `BotTokenIssuer`, each with a D1 or WebCrypto driver and a stub on one contract suite. `D1AccountRepository.save` is now an upsert, so saving an account keeps its owner;
+  - **MCP auth reads people from D1 per request**: token → SHA-256 → person → their accounts, nothing cached, so assigning or unassigning an account changes the bot's scope at once with the same token. The audit actor stays `bot:<person id>`. A D1 failure during auth answers 503;
+  - **Accounts page by person**: a section per person (initials, name, account count, "Token set <date>" or "No token") with Generate or Rotate token, Rename and Delete (the name typed again: their accounts become Unassigned and the token stops working), then Unassigned; a **New person** field; an **Owner** select on every card;
+  - **the one-time token page**: the token with Copy, the connector settings (name `grokchat`, the `/mcp` URL, header `Authorization: Bearer <token>`) and **Copy setup prompt** (the chief-of-staff prompt with the person's accounts, telling the bot to call `list_accounts`, and that adding an account never changes the token; it never holds the token). It is only the POST's answer: `no-store`, `hx-history="false"`, never in a URL, a redirect, a log or the audit;
+  - MCP tool **`list_accounts`** (read-only, 13 tools): the caller's accounts with id, handle, status, mode and disclosure;
+  - `npm run import-bots` (idempotent, `--dry-run`, prints no token or hash) carries the three live `GROKCHAT_BOT_CLIENTS` clients into the remote D1 with their ids and hashes, so no token is reissued; `add-bot` and the secret are retired (runbook §3);
+  - `npm run seed:local` adds three people;
+  - **Why:** the owner hands each person one token for all their accounts, and adding an account must not mean a new token.
+
 - **Dashboard polish** (GROKCHAT-15, after PR #14's screenshots):
   - the sidebar's background and border run the page's full height; its column sticks to the viewport with the theme and logout at the bottom;
   - phones get a slim top bar (logo, theme and logout icons) and a fixed bottom tab bar for the four sections (safe-area padded); the account filter moves next to the range picker;

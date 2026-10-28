@@ -52,8 +52,8 @@ Rules for secrets:
    format `src/frameworks/web/password.ts` verifies. Run it again at any time to change
    the password.
 
-3. **Bot list.** The MCP endpoint refuses every bot until `GROKCHAT_BOT_CLIENTS` is set.
-   Section 3 sets it once an account is connected.
+3. **Bots.** The MCP endpoint lets in only a token that belongs to a person in D1. Section 3
+   creates the people and their tokens on the dashboard once an account is connected.
 
 4. **Database.**
 
@@ -105,61 +105,75 @@ Vars live in `wrangler.jsonc`, and changing one needs a deploy:
      every bot post waits on the **Posts** page (status "Needs review") for your approval.
      Switch to auto-publish only once the bot's posts have been right for a while.
    - Turn its switch to **Publishing on**.
-4. Copy the **Account id** from the bottom of its card. `add-bot` takes it. The **Connect a
-   Grok bot** panel below the cards shows the whole `add-bot` command and the MCP URL.
+4. Set the card's **Owner** to the person whose bot runs the account (section 3). Until it
+   has one, the account sits under **Unassigned** and no bot can post to it.
 
 To reconnect an account, use **Reconnect on X** on its card. Do this when the section
 says publishing is refused until the account is reconnected, or when X revoked access. A reconnect as a different X user is refused.
 
-## 3. Add a bot and configure a Grok bot
+## 3. People and their bot tokens
 
-1. **Create the bot's token.**
+Each person (Karl, Aaron, Kabir, …) runs one Grok "chief of staff" bot for their own accounts.
+GrokChat keeps the people in D1 (migration `0004`): a name, the SHA-256 of their one bot
+token (never the token), and which accounts are theirs. An account belongs to at most one
+person. Bot auth reads all of it on every MCP request, so a change applies to the next call.
 
-   ```sh
-   npm run add-bot -- --id <bot id> --accounts <account id>[,<account id>…]
-   ```
+1. **Add the person.** On **Accounts**, type the name next to **New person** and press it.
+   The person gets a section of their own, with "No token".
+2. **Give them their accounts.** On each account's card, set **Owner** to the person. It saves
+   on change. Their section now lists the account.
+3. **Generate their token.** Press **Generate token** in their section. The answer is a page
+   shown once, never again:
+   - the token, with **Copy**;
+   - the connector settings for Grok: name `grokchat`, server URL
+     `https://grokchat.grokchat.workers.dev/mcp`, header `Authorization`, value
+     `Bearer <token>`;
+   - **Copy setup prompt**: the chief-of-staff prompt with the person's accounts filled in. It
+     tells the bot to call `list_accounts` and never contains the token.
 
-   - It generates a token of 32 random bytes.
-   - It adds the bot's entry, or replaces it if the bot already has one, in
-     `.bot-clients.local.json`: the id, the token's SHA-256 and the account ids.
-   - It sets the whole list as `GROKCHAT_BOT_CLIENTS`.
-   - It writes the token only to the `<bot id>=` line of `.bot-tokens.local`.
-   - Running it again for the same id gives the bot a new token, and the old one stops
-     working.
-   - If the list was set from another machine and `.bot-clients.local.json` is missing
-     here, it refuses. A new list would drop every other bot. Copy the file over, or pass
-     `--new-list` to keep only this bot.
+   GrokChat keeps only the hash. The page is not cached, is kept out of the browser's
+   history snapshots, and the token is in no URL, redirect, log line or audit row. Leave the
+   page and the token is gone: rotate to get a new one.
+4. **Configure the person's Grok bot** with the connector settings, then paste the setup
+   prompt. Its Phase 1 checks the tools (13), lists the accounts, and proves that an account
+   id that is not theirs is refused as `scope`. A wrong token fails the **whole** Grok request
+   with "Authentication failed" (U9), not only the tool call.
 
-2. **Configure the Grok bot.** Add GrokChat to the bot's xAI Responses API request as an
-   MCP tool:
+**Adding an account later never changes the token.** Connect it, finish its disclosure, and
+set its **Owner** to the person. The bot sees it on its next `list_accounts` call. Setting an
+Owner to someone else, or to Unassigned, takes it away from the bot at once.
 
-   ```json
-   {
-     "type": "mcp",
-     "server_label": "grokchat",
-     "server_url": "https://grokchat.grokchat.workers.dev/mcp",
-     "authorization": "<the token from .bot-tokens.local>"
-   }
-   ```
+**Rotate** (in the person's section, then **Rotate now**) when a token may have leaked: the
+old one stops working at once, so update the bot's connector straight after. **Delete** asks
+for the person's name: their accounts become Unassigned and their token stops working.
+**Rename** keeps the token; the audit and Activity name bots by person id (`bot:<id>`), which
+never changes.
 
-   - `authorization` takes the bare token. xAI sends it as `Bearer <token>`.
-   - The model sees the tools as `grokchat___<tool>`.
-   - `allowed_tools` can narrow the list.
+### 3.1 One-off: carry the old bot list over (GROKCHAT-16)
 
-3. **Test the token** with one request that makes the bot call `get_policy` for its account,
-   before anything else. A wrong token fails the **whole** Grok request with "Authentication
-   failed" (U9), not only the tool call. A token for an account outside the bot's list is
-   refused as `scope`.
-4. **Delete the token's line** from `.bot-tokens.local` once the bot works.
+Before GROKCHAT-16, bot tokens lived in the secret `GROKCHAT_BOT_CLIENTS`, written by the
+retired `add-bot` script. `npm run import-bots` moves that list into D1 so the live tokens keep
+working with no reissue. It reads `.bot-clients.local.json` (ids, token hashes and account ids,
+never a token), makes one person per client with the same id (`karl` → "Karl", so the audit
+actor `bot:karl` stays), keeps the hash, and assigns the client's accounts. It only fills what
+is missing: a person, a token or an owner already set is kept, so a second run changes nothing.
+It prints no token or hash.
 
-To revoke every bot at once, put an empty list. Nothing secret is printed:
+1. `npx wrangler d1 migrations apply grokchat --remote` (adds `people` and
+   `accounts.person_id`).
+2. `npm run import-bots -- --dry-run`, check the people and the count, then
+   `npm run import-bots`.
+3. Deploy the release (section 7).
+4. Run `npm run import-bots` once more: the old release's account saves could clear an
+   owner between steps 2 and 3, and the run puts back only what is missing.
+5. Check **Accounts**: each person shows "Token set" and their accounts. Have each bot make
+   one `list_accounts` call.
+6. Delete the old secret, which nothing reads any more:
+   `npx wrangler secret delete GROKCHAT_BOT_CLIENTS`. Keep `.bot-clients.local.json` until
+   every bot was checked, then delete it.
 
-```sh
-printf '[]' | npx wrangler secret put GROKCHAT_BOT_CLIENTS
-```
-
-Then remove the entries from `.bot-clients.local.json` too, so the next `add-bot` does not
-put them back.
+The import is a one-off: run after an account was unassigned on the dashboard, it would give
+that account back to its old client.
 
 ## 4. Rotate keys
 
@@ -198,7 +212,7 @@ npm run provision-secrets -- --rotate --env-file <path>
 
 **Admin password:** `npm run set-admin-password`.
 
-**A bot's token:** `npm run add-bot` again with the same `--id` and `--accounts`.
+**A bot's token:** **Rotate token** in the person's section on **Accounts** (section 3).
 
 **X app credentials:** after regenerating them in the X developer portal, update the env
 file and run `npm run provision-secrets -- --rotate --env-file <path>`.
@@ -288,6 +302,7 @@ To see the dashboard on your machine with realistic data, without touching produ
    password, `GROKCHAT_PUBLIC_ORIGIN=http://localhost:8787`, and dummy X app values.
    Never a production secret.
 2. `npm run seed:local` applies the migrations to the **local** D1 and fills it with three
+   people (one with a token hash and two accounts, one with an account, one with none), three
    accounts and about two months of posts, metrics, follower snapshots, activity and
    costs (deterministic; a run replaces the previous seed). It never runs against the
    deployed database. `-- --dry-run` prints the SQL.

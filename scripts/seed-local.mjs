@@ -1,5 +1,6 @@
 // `npm run seed:local [-- --dry-run]` (docs/runbook.md, "Local preview"): fills the LOCAL D1 of
-// `wrangler dev` with a realistic, deterministic dashboard: three accounts, about two months of
+// `wrangler dev` with a realistic, deterministic dashboard: three people (GROKCHAT-16: one with a
+// token and two accounts, one with an account and no token, one with nothing yet), three accounts, about two months of
 // posts with their metrics reads, daily follower snapshots, the audit log and the X costs. It
 // never touches the deployed database (`--local` only) and writes no secret anywhere.
 import { spawnSync } from "node:child_process";
@@ -366,9 +367,36 @@ function followerStatements(random, now) {
   });
 }
 
+/**
+ * The people and who owns which account. Karl's token hash is the SHA-256 of no real token: the
+ * dashboard shows "Token set", and only a token generated on the dashboard reaches the accounts.
+ */
+const PEOPLE = [
+  { id: "karl", name: "Karl", token: "0".repeat(64), accounts: ["acc-studio", "acc-daily"] },
+  { id: "aaron", name: "Aaron", token: null, accounts: ["acc-labs"] },
+  { id: "kabir", name: "Kabir", token: null, accounts: [] },
+];
+
+/** @param {string} account */
+const ownerOf = (account) => PEOPLE.find((person) => person.accounts.includes(account))?.id;
+
+/** @param {number} now */
+function peopleStatements(now) {
+  return PEOPLE.map((person, index) =>
+    insert("people", {
+      id: person.id,
+      name: person.name,
+      token_sha256: person.token,
+      token_created_at: person.token === null ? null : now - 2 * DAY,
+      created_at: now - (10 - index) * DAY,
+    }),
+  );
+}
+
 /** @param {number} now */
 function accountStatements(now) {
   return [
+    ...peopleStatements(now),
     ...ACCOUNTS.map((account, index) =>
       insert("accounts", {
         id: account.id,
@@ -384,6 +412,7 @@ function accountStatements(now) {
           tz: index === 1 ? "Europe/Paris" : "UTC",
         }),
         is_app_owner: 0,
+        person_id: ownerOf(account.id) ?? null,
       }),
     ),
     insert("audit_events", {
@@ -415,6 +444,7 @@ function accountStatements(now) {
 }
 
 const TABLES = [
+  "people",
   "posts",
   "post_parts",
   "accounts",
