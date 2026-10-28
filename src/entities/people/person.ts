@@ -36,7 +36,7 @@ export const MAX_PERSON_NAME = 60;
  */
 export function personName(raw: string): string | null {
   const name = raw.trim().replace(/\s+/g, " ");
-  const points = [...name];
+  const points = Array.from(name);
   const control = points.some((point) => {
     const code = point.codePointAt(0) ?? 0;
     return code < 0x20 || code === 0x7f;
@@ -56,13 +56,13 @@ export function sameName(a: string, b: string): boolean {
   return nameKey(a) === nameKey(b);
 }
 
-/** Up to two letters for the avatar: the first of the first two words ("Karl Michaud" → KM). */
+/**
+ * Up to two letters for the avatar of a stored name (single-spaced): the first of its first two
+ * words ("Karl Michaud" → KM), else its first two ("karl" → KA).
+ */
 export function personInitials(name: string): string {
-  const words = name.split(" ").filter((word) => word.length > 0);
-  const [first = "", second = ""] = words;
-  const letters =
-    second === ""
-      ? [...first].slice(0, 2).join("")
-      : `${[...first][0] ?? ""}${[...second][0] ?? ""}`;
+  const [first = "", second = ""] = name.split(" ");
+  const head = (word: string, count: number): string => Array.from(word).slice(0, count).join("");
+  const letters = second === "" ? head(first, 2) : `${head(first, 1)}${head(second, 1)}`;
   return letters.toUpperCase();
 }
