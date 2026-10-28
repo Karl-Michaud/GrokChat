@@ -9,6 +9,7 @@ import type {
 
 interface Entry {
   upload: PendingUpload;
+  claimedUntil: Instant | null;
   readonly parts: Map<number, { readonly part: StoredPart; readonly bytes: Uint8Array }>;
 }
 
@@ -17,7 +18,7 @@ export class MemoryPendingUploads implements PendingUploads, ExpiredUploads {
   readonly entries = new Map<string, Entry>();
 
   open(upload: PendingUpload): Promise<void> {
-    this.entries.set(upload.id, { upload, parts: new Map() });
+    this.entries.set(upload.id, { upload, claimedUntil: null, parts: new Map() });
     return Promise.resolve();
   }
 
@@ -26,7 +27,7 @@ export class MemoryPendingUploads implements PendingUploads, ExpiredUploads {
   }
 
   putPart(upload: PendingUpload, part: StoredPart, bytes: Uint8Array): Promise<void> {
-    const entry = this.entries.get(upload.id) ?? { upload, parts: new Map() };
+    const entry = this.entries.get(upload.id) ?? { upload, claimedUntil: null, parts: new Map() };
     entry.parts.set(part.index, { part, bytes: bytes.slice() });
     this.entries.set(upload.id, entry);
     return Promise.resolve();
@@ -41,10 +42,28 @@ export class MemoryPendingUploads implements PendingUploads, ExpiredUploads {
     return Promise.resolve(this.entries.get(id)?.parts.get(index)?.bytes.slice() ?? null);
   }
 
+  claim(id: string, now: Instant, until: Instant): Promise<boolean> {
+    const entry = this.entries.get(id);
+    if (entry?.upload.mediaId !== null || (entry.claimedUntil ?? now) > now) {
+      return Promise.resolve(false);
+    }
+    entry.claimedUntil = until;
+    return Promise.resolve(true);
+  }
+
+  unclaim(id: string): Promise<void> {
+    const entry = this.entries.get(id);
+    if (entry !== undefined) {
+      entry.claimedUntil = null;
+    }
+    return Promise.resolve();
+  }
+
   finish(id: string, mediaId: StagedMediaId): Promise<void> {
     const entry = this.entries.get(id);
     if (entry !== undefined) {
       entry.upload = { ...entry.upload, mediaId };
+      entry.claimedUntil = null;
       entry.parts.clear();
     }
     return Promise.resolve();

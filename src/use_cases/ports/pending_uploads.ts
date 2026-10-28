@@ -32,7 +32,15 @@ export interface PendingUploads {
   /** The parts stored so far, by index. */
   parts(id: string): Promise<readonly StoredPart[]>;
   readPart(id: string, index: number): Promise<Uint8Array | null>;
-  /** Deletes the parts and keeps the upload, marked with its media, until it expires. */
+  /**
+   * Claims the upload for assembly until `until`, atomically: true for exactly one of the calls
+   * made at the same time, false for the others, for an upload already staged as media, for one
+   * claimed until after `now`, and for an unknown id.
+   */
+  claim(id: string, now: Instant, until: Instant): Promise<boolean>;
+  /** Drops a claim (assembly found a part missing), so a later part can assemble the file. */
+  unclaim(id: string): Promise<void>;
+  /** Deletes the parts and keeps the upload, marked with its media (no claim), until it expires. */
   finish(id: string, mediaId: StagedMediaId): Promise<void>;
   /** Deletes the upload and its parts. */
   discard(id: string): Promise<void>;

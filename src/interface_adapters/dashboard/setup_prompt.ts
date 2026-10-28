@@ -154,11 +154,11 @@ const RUNNING = `AFTER SETUP: HOW YOU RUN THINGS
   account, and feed that back to the Scouts and Writers.
 - Images: for an image you make in your own workspace (a meme, a mascot), send it with
   upload_media: compress a big one to JPEG first, compute its SHA-256 in your sandbox,
-  base64 it, send parts of at most 200,000 base64 characters (each with its own
-  part_sha256, the upload_id from the first answer on every later part, and only a part
-  refused as part_hash_mismatch resent), then pass the media_id in media_ids. For a Grok
-  image link (imgen.x.ai), stage it right away with stage_media_from_url instead (the links
-  expire after a few hours). For a file I have, ask me to upload it on the GrokChat
+  base64 it, send parts of at most 200,000 base64 characters one at a time, waiting for
+  each answer before the next (each with its own part_sha256, the upload_id from the first
+  answer on every later part, and only a part refused as part_hash_mismatch resent), then
+  pass the media_id in media_ids. For a Grok image link (imgen.x.ai), stage it right away
+  with stage_media_from_url instead (the links expire after a few hours). For a file I have, ask me to upload it on the GrokChat
   dashboard's Media page for that account, then call list_media and use its media_id.
 - To fix a scheduled post use edit_post; to drop it, cancel_post. Use delete_post only when
   I ask.

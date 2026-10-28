@@ -2,8 +2,10 @@ import { createHash } from "node:crypto";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { MAX_UPLOAD_BYTES } from "../../../../src/entities/content/staged_media";
-import { HOUR } from "../../../../src/entities/time/instant";
+import { HOUR, MINUTE } from "../../../../src/entities/time/instant";
 import {
+  ASSEMBLY_LEASE,
+  assemblyLeaseUntil,
   checkPart,
   decodeBase64,
   joinParts,
@@ -37,6 +39,11 @@ describe("upload parts: limits and expiry (GROKCHAT-20)", () => {
     expect(uploadExpired(1_000, 999)).toBe(false);
     expect(uploadExpired(1_000, 1_000)).toBe(true);
     expect(uploadExpired(1_000, 1_001)).toBe(true);
+  });
+
+  it("the call that assembles an upload holds it for a minute", () => {
+    expect(ASSEMBLY_LEASE).toBe(MINUTE);
+    expect(assemblyLeaseUntil(1_000)).toBe(1_000 + MINUTE);
   });
 
   it("checkPart: index from 0 below count, count from 1 to 60, integers only", () => {

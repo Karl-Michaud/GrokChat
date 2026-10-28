@@ -38,6 +38,18 @@ describe("R2PendingUploads", () => {
     expect(await store.expired(T0, 10)).toStrictEqual([{ id: "up-1", partBytes: 1 }]);
   });
 
+  it("a claim rewrites the upload's record with its expiry kept, so the sweep still finds it", async () => {
+    const store = new R2PendingUploads(env.MEDIA);
+    await store.open(anUpload());
+    expect(await store.claim("up-1", T0 - 1, T0 + 60)).toBe(true);
+    const object = await env.MEDIA.head(`${UPLOADS_PREFIX}up-1/upload`);
+    expect([object?.customMetadata, object?.httpMetadata?.contentType]).toStrictEqual([
+      { expires: String(T0) },
+      "application/json",
+    ]);
+    expect(await store.expired(T0, 10)).toStrictEqual([{ id: "up-1", partBytes: 0 }]);
+  });
+
   it("an object without an expiry counts as expired", async () => {
     await env.MEDIA.put(`${UPLOADS_PREFIX}stray/part/0`, new Uint8Array([1, 2]));
     const store = new R2PendingUploads(env.MEDIA);

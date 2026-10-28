@@ -63,6 +63,40 @@ export function pendingUploadsContract(make: () => UploadStore): void {
     expect(await store.get("never")).toBeNull();
   });
 
+  it("claim: one holder until its lease runs out or it unclaims; never a staged or unknown upload", async () => {
+    const store = make();
+    const upload = anUpload();
+    await store.open(upload);
+    await store.putPart(upload, { index: 0, sha256: "a", size: 1 }, bytes(1));
+    expect(await store.claim("never", T0, T0 + 10)).toBe(false);
+    expect(await store.claim("up-1", T0, T0 + 10)).toBe(true);
+    expect(await store.claim("up-1", T0, T0 + 10)).toBe(false);
+    expect(await store.claim("up-1", T0 + 9, T0 + 20)).toBe(false);
+    // The claim changes nothing a reader sees.
+    expect(await store.get("up-1")).toStrictEqual(upload);
+    expect(await store.parts("up-1")).toStrictEqual([{ index: 0, sha256: "a", size: 1 }]);
+    expect(await store.claim("up-1", T0 + 10, T0 + 20)).toBe(true);
+    await store.unclaim("up-1");
+    expect(await store.get("up-1")).toStrictEqual(upload);
+    expect(await store.claim("up-1", T0 + 11, T0 + 20)).toBe(true);
+    await store.finish("up-1", stagedMediaId("m-1"));
+    expect(await store.claim("up-1", T0 + 30, T0 + 40)).toBe(false);
+    await store.unclaim("up-1");
+    expect(await store.claim("up-1", T0 + 30, T0 + 40)).toBe(false);
+    expect(await store.get("up-1")).toStrictEqual({ ...upload, mediaId: "m-1" });
+    await store.unclaim("never");
+    expect(await store.get("never")).toBeNull();
+  });
+
+  it("of claims made at the same time exactly one wins", async () => {
+    const store = make();
+    await store.open(anUpload());
+    const claims = await Promise.all(
+      Array.from({ length: 8 }, () => store.claim("up-1", T0, T0 + 10)),
+    );
+    expect(claims.filter(Boolean)).toHaveLength(1);
+  });
+
   it("discard deletes the upload and its parts, and no other upload's", async () => {
     const store = make();
     const one = anUpload();

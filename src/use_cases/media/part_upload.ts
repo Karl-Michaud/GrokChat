@@ -4,6 +4,7 @@ import type { Actor } from "../../entities/identity/actor";
 import type { StagedMediaId } from "../../entities/identity/ids";
 import { canStore } from "../../entities/media/r2_quota";
 import {
+  assemblyLeaseUntil,
   joinParts,
   missingParts,
   uploadExpired,
@@ -93,12 +94,46 @@ export class PartUpload {
     if (kept !== null) {
       return kept;
     }
-    const byIndex = new Map(stored.map((item) => [item.index, item]));
-    const received = [...byIndex.set(part.index, partOf(part)).values()];
-    const missing = missingParts(upload.partCount, byIndex.keys());
-    return missing.length > 0
-      ? { ok: true, complete: false, uploadId: upload.id, missing }
-      : this.assemble(actor, account, upload, received);
+    return this.progress(actor, account, upload, [...stored, partOf(part)]);
+  }
+
+  /**
+   * Lists the parts again after this one was written, so of parts sent at the same time the
+   * last one written sees them all; then only the call that claims the upload assembles it.
+   */
+  private async progress(
+    actor: Actor,
+    account: Account,
+    upload: PendingUpload,
+    known: readonly StoredPart[],
+  ): Promise<UploadMediaOutputData> {
+    const now = this.ports.clock.now();
+    const fresh = await this.ports.uploads.parts(upload.id);
+    await this.ports.usage.record({ storedBytes: 0, classA: 1, classB: 0 }, now);
+    const listed = new Set(fresh.map((item) => item.index));
+    if (known.some((item) => !listed.has(item.index))) {
+      // Parts seen before are gone: another call staged the file (or discarded the upload).
+      return this.settled(upload.id);
+    }
+    const missing = missingParts(upload.partCount, listed);
+    if (missing.length > 0) {
+      return { ok: true, complete: false, uploadId: upload.id, missing };
+    }
+    const claimed = await this.ports.uploads.claim(upload.id, now, assemblyLeaseUntil(now));
+    await this.ports.usage.record({ storedBytes: 0, classA: 1, classB: 1 }, now);
+    return claimed ? this.assemble(actor, account, upload, fresh) : this.settled(upload.id);
+  }
+
+  /** Another call holds or finished the upload: its media once staged, else still in progress. */
+  private async settled(uploadId: string): Promise<UploadMediaOutputData> {
+    const upload = await this.ports.uploads.get(uploadId);
+    await this.ports.usage.record({ storedBytes: 0, classA: 0, classB: 1 }, this.ports.clock.now());
+    if (upload === null) {
+      return refusal("upload_not_found");
+    }
+    return upload.mediaId === null
+      ? { ok: true, complete: false, uploadId, missing: [] }
+      : this.finished(uploadId, upload.mediaId);
   }
 
   /** The first part sent of several opens the upload (it can never be the last one in). */
@@ -170,15 +205,17 @@ export class PartUpload {
     upload: PendingUpload,
     received: readonly StoredPart[],
   ): Promise<UploadMediaOutputData> {
+    const now = this.ports.clock.now();
     const bytes: Uint8Array[] = [];
     for (let index = 0; index < upload.partCount; index += 1) {
       const part = await this.ports.uploads.readPart(upload.id, index);
       if (part === null) {
+        await this.ports.uploads.unclaim(upload.id);
+        await this.ports.usage.record({ storedBytes: 0, classA: 1, classB: 1 }, now);
         return { ok: true, complete: false, uploadId: upload.id, missing: [index] };
       }
       bytes.push(part);
     }
-    const now = this.ports.clock.now();
     await this.ports.usage.record({ storedBytes: 0, classA: 0, classB: bytes.length }, now);
     const file = joinParts(bytes);
     const actual = await this.ports.hasher.sha256Hex(file);

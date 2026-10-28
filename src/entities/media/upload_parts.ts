@@ -6,7 +6,7 @@
  */
 import { MAX_UPLOAD_BYTES } from "../content/staged_media";
 import { ALLOWED, refuse, type Decision } from "../decision";
-import { HOUR, type Instant, type Millis } from "../time/instant";
+import { HOUR, MINUTE, type Instant, type Millis } from "../time/instant";
 
 /** One part's decoded bytes at most: its base64 (about 350,000 characters) fits one tool call. */
 export const MAX_PART_BYTES = 256 * 1024;
@@ -23,6 +23,17 @@ export function uploadExpiresAt(openedAt: Instant): Instant {
 
 export function uploadExpired(expiresAt: Instant, now: Instant): boolean {
   return now >= expiresAt;
+}
+
+/**
+ * The call that sees every part in claims the upload for this long to assemble it, so parts sent
+ * at the same time stage the file once. A claim left by a Worker that died runs out, and a later
+ * part can then assemble the file.
+ */
+export const ASSEMBLY_LEASE: Millis = MINUTE;
+
+export function assemblyLeaseUntil(now: Instant): Instant {
+  return now + ASSEMBLY_LEASE;
 }
 
 /** Part `index` (from 0) of `count` parts, with `count` between 1 and `MAX_UPLOAD_PARTS`. */

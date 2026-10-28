@@ -186,6 +186,33 @@ describe("upload_media: a bot's own image, in parts, then posted (GROKCHAT-20)",
     expect(uploads.length).toBeGreaterThan(0);
   });
 
+  it("the last two parts sent together (parallel tool calls) stage the file once", async () => {
+    const account = await seedAccount();
+    const client = await connect(await botEnv([account.id]));
+    const file = MASCOT_JPEG;
+    const parts = cut(file, 3);
+    const call = (index: number, uploadId?: string) =>
+      sendPart(client, {
+        account: account.id,
+        file,
+        part: parts[index] ?? file,
+        index,
+        count: 3,
+        ...(uploadId === undefined ? {} : { uploadId }),
+      });
+    const uploadId = String(body(await call(0))["upload_id"]);
+    const answers = (await Promise.all([call(1, uploadId), call(2, uploadId)])).map(body);
+    expect(answers.filter((answer) => answer["complete"] === true)).toHaveLength(1);
+    const rows = await env.DB.prepare("SELECT COUNT(*) AS n FROM staged_media").first<{
+      n: number;
+    }>();
+    expect(rows?.n).toBe(1);
+    expect((await env.MEDIA.list({ prefix: "media/" })).objects).toHaveLength(1);
+    expect(await pendingKeys()).toStrictEqual([`${UPLOADS_PREFIX}${uploadId}/upload`]);
+    const again = body(await call(1, uploadId));
+    expect(again).toStrictEqual(answers.find((answer) => answer["complete"] === true));
+  });
+
   it("one part of the full 256 KiB (about 350,000 base64 characters) goes through in one call", async () => {
     const account = await seedAccount();
     const client = await connect(await botEnv([account.id]));

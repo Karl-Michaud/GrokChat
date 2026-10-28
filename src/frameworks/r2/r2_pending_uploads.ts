@@ -23,6 +23,8 @@ interface UploadRecord {
   readonly label: string | null;
   readonly expiresAt: number;
   readonly mediaId: string | null;
+  /** Set while one call assembles the upload (ms since the epoch); absent otherwise. */
+  readonly claimedUntil?: number;
 }
 
 function record(upload: PendingUpload): UploadRecord {
@@ -57,10 +59,31 @@ export class R2PendingUploads implements PendingUploads, ExpiredUploads {
   constructor(private readonly bucket: R2Bucket) {}
 
   async open(upload: PendingUpload): Promise<void> {
-    await this.bucket.put(uploadKey(upload.id), JSON.stringify(record(upload)), {
-      httpMetadata: { contentType: "application/json" },
-      customMetadata: expiryMetadata(upload),
-    });
+    await this.write(upload.id, record(upload));
+  }
+
+  /**
+   * Rewrites the upload's record only if it is still the object read (an R2 conditional put on
+   * its etag), so of two calls claiming at the same time exactly one wins.
+   */
+  async claim(id: string, now: Instant, until: Instant): Promise<boolean> {
+    const object = await this.bucket.get(uploadKey(id));
+    if (object === null) {
+      return false;
+    }
+    const stored = await object.json<UploadRecord>();
+    if (stored.mediaId !== null || (stored.claimedUntil ?? now) > now) {
+      return false;
+    }
+    const written = await this.write(id, { ...stored, claimedUntil: until }, object.etag);
+    return written !== null;
+  }
+
+  async unclaim(id: string): Promise<void> {
+    const upload = await this.get(id);
+    if (upload !== null) {
+      await this.open(upload);
+    }
   }
 
   async get(id: string): Promise<PendingUpload | null> {
@@ -140,6 +163,15 @@ export class R2PendingUploads implements PendingUploads, ExpiredUploads {
       cursor = listed.cursor;
     }
     return { objects, complete: false };
+  }
+
+  /** The upload's record, with its expiry; with `etag`, only over that very object (else null). */
+  private write(id: string, stored: UploadRecord, etag?: string): Promise<R2Object | null> {
+    return this.bucket.put(uploadKey(id), JSON.stringify(stored), {
+      httpMetadata: { contentType: "application/json" },
+      customMetadata: { expires: String(stored.expiresAt) },
+      ...(etag === undefined ? {} : { onlyIf: { etagMatches: etag } }),
+    });
   }
 
   private async listAll(prefix: string): Promise<readonly R2Object[]> {

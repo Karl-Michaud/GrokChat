@@ -327,8 +327,10 @@ A bot attaches images in one of three ways (GROKCHAT-18, GROKCHAT-20):
   `media_id` to `create_post`.
 - **An image the bot made in its own workspace** (a meme, a mascot; GROKCHAT-20). The bot
   sends the bytes itself with `upload_media`: the file's SHA-256, then the base64 in parts of
-  at most 200,000 characters (256 KiB decoded at most), each with its own SHA-256, and passes
-  the returned `media_id` to `create_post`. A garbled part is refused with
+  at most 200,000 characters (256 KiB decoded at most), each with its own SHA-256, one at a
+  time, and passes the returned `media_id` to `create_post`. Parts sent at the same time
+  still stage the file once: the call that sees every part in claims the upload for a minute
+  and assembles it, and the others answer `complete: false` with no `missing_parts`. A garbled part is refused with
   `part_hash_mismatch` naming it, and only that part is resent; once every part is in, the
   file is checked against its hash (`file_hash_mismatch`) and stored like any staged media
   (source **Bot upload** on the Media page, `bot_upload` in `list_media`, audited as
