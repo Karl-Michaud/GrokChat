@@ -84,7 +84,11 @@ export function dashboardUseCases(
         p,
       ),
     listAccounts: (p) => new ListAccountsInteractor(world.accounts, guard, p),
-    listPosts: (p) => new ListPostsInteractor({ reader, metrics: world.metrics, guard }, p),
+    listPosts: (p) =>
+      new ListPostsInteractor(
+        { reader, metrics: world.metrics, imported: world.imported, guard },
+        p,
+      ),
     insights: (p) =>
       new GetPostInsightsInteractor(
         { reader, metrics: world.metrics, activity: world.activity, guard },

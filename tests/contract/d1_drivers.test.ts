@@ -5,6 +5,7 @@ import { WebCryptoBotTokenIssuer } from "../../src/frameworks/crypto/bot_token_i
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { freshStorage } from "../integration/support/fresh_d1";
 import { followerStoreContract } from "./followers.contract";
+import { importedPostsContract } from "./imported_posts.contract";
 import { mediaCatalogContract } from "./media_catalog.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import {
@@ -58,6 +59,13 @@ describe("D1 repositories", () => {
 
 describe("D1 follower store", () => {
   followerStoreContract(() => ({ store: stores().followers, accounts: stores().accounts }));
+});
+
+describe("D1 imported posts (GROKCHAT-19)", () => {
+  importedPostsContract(() => {
+    const { imported, accounts, writer, metrics } = stores();
+    return { store: imported, accounts, writer, metrics };
+  });
 });
 
 describe("D1 read models (GROKCHAT-15)", () => {

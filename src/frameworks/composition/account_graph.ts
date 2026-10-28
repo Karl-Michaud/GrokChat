@@ -11,8 +11,12 @@ import type { SingleFlight } from "../../use_cases/ports/single_flight";
 import type { TokenStore } from "../../use_cases/ports/token_store";
 import { AccountRecovery } from "../../use_cases/run_services/account_recovery";
 import { AccountXGatewayService } from "../../use_cases/run_services/account_x_gateway_service";
-import { PostsThenFollowers } from "../../use_cases/run_services/account_metrics_run";
-import { CollectAccountMetrics } from "../../use_cases/run_services/collect_account_metrics";
+import { ImportOwnPosts } from "../../use_cases/run_services/import_own_posts";
+import { ImportPostsThenFollowers } from "../../use_cases/run_services/account_metrics_run";
+import {
+  CollectAccountMetrics,
+  type CollectAccountMetricsPorts,
+} from "../../use_cases/run_services/collect_account_metrics";
 import { GuardedTransition } from "../../use_cases/run_services/guarded_transition";
 import { MediaStager } from "../../use_cases/run_services/media_stager";
 import { PartSender } from "../../use_cases/run_services/part_sender";
@@ -24,7 +28,11 @@ import { TokenStep } from "../../use_cases/run_services/token_step";
 import { XCallRecorder } from "../../use_cases/run_services/x_call_recorder";
 import { TokenVault } from "../crypto/token_vault";
 import { d1Stores, type D1Stores } from "../d1/d1_stores";
-import type { AccountServices, AccountXWiring } from "../durable_objects/account_services";
+import type {
+  AccountServices,
+  AccountXCalls,
+  AccountXWiring,
+} from "../durable_objects/account_services";
 import { DurableTokenStore } from "../durable_objects/durable_token_store";
 import { HttpXWiring } from "../durable_objects/http_x_wiring";
 import {
@@ -105,6 +113,20 @@ function invocationX(runtime: AccountRuntime, id: AccountId, meter: BudgetMeter)
   return { tokens, x: runtime.x.calls(meter, tokens) };
 }
 
+/** The metrics run (GROKCHAT-15, GROKCHAT-19): the import, the posts' metrics, the followers. */
+function metricsRun(
+  shared: Omit<CollectAccountMetricsPorts, "metrics" | "imported" | "x">,
+  stores: D1Stores,
+  x: AccountXCalls,
+): ImportPostsThenFollowers {
+  const { imported } = stores;
+  return new ImportPostsThenFollowers(
+    new ImportOwnPosts({ ...shared, imported, timeline: x.timeline }),
+    new CollectAccountMetrics({ ...shared, metrics: stores.metrics, imported, x: x.metrics }),
+    new SnapshotFollowers({ ...shared, days: stores.followers, x: x.users }),
+  );
+}
+
 /** One invocation's use-case graph, around its meter; the runtime's state is the object's. */
 export function accountGraph(
   runtime: AccountRuntime,
@@ -128,10 +150,7 @@ export function accountGraph(
     tokens,
     publish: new PublishPost({ reader, accounts, locks, clock, recovery, steps, sender }),
     reconcile: new ReconcileAccount({ ...shared, timeline: x.timeline, steps }),
-    collect: new PostsThenFollowers(
-      new CollectAccountMetrics({ ...shared, metrics: stores.metrics, x: x.metrics }),
-      new SnapshotFollowers({ ...shared, days: stores.followers, x: x.users }),
-    ),
+    collect: metricsRun(shared, stores, x),
     gateway: new AccountXGatewayService({
       publisher: x.publisher,
       store: runtime.tokens,

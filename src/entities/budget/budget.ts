@@ -79,6 +79,16 @@ export const RECONCILE_CHECK_COST: CallCost = {
   millis: 2 * SECOND,
 };
 
+/**
+ * One page of an import (GROKCHAT-19): the account's X user id, the timeline read, its audit and
+ * cost entries, and storing the posts found.
+ */
+export const IMPORT_PAGE_COST: CallCost = {
+  cloudflareCalls: 5,
+  externalSubrequests: 1,
+  millis: 2 * SECOND,
+};
+
 /** One metrics read of ≤ 100 posts: the read, its audit and cost entries, and the snapshots. */
 export const METRICS_READ_COST: CallCost = {
   cloudflareCalls: 3,

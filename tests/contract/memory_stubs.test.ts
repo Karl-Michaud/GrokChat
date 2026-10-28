@@ -51,7 +51,9 @@ import {
 } from "./coordination.contract";
 import { MemoryActivityLog } from "../../src/frameworks/memory/memory_activity";
 import { MemoryFollowerStore } from "../../src/frameworks/memory/memory_followers";
+import { MemoryImportedPosts } from "../../src/frameworks/memory/memory_imported_posts";
 import { followerStoreContract } from "./followers.contract";
+import { importedPostsContract } from "./imported_posts.contract";
 import { mediaCatalogContract } from "./media_catalog.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import {
@@ -116,6 +118,20 @@ describe("memory repositories", () => {
   });
   blobStoreContract(() => new MemoryMediaBlobStore());
   mediaUsageContract(() => new MemoryMediaUsage());
+});
+
+describe("memory imported posts (GROKCHAT-19)", () => {
+  importedPostsContract(() => {
+    const table = new MemoryPostTable();
+    const accounts = new MemoryAccountRepository();
+    const metrics = new MemoryMetricsRepository();
+    return {
+      store: new MemoryImportedPosts(table, accounts, metrics),
+      accounts,
+      writer: new MemoryPostWriter(table, new MemoryAuditLog(), new MemoryCostLedger()),
+      metrics,
+    };
+  });
 });
 
 describe("memory records", () => {

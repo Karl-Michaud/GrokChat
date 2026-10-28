@@ -45,11 +45,12 @@ describe("TickPresenter", () => {
         job: "metrics",
         dispatched: 1,
         waiting: 0,
+        imported: 3,
         read: 5,
         followers: 1,
         mediaDeleted: 2,
       }),
-    ).toBe("tick metrics: dispatched=1 waiting=0 read=5 followers=1 mediaDeleted=2");
+    ).toBe("tick metrics: dispatched=1 waiting=0 imported=3 read=5 followers=1 mediaDeleted=2");
   });
 });
 
@@ -64,19 +65,21 @@ describe("TickPresenter, for any summary", () => {
         count,
         count,
         count,
-        (job, dispatched, waiting, read, followers, mediaDeleted) => {
+        count,
+        (job, dispatched, waiting, imported, read, followers, mediaDeleted) => {
           const view = new TickViewModel();
           new TickPresenter(view).present({
             job,
             dispatched,
             waiting,
+            imported,
             read,
             followers,
             mediaDeleted,
           });
           expect(view.current()?.line).toBe(
             `tick ${job}: dispatched=${String(dispatched)} waiting=${String(waiting)} ` +
-              `read=${String(read)} followers=${String(followers)} mediaDeleted=${String(mediaDeleted)}`,
+              `imported=${String(imported)} read=${String(read)} followers=${String(followers)} mediaDeleted=${String(mediaDeleted)}`,
           );
         },
       ),

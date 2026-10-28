@@ -47,7 +47,7 @@ export function cronJobs(ports: CronPorts): CronJobs {
   const objects = new AccountObjects(ports.accounts);
   const dispatch = (meter: BudgetMeter) => new MeteredAccountDispatch(objects, meter);
   const cleanup = mediaCleanup(stores, ports.bucket, clock);
-  const { followers } = stores;
+  const { followers, imported } = stores;
   return {
     publish: {
       job: "publish_due",
@@ -66,7 +66,15 @@ export function cronJobs(ports: CronPorts): CronJobs {
       window: TICK_WINDOWS.metrics,
       build: (meter, presenter) =>
         new MetricsTickInteractor(
-          { reader, followers, collector: dispatch(meter), cleanup, meter, clock },
+          {
+            reader,
+            followers,
+            imports: imported,
+            collector: dispatch(meter),
+            cleanup,
+            meter,
+            clock,
+          },
           presenter,
         ),
     },

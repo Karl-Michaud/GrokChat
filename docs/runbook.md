@@ -246,6 +246,11 @@ file and run `npm run provision-secrets -- --rotate --env-file <path>`.
     days old only.
   - **Followers** are read once a UTC day per connected account by the `*/15` metrics tick
     (one User read, $0.010 a day per account), so follower growth moves in daily steps.
+  - **Posts you make yourself** (in the X app or on the website) are found by the same tick
+    every 6 hours per connected account (GROKCHAT-19), shown on **Posts** as "Posted on X",
+    and their metrics are read on the same schedule as GrokChat's posts. Each post costs
+    about $0.035 over its life ($0.005 to find, six $0.005 metrics reads; a fifth of that on
+    the app owner's account). The first import reads the last 30 days.
 - **Costs.** The **X API spend** card: X API spend in the range, per account, from our own
   ledger, which gets an entry for every X call. Compare it with the X developer portal's
   usage page and its spending limit. Every call and its cost is also on the **Activity**

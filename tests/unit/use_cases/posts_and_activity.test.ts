@@ -59,7 +59,7 @@ async function seeded(): Promise<World> {
 async function list(world: World, input: Partial<ListPostsInputData> = {}) {
   const presenter = new Capture<ListPostsOutputData>();
   await new ListPostsInteractor(
-    { reader: world.reader, metrics: world.metrics, guard: world.guard },
+    { reader: world.reader, metrics: world.metrics, imported: world.imported, guard: world.guard },
     presenter,
   ).execute({
     actor: HUMAN,
@@ -75,7 +75,10 @@ async function list(world: World, input: Partial<ListPostsInputData> = {}) {
   return presenter.last;
 }
 
-const ids = (out: ListPostsOutputData) => (out.ok ? out.rows.map((row) => row.post.id) : []);
+const ids = (out: ListPostsOutputData) =>
+  out.ok
+    ? out.rows.map((row) => (row.source === "grokchat" ? row.post.id : row.imported.xPostId))
+    : [];
 
 describe("listPosts (GROKCHAT-15)", () => {
   it("every post, newest first, each with its parts' newest reads summed (null when never read)", async () => {
@@ -121,6 +124,51 @@ describe("listPosts (GROKCHAT-15)", () => {
       4,
       2,
     ]);
+  });
+
+  it("lists posts made outside GrokChat as published, filtered and sorted with the rest (GROKCHAT-19)", async () => {
+    const world = await seeded();
+    const outside = (id: string, at: number, account = ACCOUNT) => ({
+      xPostId: xPostId(id),
+      accountId: account,
+      text: id,
+      createdAt: at,
+      inReplyTo: null,
+      importedAt: T0,
+    });
+    await world.imported.add([
+      outside("x-new", T0 - HOUR),
+      outside("x-old", T0 - 4 * DAY, OTHER_ACCOUNT),
+    ]);
+    await world.metrics.addSnapshots([aSnapshot("x-old", T0, 500, { accountId: OTHER_ACCOUNT })]);
+    const all = await list(world);
+    expect(ids(all)).toStrictEqual(["d", "x-new", "c", "b", "a", "x-old"]);
+    expect(all.ok && all.rows[1]).toStrictEqual({
+      source: "x",
+      imported: outside("x-new", T0 - HOUR),
+      metrics: null,
+    });
+    expect(all.ok && all.rows[5]?.metrics?.impressions).toBe(500);
+    expect(ids(await list(world, { sort: "impressions" }))).toStrictEqual([
+      "x-old",
+      "b",
+      "a",
+      "c",
+      "d",
+      "x-new",
+    ]);
+    expect(ids(await list(world, { statuses: ["PUBLISHED"] }))).toStrictEqual([
+      "x-new",
+      "c",
+      "b",
+      "a",
+      "x-old",
+    ]);
+    expect(ids(await list(world, { statuses: ["SCHEDULED"] }))).toStrictEqual(["d"]);
+    expect(ids(await list(world, { accountId: OTHER_ACCOUNT }))).toStrictEqual(["c", "x-old"]);
+    expect(
+      ids(await list(world, { window: { from: T0 - 5 * DAY, to: T0 - 3 * DAY } })),
+    ).toStrictEqual(["x-old"]);
   });
 
   it("refuses a bot, audited", async () => {

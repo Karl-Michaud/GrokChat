@@ -5,6 +5,7 @@ import type { AccountMetricsCollector } from "../ports/account_metrics_collector
 import type { BudgetMeter } from "../ports/budget_meter";
 import type { Clock } from "../ports/clock";
 import type { FollowerSchedule } from "../ports/follower_days";
+import type { ImportSchedule } from "../ports/imported_posts";
 import type { PostReader } from "../ports/post_reader";
 import { fanOut } from "../run_services/fan_out";
 import type { MediaCleanup } from "../run_services/media_cleanup";
@@ -15,6 +16,7 @@ import type { MetricsTickOutputBoundary } from "./output_boundary";
 export interface MetricsTickPorts {
   readonly reader: PostReader;
   readonly followers: FollowerSchedule;
+  readonly imports: ImportSchedule;
   readonly collector: AccountMetricsCollector;
   readonly cleanup: MediaCleanup;
   readonly meter: BudgetMeter;
@@ -24,7 +26,9 @@ export interface MetricsTickPorts {
 /**
  * Cron `*\/15` (plan §3.3 #8): metrics per account in its DO, then the staged-media cleanup. The
  * accounts visited are those with post metrics due (oldest due first), then those whose follower
- * snapshot for today is not taken yet (GROKCHAT-15); the object decides what each one needs.
+ * snapshot for today is not taken yet (GROKCHAT-15), then those whose import of posts made outside
+ * GrokChat is due or whose imported posts have metrics due (GROKCHAT-19); the object decides what
+ * each one needs.
  */
 export class MetricsTickInteractor implements MetricsTickInputBoundary {
   constructor(
@@ -45,6 +49,7 @@ export class MetricsTickInteractor implements MetricsTickInputBoundary {
       job: input.actor.job,
       dispatched: run.results.length,
       waiting: run.waiting,
+      imported: run.results.reduce((sum, summary) => sum + summary.imported, 0),
       read: run.results.reduce((sum, summary) => sum + summary.read, 0),
       followers: run.results.reduce((sum, summary) => sum + summary.followers, 0),
       mediaDeleted,
@@ -56,6 +61,7 @@ export class MetricsTickInteractor implements MetricsTickInputBoundary {
       .filter((item) => item.metrics)
       .map((item) => item.accountId);
     const followers = await this.ports.followers.accountsDue(utcDay(now));
-    return [...new Set([...metrics, ...followers])];
+    const imports = await this.ports.imports.accountsDue(now);
+    return [...new Set([...metrics, ...followers, ...imports])];
   }
 }

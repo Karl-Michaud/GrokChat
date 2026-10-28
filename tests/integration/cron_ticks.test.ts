@@ -187,10 +187,16 @@ describe("the metrics tick (*/15): metrics per account, then the staged-media cl
     await env.MEDIA.put(media.storageKey, new Uint8Array([1, 2, 3]));
 
     await tick(CRONS.metrics);
-    // The post's metrics, then the account's follower snapshot for the day (GROKCHAT-15).
-    expect(x.calls()).toStrictEqual(["GET /2/tweets", `GET /2/users/${account.xUserId}`]);
-    expect(x.seen[0]?.url.searchParams.get("ids")).toBe(xId);
-    expect(x.seen[1]?.url.searchParams.get("user.fields")).toBe("public_metrics");
+    // The import of posts made outside GrokChat (GROKCHAT-19: the only post is ours, so none),
+    // the post's metrics, then the account's follower snapshot for the day (GROKCHAT-15).
+    expect(x.calls()).toStrictEqual([
+      `GET /2/users/${account.xUserId}/tweets`,
+      "GET /2/tweets",
+      `GET /2/users/${account.xUserId}`,
+    ]);
+    expect(await stores().imported.list({})).toStrictEqual([]);
+    expect(x.seen[1]?.url.searchParams.get("ids")).toBe(xId);
+    expect(x.seen[2]?.url.searchParams.get("user.fields")).toBe("public_metrics");
     const snapshots = await stores().metrics.latest([xPostId(xId)]);
     expect(snapshots.map((snapshot) => snapshot.xPostId)).toStrictEqual([xPostId(xId)]);
     expect(await stores().media.get(media.id)).toBeNull();

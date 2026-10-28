@@ -104,10 +104,12 @@ export class XEmulator {
     const endParam = query.get("end_time");
     const end = endParam === null ? Number.POSITIVE_INFINITY : Date.parse(endParam);
     const max = Number(query.get("max_results") ?? "10");
-    const page = [...this.posts.values()]
+    const offset = Number(query.get("pagination_token") ?? "0");
+    const matching = [...this.posts.values()]
       .filter((post) => post.createdAt >= start && post.createdAt < end)
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, max);
+      .sort((a, b) => b.createdAt - a.createdAt);
+    const page = matching.slice(offset, offset + max);
+    const next = offset + max < matching.length ? { next_token: String(offset + max) } : {};
     if (page.length === 0) {
       return respond(200, { meta: { result_count: 0 } });
     }
@@ -125,6 +127,7 @@ export class XEmulator {
         result_count: page.length,
         newest_id: page[0]?.id,
         oldest_id: page.at(-1)?.id,
+        ...next,
       },
     });
   }
