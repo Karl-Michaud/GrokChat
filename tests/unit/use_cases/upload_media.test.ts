@@ -262,6 +262,29 @@ describe("upload_media: a file in parts (GROKCHAT-20)", () => {
     expect((await usageAt(world)).storedBytes).toBe(3);
   });
 
+  it("a part replaced with other bytes counts once: the stored bytes end as the file's", async () => {
+    const world = await world0();
+    await part(world, 0, null);
+    await send({
+      world,
+      bytes: new Uint8Array([9]),
+      input: { uploadId: "id-1", partIndex: 1, partCount: 3 },
+    });
+    await part(world, 1, "id-1");
+    expect(await part(world, 2, "id-1")).toMatchObject({ ok: true, complete: true });
+    expect((await usageAt(world)).storedBytes).toBe(JPEG.length);
+  });
+
+  it("an upload_id with part_count 1 is still that upload's part, not a new file", async () => {
+    const world = await world0();
+    await part(world, 0, null);
+    expect(await part(world, 0, "id-1", { partCount: 1 })).toStrictEqual({
+      ok: false,
+      code: "upload_mismatch",
+    });
+    expect(world.media.rows.size).toBe(0);
+  });
+
   it("refuses the assembled file when its hash is not sha256, and discards the upload", async () => {
     const world = await world0();
     const fileSha256 = "f00d";
@@ -341,7 +364,11 @@ describe("upload_media: a file in parts (GROKCHAT-20)", () => {
     expect(await part(world, 0, null)).toStrictEqual({ ok: false, code: "media_quota" });
     expect(world.uploads.entries.size).toBe(0);
     await world.usage.record({ storedBytes: -1, classA: 0, classB: 0 }, T0);
-    expect(await part(world, 0, null)).toMatchObject({ ok: true, uploadId: "id-2" });
+    expect(await part(world, 0, null)).toMatchObject({ ok: true, uploadId: "id-1" });
+    // Part 0 took the last 8 bytes; part 1 (8 more) is over, and is not stored.
+    await world.usage.record({ storedBytes: 0, classA: 0, classB: 0 }, T0);
+    expect(await part(world, 1, "id-1")).toStrictEqual({ ok: false, code: "media_quota" });
+    expect(await world.uploads.parts("id-1")).toHaveLength(1);
   });
 
   it("a part gone before assembly is reported missing again", async () => {

@@ -51,6 +51,12 @@ export function fileHashMismatch(
   return { ...refusal("file_hash_mismatch"), part: null, expected, actual };
 }
 
+const partOf = (part: CheckedPart): StoredPart => ({
+  index: part.index,
+  sha256: part.sha256,
+  size: part.bytes.length,
+});
+
 const sizeOf = (parts: readonly StoredPart[]): number =>
   parts.reduce((sum, part) => sum + part.size, 0);
 
@@ -72,7 +78,10 @@ export class PartUpload {
   }
 
   async accept(actor: Actor, account: Account, part: CheckedPart): Promise<UploadMediaOutputData> {
-    const resolved = await this.resolve(account, part);
+    if (part.uploadId === null) {
+      return this.open(account, part);
+    }
+    const resolved = await this.resolve(account, part.uploadId, part);
     if (!("upload" in resolved)) {
       return resolved;
     }
@@ -84,36 +93,41 @@ export class PartUpload {
     if (kept !== null) {
       return kept;
     }
-    const others = stored.filter((item) => item.index !== part.index);
-    const received = [
-      ...others,
-      { index: part.index, sha256: part.sha256, size: part.bytes.length },
-    ];
-    const missing = missingParts(
-      upload.partCount,
-      received.map((item) => item.index),
-    );
+    const byIndex = new Map(stored.map((item) => [item.index, item]));
+    const received = [...byIndex.set(part.index, partOf(part)).values()];
+    const missing = missingParts(upload.partCount, byIndex.keys());
     return missing.length > 0
       ? { ok: true, complete: false, uploadId: upload.id, missing }
       : this.assemble(actor, account, upload, received);
   }
 
-  /** The upload this part belongs to (a new one without an upload id) and its parts so far. */
-  private async resolve(account: Account, part: CheckedPart): Promise<Resolved> {
+  /** The first part sent of several opens the upload (it can never be the last one in). */
+  private async open(account: Account, part: CheckedPart): Promise<UploadMediaOutputData> {
     const now = this.ports.clock.now();
-    if (part.uploadId === null) {
-      const upload: PendingUpload = {
-        id: this.ports.ids.newId(),
-        accountId: account.id,
-        fileSha256: part.fileSha256,
-        partCount: part.count,
-        label: part.label,
-        expiresAt: uploadExpiresAt(now),
-        mediaId: null,
-      };
-      return { upload, stored: [] };
+    if (!canStore(await this.ports.usage.current(now), part.bytes.length, now).allowed) {
+      return refusal("media_quota");
     }
-    const upload = await this.ports.uploads.get(part.uploadId);
+    const upload: PendingUpload = {
+      id: this.ports.ids.newId(),
+      accountId: account.id,
+      fileSha256: part.fileSha256,
+      partCount: part.count,
+      label: part.label,
+      expiresAt: uploadExpiresAt(now),
+      mediaId: null,
+    };
+    await this.ports.uploads.open(upload);
+    await this.ports.uploads.putPart(upload, partOf(part), part.bytes);
+    const usage = { storedBytes: part.bytes.length, classA: 2, classB: 0 };
+    await this.ports.usage.record(usage, now);
+    const missing = missingParts(upload.partCount, [part.index]);
+    return { ok: true, complete: false, uploadId: upload.id, missing };
+  }
+
+  /** The upload a later part names, if it is this account's, live and the same file. */
+  private async resolve(account: Account, uploadId: string, part: CheckedPart): Promise<Resolved> {
+    const now = this.ports.clock.now();
+    const upload = await this.ports.uploads.get(uploadId);
     if (upload?.accountId !== account.id) {
       return refusal("upload_not_found");
     }
@@ -144,13 +158,8 @@ export class PartUpload {
     if (!canStore(await this.ports.usage.current(now), added, now).allowed) {
       return refusal("media_quota");
     }
-    const fresh = part.uploadId === null;
-    if (fresh) {
-      await this.ports.uploads.open(upload);
-    }
-    const item = { index: part.index, sha256: part.sha256, size: part.bytes.length };
-    await this.ports.uploads.putPart(upload, item, part.bytes);
-    await this.ports.usage.record({ storedBytes: added, classA: fresh ? 2 : 1, classB: 0 }, now);
+    await this.ports.uploads.putPart(upload, partOf(part), part.bytes);
+    await this.ports.usage.record({ storedBytes: added, classA: 1, classB: 0 }, now);
     return null;
   }
 

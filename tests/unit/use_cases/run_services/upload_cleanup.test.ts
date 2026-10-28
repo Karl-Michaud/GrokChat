@@ -77,8 +77,17 @@ describe("UploadCleanup (GROKCHAT-20)", () => {
   });
 
   it("runs no listing when even the listing does not fit", async () => {
-    const { uploads, cleanup } = await setup(1);
-    expect(await cleanup.run(meterWith(QUERY - 1))).toBe(0);
+    const { uploads, usage, cleanup } = await setup(1);
+    let listed = 0;
+    const expired = uploads.expired.bind(uploads);
+    uploads.expired = (now, limit) => {
+      listed += 1;
+      return expired(now, limit);
+    };
+    const meter = meterWith(QUERY - 1);
+    expect(await cleanup.run(meter)).toBe(0);
+    expect([listed, meter.remaining().cloudflareCalls]).toStrictEqual([0, QUERY - 1]);
+    expect((await usage.current(T0)).classA).toBe(0);
     expect(uploads.entries.size).toBe(1);
     expect(await cleanup.run(meterWith(QUERY))).toBe(0);
     expect(await cleanup.run(meterWith(QUERY + ITEM))).toBe(1);

@@ -27,7 +27,8 @@ export function uploadExpired(expiresAt: Instant, now: Instant): boolean {
 
 /** Part `index` (from 0) of `count` parts, with `count` between 1 and `MAX_UPLOAD_PARTS`. */
 export function checkPart(index: number, count: number): Decision<"part_out_of_range"> {
-  const countOk = Number.isInteger(count) && count >= 1 && count <= MAX_UPLOAD_PARTS;
+  // A count below 1 has no index from 0 below it, so the index check refuses it too.
+  const countOk = Number.isInteger(count) && count <= MAX_UPLOAD_PARTS;
   const indexOk = Number.isInteger(index) && index >= 0 && index < count;
   return countOk && indexOk ? ALLOWED : refuse("part_out_of_range");
 }

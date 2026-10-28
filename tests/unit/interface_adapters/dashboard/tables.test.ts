@@ -126,6 +126,7 @@ describe("label tables", () => {
       "Updated the posting policy (info)",
       "Staged media (neutral)",
       "Uploaded media (neutral)",
+      "Bot uploaded media (neutral)",
       "Deleted media (neutral)",
       "Listed media (neutral)",
       "Viewed media (neutral)",

@@ -67,6 +67,42 @@ describe("tool input schemas", () => {
     expect(parsed).toStrictEqual({ post_id: "p" });
   });
 
+  it("upload_media: hex SHA-256s, base64 up to 1,000,000 characters, optional part fields (GROKCHAT-20)", () => {
+    const hash = "aB".repeat(32);
+    const UPLOAD = { account_id: "a", sha256: hash, data_base64: "AAEC", part_sha256: hash };
+    expect(TOOL_SCHEMAS.upload_media.parse({ ...UPLOAD, extra: 1 })).toStrictEqual(UPLOAD);
+    const full = {
+      ...UPLOAD,
+      label: "x".repeat(1_000),
+      upload_id: "u",
+      part_index: 10_000,
+      part_count: 10_000,
+    };
+    expect(TOOL_SCHEMAS.upload_media.parse(full)).toStrictEqual(full);
+    expect(ok("upload_media", { ...UPLOAD, data_base64: "A" })).toBe(true);
+    expect(ok("upload_media", { ...UPLOAD, data_base64: "A".repeat(1_000_000) })).toBe(true);
+    expect(ok("upload_media", { ...UPLOAD, part_index: 0, part_count: 1 })).toBe(true);
+    for (const bad of [
+      { sha256: "a".repeat(63) },
+      { sha256: "a".repeat(65) },
+      { sha256: `x${"a".repeat(64)}` },
+      { sha256: `${"a".repeat(64)}x` },
+      { part_sha256: "g".repeat(64) },
+      { data_base64: "" },
+      { data_base64: "A".repeat(1_000_001) },
+      { label: "x".repeat(1_001) },
+      { upload_id: "" },
+      { part_index: -1 },
+      { part_index: 10_001 },
+      { part_index: 0.5 },
+      { part_count: 0 },
+      { part_count: 10_001 },
+      { account_id: undefined },
+    ]) {
+      expect([bad, ok("upload_media", { ...UPLOAD, ...bad })]).toStrictEqual([bad, false]);
+    }
+  });
+
   it("create_thread: 1 to 25 parts", () => {
     const parts = (n: number) => Array.from({ length: n }, () => ({ text: "p" }));
     expect(ok("create_thread", THREAD)).toBe(true);
