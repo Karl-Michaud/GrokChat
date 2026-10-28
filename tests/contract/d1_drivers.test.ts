@@ -7,6 +7,11 @@ import { followerStoreContract } from "./followers.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import { postStoreContract } from "./post_store.contract";
 import {
+  activityLogContract,
+  followerHistoryContract,
+  metricsHistoryContract,
+} from "./read_models.contract";
+import {
   auditLogContract,
   costLedgerContract,
   loginThrottleContract,
@@ -45,6 +50,15 @@ describe("D1 repositories", () => {
 
 describe("D1 follower store", () => {
   followerStoreContract(() => ({ store: stores().followers, accounts: stores().accounts }));
+});
+
+describe("D1 read models (GROKCHAT-15)", () => {
+  metricsHistoryContract(() => stores().metrics);
+  followerHistoryContract(() => stores().followers);
+  activityLogContract(() => {
+    const { activity, audit, costs } = stores();
+    return { activity, audit, costs };
+  });
 });
 
 describe("D1 records", () => {

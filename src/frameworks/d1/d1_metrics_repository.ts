@@ -1,6 +1,7 @@
 import { accountId, xPostId, type AccountId, type XPostId } from "../../entities/identity/ids";
 import type { MetricsSnapshot } from "../../entities/metrics/metrics_snapshot";
 import type { TimeWindow } from "../../entities/time/instant";
+import type { MetricsHistory } from "../../use_cases/ports/metrics_history";
 import type { MetricsRepository } from "../../use_cases/ports/metrics_repository";
 import { nextMetricsAtSql } from "./metrics_next";
 
@@ -51,7 +52,24 @@ const LATEST_SQL =
   "ORDER BY taken_at DESC, seq DESC LIMIT 1) " +
   "ORDER BY (SELECT MIN(seq) FROM metrics WHERE x_post_id = m.x_post_id)";
 
-export class D1MetricsRepository implements MetricsRepository {
+/**
+ * A window's snapshots of one account or all (`?3` NULL), then for each post read in it its
+ * newest snapshot before the window (GROKCHAT-15). The account is tested only when given, so
+ * the all-accounts query uses `metrics_taken` and the one-account query `metrics_account_taken`.
+ */
+function historySql(oneAccount: boolean): string {
+  const scope = oneAccount ? " AND account_id = ?3" : "";
+  const inWindow = `taken_at >= ?1 AND taken_at < ?2${scope}`;
+  return (
+    `SELECT ${COLUMNS}, seq FROM metrics WHERE ${inWindow} UNION ALL ` +
+    `SELECT ${COLUMNS}, seq FROM metrics WHERE seq IN (SELECT (SELECT b.seq FROM metrics AS b ` +
+    "WHERE b.x_post_id = w.x_post_id AND b.taken_at < ?1 ORDER BY b.taken_at DESC, b.seq DESC " +
+    `LIMIT 1) FROM (SELECT DISTINCT x_post_id FROM metrics WHERE ${inWindow}) AS w) ` +
+    "ORDER BY taken_at, seq"
+  );
+}
+
+export class D1MetricsRepository implements MetricsRepository, MetricsHistory {
   constructor(private readonly db: D1Database) {}
 
   async addSnapshots(snapshots: readonly MetricsSnapshot[]): Promise<void> {
@@ -78,6 +96,29 @@ export class D1MetricsRepository implements MetricsRepository {
   async latest(xPostIds: readonly XPostId[]): Promise<readonly MetricsSnapshot[]> {
     const result = await this.db
       .prepare(LATEST_SQL)
+      .bind(JSON.stringify(xPostIds))
+      .all<SnapshotRow>();
+    return result.results.map(fromRow);
+  }
+
+  async history(
+    account: AccountId | null,
+    window: TimeWindow,
+  ): Promise<readonly MetricsSnapshot[]> {
+    const statement = this.db.prepare(historySql(account !== null));
+    const bound =
+      account === null
+        ? statement.bind(window.from, window.to)
+        : statement.bind(window.from, window.to, account);
+    return (await bound.all<SnapshotRow>()).results.map(fromRow);
+  }
+
+  async postSeries(xPostIds: readonly XPostId[]): Promise<readonly MetricsSnapshot[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT ${COLUMNS} FROM metrics WHERE x_post_id IN (SELECT value FROM json_each(?1)) ` +
+          "ORDER BY taken_at, seq",
+      )
       .bind(JSON.stringify(xPostIds))
       .all<SnapshotRow>();
     return result.results.map(fromRow);

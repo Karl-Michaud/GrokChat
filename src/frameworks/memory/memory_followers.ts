@@ -1,8 +1,9 @@
 import type { AccountId } from "../../entities/identity/ids";
 import type { FollowerSnapshot } from "../../entities/metrics/follower_snapshot";
-import type { Instant } from "../../entities/time/instant";
+import { inWindow, type Instant, type TimeWindow } from "../../entities/time/instant";
 import type { AccountRepository } from "../../use_cases/ports/account_repository";
 import type { FollowerDays, FollowerSchedule } from "../../use_cases/ports/follower_days";
+import type { FollowerHistory } from "../../use_cases/ports/follower_history";
 
 interface DayRow {
   readonly claimedAt: Instant;
@@ -10,7 +11,7 @@ interface DayRow {
 }
 
 /** `follower_snapshots` in memory: one row per account and day, keyed `account|day`. */
-export class MemoryFollowerStore implements FollowerDays, FollowerSchedule {
+export class MemoryFollowerStore implements FollowerDays, FollowerSchedule, FollowerHistory {
   readonly rows = new Map<string, DayRow>();
 
   constructor(private readonly accounts: AccountRepository) {}
@@ -46,5 +47,22 @@ export class MemoryFollowerStore implements FollowerDays, FollowerSchedule {
       (account) => account.status === "ACTIVE" || account.status === "PAUSED",
     );
     return connected.map((account) => account.id).filter((id) => !this.rows.has(`${id}|${day}`));
+  }
+
+  history(account: AccountId | null, window: TimeWindow): Promise<readonly FollowerSnapshot[]> {
+    const recorded = [...this.rows.values()]
+      .flatMap((row) => (row.snapshot === null ? [] : [row.snapshot]))
+      .filter((snapshot) => account === null || snapshot.accountId === account)
+      .sort((a, b) => a.takenAt - b.takenAt || a.accountId.localeCompare(b.accountId));
+    const before = new Map<AccountId, FollowerSnapshot>();
+    for (const snapshot of recorded.filter((item) => item.takenAt < window.from)) {
+      before.set(snapshot.accountId, snapshot);
+    }
+    const inside = recorded.filter((snapshot) => inWindow(window, snapshot.takenAt));
+    return Promise.resolve(
+      [...before.values(), ...inside].sort(
+        (a, b) => a.takenAt - b.takenAt || a.accountId.localeCompare(b.accountId),
+      ),
+    );
   }
 }

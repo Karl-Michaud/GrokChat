@@ -13,6 +13,8 @@ import {
   type AccountId,
   type StagedMediaId,
 } from "../../../src/entities/identity/ids";
+import type { FollowerSnapshot } from "../../../src/entities/metrics/follower_snapshot";
+import type { MetricsSnapshot } from "../../../src/entities/metrics/metrics_snapshot";
 import { PENDING, type PartState } from "../../../src/entities/posts/part_state";
 import type { Post, PostPart } from "../../../src/entities/posts/post";
 
@@ -96,5 +98,45 @@ export function aMedia(overrides: Partial<StagedMedia> = {}): StagedMedia {
     stagedAt: T0,
     attachedTo: null,
     ...overrides,
+  };
+}
+
+/** A metrics read of `id` at `at`, with every count set from `impressions` (GROKCHAT-15). */
+export function aSnapshot(
+  id: string,
+  at: number,
+  impressions: number,
+  overrides: Partial<MetricsSnapshot> = {},
+): MetricsSnapshot {
+  return {
+    xPostId: xPostId(id),
+    accountId: ACCOUNT,
+    takenAt: at,
+    impressions,
+    likes: Math.floor(impressions / 10),
+    reposts: Math.floor(impressions / 50),
+    replies: Math.floor(impressions / 100),
+    quotes: 0,
+    bookmarks: Math.floor(impressions / 25),
+    urlLinkClicks: null,
+    userProfileClicks: null,
+    ...overrides,
+  };
+}
+
+/** A recorded follower snapshot (GROKCHAT-15). */
+export function aFollowerSnapshot(
+  at: number,
+  followers: number,
+  account: AccountId = ACCOUNT,
+): FollowerSnapshot {
+  return {
+    accountId: account,
+    day: new Date(at).toISOString().slice(0, 10),
+    takenAt: at,
+    followers,
+    following: 1,
+    posts: 2,
+    listed: 0,
   };
 }

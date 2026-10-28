@@ -1,4 +1,5 @@
 import { D1AccountRepository } from "./d1_account_repository";
+import { D1ActivityLog } from "./d1_activity_log";
 import { D1AuditLog } from "./d1_audit_log";
 import { D1CostLedger } from "./d1_cost_ledger";
 import { D1FollowerStore } from "./d1_follower_store";
@@ -28,6 +29,7 @@ export function d1Stores(db: D1Database) {
     metrics: new D1MetricsRepository(db),
     followers: new D1FollowerStore(db),
     audit: new D1AuditLog(db),
+    activity: new D1ActivityLog(db),
     costs: new D1CostLedger(db),
     states: new D1OAuthStateStore(db),
     throttle: new D1LoginThrottle(db),

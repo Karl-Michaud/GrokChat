@@ -51,6 +51,7 @@ import {
   MemoryAccountRepository,
   MemoryMediaRepository,
 } from "../../../src/frameworks/memory/memory_repositories";
+import { MemoryActivityLog } from "../../../src/frameworks/memory/memory_activity";
 import { MemoryFollowerStore } from "../../../src/frameworks/memory/memory_followers";
 import { FakeXTokenEndpoint, MemoryTokenStore } from "../../../src/frameworks/memory/memory_tokens";
 import { AccessGuard } from "../../../src/use_cases/access/access_guard";
@@ -104,6 +105,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const audit = new MemoryAuditLog();
   const costs = new MemoryCostLedger();
   const metrics = new MemoryMetricsRepository();
+  const activity = new MemoryActivityLog(audit, costs);
   const table = new MemoryPostTable();
   const reader = new MemoryPostReader(table, metrics);
   const writer = new MemoryPostWriter(table, audit, costs);
@@ -240,6 +242,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     audit,
     costs,
     metrics,
+    activity,
     table,
     reader,
     writer,

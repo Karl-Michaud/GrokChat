@@ -1,13 +1,48 @@
 import { accountId, type AccountId } from "../../entities/identity/ids";
 import type { FollowerSnapshot } from "../../entities/metrics/follower_snapshot";
-import type { Instant } from "../../entities/time/instant";
+import type { Instant, TimeWindow } from "../../entities/time/instant";
 import type { FollowerDays, FollowerSchedule } from "../../use_cases/ports/follower_days";
+import type { FollowerHistory } from "../../use_cases/ports/follower_history";
+
+interface SnapshotRow {
+  readonly account_id: string;
+  readonly day: string;
+  readonly taken_at: number;
+  readonly followers: number;
+  readonly following: number;
+  readonly posts: number;
+  readonly listed: number;
+}
+
+const fromRow = (row: SnapshotRow): FollowerSnapshot => ({
+  accountId: accountId(row.account_id),
+  day: row.day,
+  takenAt: row.taken_at,
+  followers: row.followers,
+  following: row.following,
+  posts: row.posts,
+  listed: row.listed,
+});
+
+const RECORDED =
+  "SELECT account_id, day, taken_at, followers, following, posts, listed FROM follower_snapshots";
+
+/** Recorded rows in the window, then each account's newest recorded row before it. */
+function historySql(oneAccount: boolean): string {
+  const scope = oneAccount ? " AND account_id = ?3" : "";
+  return (
+    `${RECORDED} WHERE taken_at >= ?1 AND taken_at < ?2${scope} UNION ALL ` +
+    `${RECORDED} AS f WHERE taken_at < ?1${scope} AND taken_at = (SELECT MAX(b.taken_at) ` +
+    "FROM follower_snapshots AS b WHERE b.account_id = f.account_id AND b.taken_at < ?1) " +
+    "ORDER BY taken_at, account_id"
+  );
+}
 
 /**
  * `follower_snapshots` (migration 0003): one row per account and UTC day, its primary key the
  * once-a-day rule. A claim inserts the row with no counts; the read fills them in.
  */
-export class D1FollowerStore implements FollowerDays, FollowerSchedule {
+export class D1FollowerStore implements FollowerDays, FollowerSchedule, FollowerHistory {
   constructor(private readonly db: D1Database) {}
 
   async claim(account: AccountId, day: string, at: Instant): Promise<boolean> {
@@ -58,5 +93,17 @@ export class D1FollowerStore implements FollowerDays, FollowerSchedule {
       .bind(day)
       .all<{ readonly id: string }>();
     return result.results.map((row) => accountId(row.id));
+  }
+
+  async history(
+    account: AccountId | null,
+    window: TimeWindow,
+  ): Promise<readonly FollowerSnapshot[]> {
+    const statement = this.db.prepare(historySql(account !== null));
+    const bound =
+      account === null
+        ? statement.bind(window.from, window.to)
+        : statement.bind(window.from, window.to, account);
+    return (await bound.all<SnapshotRow>()).results.map(fromRow);
   }
 }
