@@ -110,7 +110,9 @@ describe("the dashboard's post commands on D1, through main.ts", () => {
     expect(x.calls().slice(before)).toStrictEqual([`DELETE /2/tweets/${sent?.id ?? ""}`]);
     expect(x.emulator.posts.size).toBe(0);
     expect(await statusOf(missed)).toBe("DELETED");
-    expect((await browser.page(page(missed))).html).toContain("DELETED");
+    expect((await browser.page(page(missed))).html).toContain(
+      'class="chip neutral">Deleted</span>',
+    );
     // Nothing else reached X: no send for the edited, cancelled or rejected posts.
     const sends = x.calls().filter((call) => call === "POST /2/tweets");
     expect(sends).toHaveLength(1);

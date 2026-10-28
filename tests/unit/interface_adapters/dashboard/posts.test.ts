@@ -305,14 +305,14 @@ describe("a post's page", () => {
         number: 1,
         text: "live one",
         media: "",
-        state: "SENT",
+        state: { label: "On X", tone: "good" },
         xUrl: "https://x.com/musechat_one/status/x-1",
       },
       {
         number: 2,
         text: "two",
         media: "",
-        state: "SENT",
+        state: { label: "On X", tone: "good" },
         xUrl: "https://x.com/musechat_one/status/x-2",
       },
     ]);

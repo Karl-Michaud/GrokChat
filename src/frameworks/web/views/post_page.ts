@@ -3,7 +3,7 @@ import type { ActivityRow } from "../../../interface_adapters/dashboard/activity
 import type { PostDetailView } from "../../../interface_adapters/dashboard/post_views";
 import type { PageFrame } from "../respond";
 import { lineChartView } from "./charts";
-import { card, chip, csrfField, externalLink, postButton, who } from "./components";
+import { card, chip, csrfField, empty, externalLink, postButton, who } from "./components";
 import { icon } from "./icons";
 import { shell, type Html } from "./layout";
 
@@ -18,8 +18,7 @@ function thread(view: PostDetailView): Html {
           <div class="stack">
             <p class="thread-text">${part.text}</p>
             <span class="row faint">
-              <span class="mono">${part.state}</span>
-              ${part.xUrl === null ? "" : externalLink(part.xUrl, "View on X")}
+              ${chip(part.state)} ${part.xUrl === null ? "" : externalLink(part.xUrl, "View on X")}
             </span>
           </div>
         </li>`,
@@ -127,6 +126,13 @@ function timeline(rows: readonly ActivityRow[]): Html {
 }
 
 function metrics(view: PostDetailView): Html {
+  if (view.reads === 0) {
+    return empty(
+      "analytics",
+      "No metrics yet",
+      "X has not been read for this post yet. Metrics arrive within the hour after it publishes.",
+    );
+  }
   const t = view.totals;
   return html`<div class="stack">
     <div class="mini-metrics">
@@ -137,7 +143,7 @@ function metrics(view: PostDetailView): Html {
       <div><strong>${t.replies}</strong><span>Replies</span></div>
       <div><strong>${t.linkClicks}</strong><span>Link clicks</span></div>
     </div>
-    ${view.reads === 0 ? html`<p class="muted">X has not been read for this post yet. Metrics arrive within the hour after it publishes.</p>` : lineChartView(view.chart, "Impressions", "short")}
+    ${lineChartView(view.chart, "Impressions", "short")}
   </div>`;
 }
 

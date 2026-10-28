@@ -35,7 +35,7 @@ export interface Page {
 
 function head(title: string): Html {
   return html`<meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta
       name="htmx-config"
@@ -74,15 +74,25 @@ function nav(path: string): Html {
   </nav>`;
 }
 
-function switcher(page: Page, path: string): Html {
+/**
+ * The account filter. The sidebar holds it on wide screens; on narrow ones the sidebar is a top
+ * bar, so a second copy sits in the page's tools, next to the range picker (CSS shows one).
+ */
+function switcher(page: Page, path: string, place: "side" | "top"): Html {
   if (page.switcher === undefined) {
     return "";
   }
   const { accounts, keep } = page.switcher;
-  return html`<form class="sidebar-section" method="get" action="${path}" data-autosubmit>
-    <label class="sidebar-label" for="account-switch">Account</label>
+  const id = `account-switch-${place}`;
+  return html`<form
+    class="switcher switcher-${place}"
+    method="get"
+    action="${path}"
+    data-autosubmit
+  >
+    <label class="sidebar-label" for="${id}">Account</label>
     ${Object.entries(keep).map(([name, value]) => html`<input type="hidden" name="${name}" value="${value}" />`)}
-    <select id="account-switch" name="account" aria-label="Account">
+    <select id="${id}" name="account">
       <option value="">All accounts</option>
       ${accounts.map(
         (account) =>
@@ -105,13 +115,17 @@ function foot(frame: PageFrame): Html {
   return html`<div class="sidebar-foot">
     <form method="post" action="/dashboard/theme" hx-boost="false" class="inline-form">
       ${csrfField(frame.csrf)}<input type="hidden" name="back" value="${frame.path}" />
-      <button class="btn btn-ghost btn-block" title="Switch between system, light and dark">
+      <button
+        class="btn btn-ghost btn-block"
+        title="Switch between system, light and dark"
+        aria-label="${THEME_LABEL[frame.theme]}"
+      >
         ${icon("theme")}<span class="btn-label">${THEME_LABEL[frame.theme]}</span>
       </button>
     </form>
     <form method="post" action="/dashboard/logout" class="inline-form">
       ${csrfField(frame.csrf)}
-      <button class="btn btn-ghost btn-block">
+      <button class="btn btn-ghost btn-block" title="Log out" aria-label="Log out">
         ${icon("logout")}<span class="btn-label">Log out</span>
       </button>
     </form>
@@ -125,10 +139,12 @@ export function shell(page: Page, frame: PageFrame): Html {
     html`<body hx-boost="true">
       <div class="app">
         <aside class="sidebar">
-          <a class="brand" href="/dashboard/analytics"
-            ><span class="brand-mark">${icon("mark")}</span><span>GrokChat</span></a
-          >
-          ${nav(frame.path)} ${switcher(page, frame.path)} ${foot(frame)}
+          <div class="sidebar-inner">
+            <a class="brand" href="/dashboard/analytics"
+              ><span class="brand-mark">${icon("mark")}</span><span>GrokChat</span></a
+            >
+            ${nav(frame.path)} ${switcher(page, frame.path, "side")} ${foot(frame)}
+          </div>
         </aside>
         <div class="main">
           <header class="topbar">
@@ -136,7 +152,13 @@ export function shell(page: Page, frame: PageFrame): Html {
               <h1>${page.title}</h1>
               ${page.subtitle === undefined ? "" : html`<p class="muted">${page.subtitle}</p>`}
             </div>
-            ${page.tools === undefined ? "" : html`<div class="topbar-tools">${page.tools}</div>`}
+            ${
+              page.tools === undefined && page.switcher === undefined
+                ? ""
+                : html`<div class="topbar-tools">
+                    ${switcher(page, frame.path, "top")} ${page.tools ?? ""}
+                  </div>`
+            }
           </header>
           <main class="content">${page.body}</main>
         </div>

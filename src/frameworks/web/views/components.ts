@@ -3,6 +3,7 @@ import type { AccountBadge } from "../../../interface_adapters/dashboard/account
 import type { Kpi } from "../../../interface_adapters/dashboard/analytics_views";
 import type { Tab } from "../../../interface_adapters/dashboard/analytics_controller";
 import type { Chip } from "../../../interface_adapters/dashboard/chips";
+import { SPARK_HEIGHT, SPARK_WIDTH } from "../../../interface_adapters/dashboard/charts";
 import { icon, type IconName } from "./icons";
 import type { Html } from "./layout";
 
@@ -33,28 +34,53 @@ export function who(badge: AccountBadge): Html {
   return html`<span class="who">${avatar(badge)}<span>${badge.handle}</span></span>`;
 }
 
-const ARROWS = { up: "▲", down: "▼", flat: "–" } as const;
+const ARROWS = { up: "▲", down: "▼" } as const;
 
+/** A change against the period before: coloured by what it means, "no change" muted. */
 function deltaOf(kpi: Kpi, compared: string | null): Html {
   if (kpi.delta === null) {
     return "";
   }
   const { direction, text } = kpi.delta;
-  const good =
-    direction === "flat" ? "" : (direction === "up") === kpi.upIsGood ? "is-good" : "is-bad";
-  return html`<span class="delta ${good}" title="${compared ?? ""}"
-    ><span class="arrow" aria-hidden="true">${ARROWS[direction]}</span>${text}<span
-      class="visually-hidden"
-    >
-      ${compared ?? ""}</span
-    ></span
+  const context = html`<span class="visually-hidden"> ${compared ?? ""}</span>`;
+  if (direction === "flat") {
+    return html`<span class="delta is-flat" title="${compared ?? ""}">No change${context}</span>`;
+  }
+  const tone = kpi.polarity === "neutral" ? "" : direction === "up" ? "is-good" : "is-bad";
+  return html`<span class="delta ${tone}" title="${compared ?? ""}"
+    ><span class="arrow" aria-hidden="true">${ARROWS[direction]}</span>${text}${context}</span
   >`;
 }
 
+function spark(path: string | null): Html {
+  return path === null
+    ? ""
+    : html`<svg
+        class="spark"
+        viewBox="-1 -2 ${String(SPARK_WIDTH + 2)} ${String(SPARK_HEIGHT + 4)}"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="${path}" />
+      </svg>`;
+}
+
+/** A headline tile: the figure, its change and its trend over the range. */
 export function kpiTile(kpi: Kpi, compared: string | null): Html {
   return html`<div class="card kpi">
     <span class="kpi-label">${kpi.label}</span>
-    <span class="kpi-value" title="${kpi.exact}">${kpi.value}</span>
+    <div class="kpi-main">
+      <span class="kpi-value" title="${kpi.exact}">${kpi.value}</span>${spark(kpi.spark)}
+    </div>
+    ${deltaOf(kpi, compared)}
+  </div>`;
+}
+
+/** A secondary stat: the same figure and change, compact, in a shared strip. */
+export function kpiStat(kpi: Kpi, compared: string | null): Html {
+  return html`<div class="kpi-stat">
+    <span class="kpi-label">${kpi.label}</span>
+    <span class="kpi-stat-value" title="${kpi.exact}">${kpi.value}</span>
     ${deltaOf(kpi, compared)}
   </div>`;
 }

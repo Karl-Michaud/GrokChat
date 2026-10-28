@@ -10,23 +10,23 @@ const ACTOR_TONE = { bot: "info", human: "good", system: "neutral" } as const;
 function row(entry: ActivityRow): Html {
   const tone = entry.actor.kind === null ? "neutral" : ACTOR_TONE[entry.actor.kind];
   return html`<tr>
-    <td>
+    <td class="cell-when">
       <span class="time">${entry.relative}<small>${entry.when}</small></span>
     </td>
-    <td>
+    <td class="cell-who">
       <span class="chip plain ${tone}">${entry.actor.kind ?? "other"}</span>
       <span class="mono">${entry.actor.name}</span>
     </td>
-    <td>
+    <td class="cell-main">
       ${chip(entry.action)}${entry.detail === "" ? "" : html`<div class="faint mono">${entry.detail}</div>`}
     </td>
-    <td class="hide-sm">
+    <td class="cell-account">
       ${entry.account === null ? html`<span class="faint">—</span>` : who(entry.account)}
     </td>
-    <td class="hide-sm">
+    <td class="cell-post">
       ${entry.postHref === null ? "" : html`<a href="${entry.postHref}">Post</a>`}
     </td>
-    <td class="num">${entry.cost}</td>
+    <td class="num cell-cost">${entry.cost}</td>
   </tr>`;
 }
 
@@ -54,14 +54,14 @@ function table(view: ActivityView): Html {
     );
   }
   return html`<div class="table-wrap">
-      <table class="table">
+      <table class="table table-activity stack-sm">
         <thead>
           <tr>
             <th>When</th>
             <th>Who</th>
             <th>What</th>
-            <th class="hide-sm">Account</th>
-            <th class="hide-sm"><span class="visually-hidden">Post</span></th>
+            <th>Account</th>
+            <th><span class="visually-hidden">Post</span></th>
             <th class="num">Cost</th>
           </tr>
         </thead>

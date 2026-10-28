@@ -8,6 +8,9 @@ import {
   meter,
   niceDomain,
   niceStep,
+  SPARK_HEIGHT,
+  SPARK_WIDTH,
+  sparkline,
   tickLabels,
   WIDTH,
 } from "../../../../src/interface_adapters/dashboard/charts";
@@ -119,6 +122,44 @@ describe("line charts", () => {
             expect(Number(y)).toBeLessThanOrEqual(HEIGHT);
           }
           expect(chart.columns).toHaveLength(values.length);
+        },
+      ),
+    );
+  });
+});
+
+describe("sparklines (KPI tiles)", () => {
+  it("runs edge to edge, fitted to the values, broken at unknown ones", () => {
+    expect(sparkline([10, 20, 15])).toBe("M0 24 L50 0 L100 12");
+    expect(sparkline([5, null, 5, 5])).toBe("M0 12 M66.7 12 L100 12");
+    expect(sparkline([1, null, 3])).toBe("M0 24 M100 0");
+  });
+
+  it("is null with fewer than two known values", () => {
+    expect(sparkline([])).toBeNull();
+    expect(sparkline([7])).toBeNull();
+    expect(sparkline([null, 7, null])).toBeNull();
+  });
+
+  it("property: every point stays inside the spark box, one per known value", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.option(fc.integer({ min: -1e6, max: 1e9 }), { nil: null }), { maxLength: 60 }),
+        (values) => {
+          const path = sparkline(values);
+          const known = values.filter((value) => value !== null).length;
+          if (known < 2) {
+            expect(path).toBeNull();
+            return;
+          }
+          const points = [...(path ?? "").matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)];
+          expect(points).toHaveLength(known);
+          for (const [, x, y] of points) {
+            expect(Number(x)).toBeGreaterThanOrEqual(0);
+            expect(Number(x)).toBeLessThanOrEqual(SPARK_WIDTH);
+            expect(Number(y)).toBeGreaterThanOrEqual(0);
+            expect(Number(y)).toBeLessThanOrEqual(SPARK_HEIGHT);
+          }
         },
       ),
     );

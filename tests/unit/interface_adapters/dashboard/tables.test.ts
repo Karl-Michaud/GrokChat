@@ -1,4 +1,5 @@
 /** Every label and tone the dashboard shows, table by table (GROKCHAT-15). */
+import { PART_STATE_KINDS } from "../../../../src/entities/posts/part_state";
 import { describe, expect, it } from "vitest";
 import { ANALYTICS_RANGES } from "../../../../src/entities/analytics/range";
 import { POST_SORT_KEYS } from "../../../../src/entities/analytics/post_sort";
@@ -6,6 +7,7 @@ import { RANGE_LABELS } from "../../../../src/interface_adapters/dashboard/analy
 import {
   accountStatusChip,
   actionChip,
+  partStateChip,
   postStatusChip,
 } from "../../../../src/interface_adapters/dashboard/chips";
 import {
@@ -42,6 +44,18 @@ describe("label tables", () => {
       ["CANCELLED", "Cancelled", "neutral"],
       ["DELETED", "Deleted", "neutral"],
       ["DELETE_INCOMPLETE", "Delete incomplete", "critical"],
+    ]);
+  });
+
+  it("every part state, as a chip", () => {
+    expect(PART_STATE_KINDS.map(partStateChip)).toStrictEqual([
+      { label: "Waiting", tone: "neutral" },
+      { label: "Sending", tone: "info" },
+      { label: "On X", tone: "good" },
+      { label: "Outcome unknown", tone: "serious" },
+      { label: "Not found on X", tone: "critical" },
+      { label: "Rejected by X", tone: "critical" },
+      { label: "Deleted", tone: "neutral" },
     ]);
   });
 

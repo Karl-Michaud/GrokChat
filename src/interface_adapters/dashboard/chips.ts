@@ -1,6 +1,7 @@
 import type { AccountStatus } from "../../entities/accounts/account";
 import { activityKindOf, type ActivityKind } from "../../entities/analytics/activity_kind";
 import type { DerivedStatus } from "../../entities/posts/derived_status";
+import type { PartStateKind } from "../../entities/posts/part_state";
 
 /**
  * Status tones (dataviz: good, warning, serious, critical are reserved for state), plus info for
@@ -32,6 +33,21 @@ const POST_STATUS: Readonly<Record<DerivedStatus, Chip>> = {
 
 export function postStatusChip(status: DerivedStatus): Chip {
   return POST_STATUS[status];
+}
+
+const PART_STATE: Readonly<Record<PartStateKind, Chip>> = {
+  PENDING: { label: "Waiting", tone: "neutral" },
+  SENDING: { label: "Sending", tone: "info" },
+  SENT: { label: "On X", tone: "good" },
+  UNKNOWN: { label: "Outcome unknown", tone: "serious" },
+  NOT_FOUND: { label: "Not found on X", tone: "critical" },
+  REJECTED: { label: "Rejected by X", tone: "critical" },
+  DELETED: { label: "Deleted", tone: "neutral" },
+};
+
+/** One part's state, as a chip on the post page. */
+export function partStateChip(state: PartStateKind): Chip {
+  return PART_STATE[state];
 }
 
 const ACCOUNT_STATUS: Readonly<Record<AccountStatus, Chip>> = {
