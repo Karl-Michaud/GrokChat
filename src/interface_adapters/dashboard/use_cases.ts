@@ -20,6 +20,18 @@ import type { GetPostInsightsInputData } from "../../use_cases/get_post_insights
 import type { GetPostInsightsOutputData } from "../../use_cases/get_post_insights/output_data";
 import type { ListAccountsInputData } from "../../use_cases/list_accounts/input_data";
 import type { ListAccountsOutputData } from "../../use_cases/list_accounts/output_data";
+import type { AssignAccountInputData } from "../../use_cases/assign_account/input_data";
+import type { AssignAccountOutputData } from "../../use_cases/assign_account/output_data";
+import type { CreatePersonInputData } from "../../use_cases/create_person/input_data";
+import type { CreatePersonOutputData } from "../../use_cases/create_person/output_data";
+import type { DeletePersonInputData } from "../../use_cases/delete_person/input_data";
+import type { DeletePersonOutputData } from "../../use_cases/delete_person/output_data";
+import type { IssuePersonTokenInputData } from "../../use_cases/issue_person_token/input_data";
+import type { IssuePersonTokenOutputData } from "../../use_cases/issue_person_token/output_data";
+import type { ListPeopleInputData } from "../../use_cases/list_people/input_data";
+import type { ListPeopleOutputData } from "../../use_cases/list_people/output_data";
+import type { RenamePersonInputData } from "../../use_cases/rename_person/input_data";
+import type { RenamePersonOutputData } from "../../use_cases/rename_person/output_data";
 import type { ListActivityInputData } from "../../use_cases/list_activity/input_data";
 import type { ListActivityOutputData } from "../../use_cases/list_activity/output_data";
 import type { ListPostsInputData } from "../../use_cases/list_posts/input_data";
@@ -72,7 +84,20 @@ export interface PostCommandUseCases {
   readonly reschedulePost: UseCaseFactory<ReschedulePostInputData, ReschedulePostOutputData>;
 }
 
-export interface AccountUseCases extends AccountDirectory, AnalyticsSource {
+export interface PeopleDirectory {
+  readonly listPeople: UseCaseFactory<ListPeopleInputData, ListPeopleOutputData>;
+}
+
+/** GROKCHAT-16: people, their accounts and their tokens. */
+export interface PeopleUseCases {
+  readonly createPerson: UseCaseFactory<CreatePersonInputData, CreatePersonOutputData>;
+  readonly renamePerson: UseCaseFactory<RenamePersonInputData, RenamePersonOutputData>;
+  readonly deletePerson: UseCaseFactory<DeletePersonInputData, DeletePersonOutputData>;
+  readonly assignAccount: UseCaseFactory<AssignAccountInputData, AssignAccountOutputData>;
+  readonly issueToken: UseCaseFactory<IssuePersonTokenInputData, IssuePersonTokenOutputData>;
+}
+
+export interface AccountUseCases extends AccountDirectory, AnalyticsSource, PeopleDirectory {
   readonly setAccountStatus: UseCaseFactory<SetAccountStatusInputData, SetAccountStatusOutputData>;
   readonly confirmDisclosure: UseCaseFactory<
     ConfirmDisclosureInputData,

@@ -1,6 +1,7 @@
 import type { AccountsController } from "../../interface_adapters/dashboard/accounts_controller";
 import type { ActivityController } from "../../interface_adapters/dashboard/activity_controller";
 import type { AnalyticsController } from "../../interface_adapters/dashboard/analytics_controller";
+import type { PeopleController } from "../../interface_adapters/dashboard/people_controller";
 import type { OAuthController } from "../../interface_adapters/dashboard/oauth_controller";
 import type { PostCommandsController } from "../../interface_adapters/dashboard/post_commands_controller";
 import type { PostsController } from "../../interface_adapters/dashboard/posts_controller";
@@ -15,6 +16,7 @@ export interface WebControllers {
   readonly posts: PostsController;
   readonly postCommands: PostCommandsController;
   readonly accounts: AccountsController;
+  readonly people: PeopleController;
   readonly oauth: OAuthController;
   readonly activity: ActivityController;
 }

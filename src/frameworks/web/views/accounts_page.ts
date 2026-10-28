@@ -2,6 +2,7 @@ import { html } from "hono/html";
 import type {
   AccountCard,
   AccountsView,
+  PersonGroup,
 } from "../../../interface_adapters/dashboard/accounts_controller";
 import type { PolicyForm } from "../../../interface_adapters/dashboard/policy_form";
 import type { PageFrame } from "../respond";
@@ -163,12 +164,29 @@ function accountCard(account: AccountCard, csrf: string): Html {
       </details>
     </div>
     <div class="account-section">
-      <span class="faint">Account id, for <code>add-bot</code></span>
+      ${ownerForm(account, csrf, base)}
+      <span class="faint">Account id</span>
       ${copyField(account.id, "account id")}
     </div>
   </article>`;
 }
 
+/** The Owner select (GROKCHAT-16): saves on change with JS, with a Save button without it. */
+function ownerForm(account: AccountCard, csrf: string, base: string): Html {
+  const id = `owner-${account.id}`;
+  return html`<form method="post" action="${base}/owner" class="owner-form" data-autosubmit>
+    ${csrfField(csrf)}
+    <label for="${id}">Owner</label>
+    <div class="row">
+      <select id="${id}" name="person">
+        ${account.owners.map((option) => html`<option value="${option.value}" ${option.selected ? "selected" : ""}>${option.label}</option>`)}
+      </select>
+      <button class="btn btn-sm js-hide">Save</button>
+    </div>
+  </form>`;
+}
+
+/** How a person's bot gets in (GROKCHAT-16): one token per person, never per account. */
 function botPanel(view: AccountsView): Html {
   return html`<section class="card">
     <div class="card-head">
@@ -176,43 +194,152 @@ function botPanel(view: AccountsView): Html {
         ${icon("bot")}
         <h2>Connect a Grok bot</h2>
       </div>
-      <p>Grok writes in the account's voice; GrokChat posts and schedules for it.</p>
+      <p>Each person runs one Grok bot, with one token for all of their accounts.</p>
     </div>
     <div class="card-body">
       <ol class="steps">
+        <li>Add the person, then set each of their accounts' <strong>Owner</strong> to them.</li>
         <li>
-          Give the bot a token for its accounts (run in the GrokChat
-          repo):${copyField(view.addBot, "add-bot command")}
+          Press <strong>Generate token</strong> in their section. Copy the token and the connector
+          settings into their Grok bot (name <code>grokchat</code>, header
+          <code>Authorization: Bearer &lt;token&gt;</code
+          >):${copyField(view.mcpUrl, "MCP server URL")}
         </li>
         <li>
-          Add GrokChat to the bot as a remote MCP server, with the token as its
-          authorization:${copyField(view.mcpUrl, "MCP server URL")}
-        </li>
-        <li>
-          Test it with one <code>get_policy</code> call: a wrong token fails the whole Grok request.
+          Paste the setup prompt shown with the token. The bot finds its accounts with
+          <code>list_accounts</code>. An account you assign later reaches the same token: nothing to
+          reissue.
         </li>
       </ol>
     </div>
   </section>`;
 }
 
+function newPersonForm(csrf: string): Html {
+  return html`<form method="post" action="/dashboard/people" class="new-person">
+    ${csrfField(csrf)}
+    <label for="new-person" class="visually-hidden">Name of the new person</label>
+    <input id="new-person" name="name" placeholder="Name, e.g. Aaron" required maxlength="60" />
+    <button class="btn">${icon("plus")}<span>New person</span></button>
+  </form>`;
+}
+
+/** Generate needs one press; rotate revokes a live token, so it asks first (no JS dialogs). */
+function tokenControl(person: PersonGroup, csrf: string, base: string): Html {
+  const form = (label: string, className: string) =>
+    html`<form method="post" action="${base}/token" hx-boost="false" class="inline-form">
+      ${csrfField(csrf)}<button class="${className}">${icon("key")}<span>${label}</span></button>
+    </form>`;
+  if (!person.hasToken) {
+    return form("Generate token", "btn btn-primary btn-sm");
+  }
+  return html`<details class="pop">
+    <summary class="btn btn-sm">${icon("key")}<span>Rotate token</span></summary>
+    <div class="pop-body">
+      <p>
+        ${person.name}'s current token stops working at once. Put the new one in their bot's
+        connector right after.
+      </p>
+      ${form("Rotate now", "btn btn-primary btn-sm")}
+    </div>
+  </details>`;
+}
+
+function renameControl(person: PersonGroup, csrf: string, base: string): Html {
+  return html`<details class="pop">
+    <summary class="btn btn-sm btn-ghost">Rename</summary>
+    <div class="pop-body">
+      <form method="post" action="${base}/rename" class="stack">
+        ${csrfField(csrf)}
+        <label>New name <input name="name" value="${person.name}" required maxlength="60" /></label>
+        <div><button class="btn btn-primary btn-sm">Save name</button></div>
+      </form>
+    </div>
+  </details>`;
+}
+
+function deleteControl(person: PersonGroup, csrf: string, base: string): Html {
+  return html`<details class="pop">
+    <summary class="btn btn-sm btn-ghost btn-danger">Delete</summary>
+    <div class="pop-body">
+      <form method="post" action="${base}/delete" class="stack">
+        ${csrfField(csrf)}
+        <p>
+          Their ${person.count} become Unassigned and their token stops working. Type
+          <strong>${person.name}</strong> to confirm.
+        </p>
+        <label>Name <input name="confirmation" required autocomplete="off" /></label>
+        <div><button class="btn btn-sm btn-danger">Delete ${person.name}</button></div>
+      </form>
+    </div>
+  </details>`;
+}
+
+function personSection(person: PersonGroup, csrf: string): Html {
+  const base = `/dashboard/people/${encodeURIComponent(person.id)}`;
+  const tokenChip = html`<span class="chip ${person.hasToken ? "good" : "warning"}"
+    >${person.token}</span
+  >`;
+  return html`<section class="person" aria-label="${person.name}">
+    <header class="person-head">
+      <div class="person-who">
+        <span class="avatar t${String(person.tone)} lg" aria-hidden="true">${person.initials}</span>
+        <div class="stack">
+          <h2>${person.name}</h2>
+          <span class="person-meta"><span class="faint">${person.count}</span>${tokenChip}</span>
+        </div>
+      </div>
+      <div class="person-actions">
+        ${tokenControl(person, csrf, base)} ${renameControl(person, csrf, base)}
+        ${deleteControl(person, csrf, base)}
+      </div>
+    </header>
+    ${
+      person.accounts.length === 0
+        ? html`<p class="person-empty">
+            No accounts yet. Set an account's <strong>Owner</strong> to ${person.name}.
+          </p>`
+        : html`<div class="account-grid">
+            ${person.accounts.map((account) => accountCard(account, csrf))}
+          </div>`
+    }
+  </section>`;
+}
+
+function unassignedSection(view: AccountsView, csrf: string): Html {
+  if (view.unassigned.length === 0) {
+    return "";
+  }
+  return html`<section class="person" aria-label="Unassigned">
+    <header class="person-head">
+      <div class="person-who">
+        <span class="avatar t0 lg" aria-hidden="true">?</span>
+        <div class="stack">
+          <h2>Unassigned</h2>
+          <span class="faint">No bot can post to these until you give them an Owner.</span>
+        </div>
+      </div>
+    </header>
+    <div class="account-grid">${view.unassigned.map((account) => accountCard(account, csrf))}</div>
+  </section>`;
+}
+
 export function accountsPage(view: AccountsView, frame: PageFrame): Html {
   const connect = connectForm(frame.csrf, null, "Connect X account", "btn btn-primary");
-  const cards =
-    view.accounts.length === 0
+  const body =
+    view.total === 0 && view.people.length === 0
       ? html`<section class="card">
           ${empty("accounts", "No accounts yet", "Connect the first X account. It starts paused, so nothing is posted until you finish its disclosure and turn it on.", connect)}
         </section>`
-      : html`<div class="account-grid">
-          ${view.accounts.map((account) => accountCard(account, frame.csrf))}
-        </div>`;
+      : html`${view.people.map((person) => personSection(person, frame.csrf))}
+        ${unassignedSection(view, frame.csrf)}`;
   return shell(
     {
       title: "Accounts",
-      subtitle: "The X accounts GrokChat posts to",
-      tools: connect,
+      subtitle: "The X accounts GrokChat posts to, by the person whose bot runs them",
+      tools: html`${newPersonForm(frame.csrf)}${connect}`,
       body: html`${view.notice === null ? "" : html`<p class="callout good" role="status">${view.notice}</p>`}
-      ${cards} ${botPanel(view)}`,
+      ${body} ${botPanel(view)}`,
     },
     frame,
   );

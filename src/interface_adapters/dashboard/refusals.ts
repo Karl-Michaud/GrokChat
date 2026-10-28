@@ -39,6 +39,10 @@ const REFUSALS: ReadonlyMap<string, RefusalView> = new Map(
     no_parts: { status: 400, message: "A post needs at least one part." },
     too_many_parts: { status: 400, message: "A thread has at most 25 parts." },
     link_policy: { status: 400, message: "The account's policy refuses links." },
+    invalid_name: { status: 400, message: "A name is 1 to 60 characters." },
+    name_taken: { status: 409, message: "Someone already has that name." },
+    name_mismatch: { status: 400, message: "Type the person's name exactly to delete them." },
+    person_not_found: { status: 404, message: "That person does not exist." },
   }) as [string, RefusalView][],
 );
 

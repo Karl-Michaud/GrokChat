@@ -1519,6 +1519,187 @@ details.disclose[open] summary {
   margin-top: var(--s-2);
 }
 
+/* ---------- People (GROKCHAT-16) ---------- */
+
+.person {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+.person + .person {
+  margin-top: var(--s-3);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--border);
+}
+
+.person-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.person-who {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.person-who .stack {
+  gap: 4px;
+  min-width: 0;
+}
+
+.person-who h2 {
+  font-size: 17px;
+}
+
+.person-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: 12.5px;
+}
+
+.person-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.person-empty {
+  margin: 0;
+  padding: var(--s-4) var(--s-5);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+details.pop {
+  position: relative;
+}
+
+details.pop > summary {
+  list-style: none;
+}
+
+details.pop > summary::-webkit-details-marker {
+  display: none;
+}
+
+details.pop[open] > summary {
+  background: var(--surface-2);
+}
+
+.pop-body {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: max-content;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: var(--s-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.pop-body p {
+  margin: 0;
+  white-space: normal;
+}
+
+.new-person {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0;
+}
+
+.new-person input {
+  width: 168px;
+}
+
+.owner-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+}
+
+.owner-form select {
+  flex: 1;
+}
+
+.callout.warning {
+  align-items: flex-start;
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  color: var(--text);
+}
+
+.callout.warning .icon {
+  flex: none;
+  color: var(--warning-ink);
+}
+
+.token-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  max-width: 880px;
+}
+
+.token-field {
+  padding: 6px 6px 6px 12px;
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.token-field code {
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.settings {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-2) var(--s-4);
+  margin: 0;
+}
+
+.settings dt {
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.settings dd {
+  min-width: 0;
+  margin: 0;
+}
+
+textarea.prompt {
+  width: 100%;
+  min-height: 320px;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre;
+}
+
 /* ---------- Post page ---------- */
 
 .thread {
@@ -1864,6 +2045,18 @@ details.disclose[open] summary {
 }
 
 @media (max-width: 560px) {
+  .new-person input {
+    width: 120px;
+  }
+
+  .settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .person-actions {
+    width: 100%;
+  }
+
   .kpi-value {
     font-size: 22px;
   }

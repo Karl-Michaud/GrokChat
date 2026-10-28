@@ -60,6 +60,8 @@ const ORIGIN = "https://grokchat.test";
 
 const REDIRECT = { kind: "redirect", location: "/dashboard/accounts" };
 
+const UNASSIGNED = { value: "", label: "Unassigned", selected: true };
+
 describe("the accounts page", () => {
   it("a card per account: status, mode, limits, disclosure, numbers, policy; and the bot setup", async () => {
     const { controller, world } = await setup();
@@ -72,7 +74,9 @@ describe("the accounts page", () => {
     expect(await controller.accounts({ connected: null, origin: ORIGIN })).toStrictEqual({
       kind: "page",
       view: {
-        accounts: [
+        people: [],
+        total: 2,
+        unassigned: [
           {
             id: "acc-1",
             badge: { id: "acc-1", handle: "@musechat_one", initials: "MO", tone: 1 },
@@ -88,6 +92,7 @@ describe("the accounts page", () => {
             followers: "1.2K",
             posts7d: "1",
             policy: FORM,
+            owners: [UNASSIGNED],
           },
           {
             id: "acc-2",
@@ -116,11 +121,11 @@ describe("the accounts page", () => {
               quietEnd: "06:30",
               linkPolicy: "REFUSE",
             },
+            owners: [UNASSIGNED],
           },
         ],
         notice: null,
         mcpUrl: "https://grokchat.test/mcp",
-        addBot: "npm run add-bot -- --id <bot name> --accounts acc-1,acc-2",
       },
     });
   });
@@ -143,7 +148,7 @@ describe("the accounts page", () => {
     const outcome = await controller.accounts({ connected: "@new", origin: ORIGIN });
     expect(outcome).toMatchObject({
       view: {
-        accounts: [
+        unassigned: [
           { needsReconnect: false, canActivate: true, canPause: false },
           { needsReconnect: true, canActivate: false, canPause: false },
         ],
@@ -163,7 +168,7 @@ describe("the accounts page", () => {
     });
     expect(await refusing.accounts({ connected: null, origin: ORIGIN })).toMatchObject({
       view: {
-        accounts: [
+        unassigned: [
           { followers: "—", posts7d: "0" },
           { followers: "—", posts7d: "0" },
         ],
@@ -176,14 +181,16 @@ describe("the accounts page", () => {
     const refusing = new AccountsController({
       ...useCases,
       listAccounts: presenting({ ok: false, code: "human_only" }),
+      listPeople: presenting({ ok: false, code: "human_only" }),
     });
     expect(await refusing.accounts({ connected: null, origin: ORIGIN })).toStrictEqual({
       kind: "page",
       view: {
-        accounts: [],
+        people: [],
+        unassigned: [],
+        total: 0,
         notice: null,
         mcpUrl: "https://grokchat.test/mcp",
-        addBot: "npm run add-bot -- --id <bot name> --accounts <account id>",
       },
     });
   });

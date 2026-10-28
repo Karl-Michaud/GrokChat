@@ -4,6 +4,7 @@
  * account's Durable Object (`AccountObjects`) does every publish, X delete and token write; R2
  * holds the media. Nothing here is an in-memory stub (tests/integration/production_graph.test.ts).
  */
+import { WebCryptoBotTokenIssuer } from "../crypto/bot_token_issuer";
 import { WebCryptoContentHasher } from "../crypto/sha256_hasher";
 import { d1Stores } from "../d1/d1_stores";
 import { AccountObjects } from "../durable_objects/account_client";
@@ -61,6 +62,7 @@ function workerDrivers(env: Env) {
     fetcher: new HttpsMediaFetcher(allowedHosts),
     hasher: new WebCryptoContentHasher(),
     pkce: new WebCryptoPkce(),
+    issuer: new WebCryptoBotTokenIssuer(),
   };
 }
 
