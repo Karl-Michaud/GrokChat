@@ -11,7 +11,7 @@ import {
 } from "../../../../src/interface_adapters/mcp/json_views";
 import * as views from "../../../../src/interface_adapters/mcp/tool_views";
 import { toPostView } from "../../../../src/use_cases/views/post_view";
-import { ACCOUNT, aPolicy, aPost, part, sentState, T0 } from "../../support/builders";
+import { ACCOUNT, anAccount, aPolicy, aPost, part, sentState, T0 } from "../../support/builders";
 
 const SNAPSHOT: MetricsSnapshot = {
   xPostId: xPostId("x-1"),
@@ -220,6 +220,40 @@ describe("tool views", () => {
         disclosure: { bio_confirmed: false, automated_label_confirmed: true },
         policy: policyJson(policy),
       },
+    });
+  });
+
+  it("list_accounts: id, handle, status in a bot's words, mode and disclosure", () => {
+    const at = (overrides: Parameters<typeof anAccount>[0]) =>
+      views.listAccountsView({ ok: true, accounts: [anAccount(overrides)] });
+    expect(at({ status: "ACTIVE" })).toStrictEqual({
+      ok: true,
+      body: {
+        accounts: [
+          {
+            account_id: ACCOUNT,
+            handle: "musechat_one",
+            status: "active",
+            mode: "auto",
+            disclosure_complete: true,
+          },
+        ],
+      },
+    });
+    const field = (overrides: Parameters<typeof anAccount>[0], name: string) => {
+      const outcome = at(overrides);
+      const accounts = outcome.ok ? (outcome.body["accounts"] as Record<string, unknown>[]) : [];
+      return accounts[0]?.[name];
+    };
+    expect(field({ status: "PAUSED" }, "status")).toBe("paused");
+    expect(field({ status: "NEEDS_RECONNECT" }, "status")).toBe("needs_reconnect");
+    expect(field({ status: "DISCONNECTED" }, "status")).toBe("needs_reconnect");
+    expect(field({ policy: aPolicy({ mode: "REVIEW" }) }, "mode")).toBe("review");
+    const half = { bioConfirmed: true, automatedLabelConfirmed: false };
+    expect(field({ disclosure: half }, "disclosure_complete")).toBe(false);
+    expect(views.listAccountsView({ ok: true, accounts: [] })).toStrictEqual({
+      ok: true,
+      body: { accounts: [] },
     });
   });
 });

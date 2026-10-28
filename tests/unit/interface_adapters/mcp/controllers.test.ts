@@ -15,6 +15,7 @@ import {
   GetPolicyController,
   GetPostController,
   GetPostMetricsController,
+  ListAccountsController,
   ListBacklogController,
 } from "../../../../src/interface_adapters/mcp/reading_controllers";
 import {
@@ -201,5 +202,11 @@ describe("reading controllers", () => {
     const policy = new Spy();
     await new GetPolicyController(policy).handle(ACTOR, { account_id: "a2" });
     expect(policy.inputs).toStrictEqual([{ actor: ACTOR, accountId: "a2" }]);
+  });
+
+  it("list_accounts takes only the caller", async () => {
+    const list = new Spy();
+    await new ListAccountsController(list).handle(ACTOR);
+    expect(list.inputs).toStrictEqual([{ actor: ACTOR }]);
   });
 });

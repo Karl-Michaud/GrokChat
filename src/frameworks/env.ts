@@ -15,7 +15,6 @@ export interface Env {
    */
   readonly X_CLIENT_ID?: string;
   readonly X_CLIENT_SECRET?: string;
-  readonly GROKCHAT_BOT_CLIENTS?: string;
   /** Secret: comma-separated base64 AES-256 keys, newest first (plan §3.5 token vault). */
   readonly GROKCHAT_TOKEN_KEYS: string;
   /** Dashboard (PR 7): parsed by web/config.ts; the dashboard answers 503 until configured. */

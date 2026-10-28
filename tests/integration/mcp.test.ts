@@ -48,12 +48,13 @@ const TOOLS = [
   "get_policy",
   "get_post",
   "get_post_metrics",
+  "list_accounts",
   "list_backlog",
   "stage_media_from_url",
 ];
 
 describe("the MCP server's surface", () => {
-  it("lists exactly the 12 tools (no get_personality: Grok owns personalities), each described and with an input schema, and no resources", async () => {
+  it("lists exactly the 13 tools (no get_personality: Grok owns personalities), each described and with an input schema, and no resources", async () => {
     const client = await connect(await botEnv([]));
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toStrictEqual(TOOLS);
@@ -81,7 +82,7 @@ describe("the MCP server's surface", () => {
 
   it("works for a client connected at /mcp/", async () => {
     const client = await connect(await botEnv([]), BOT_TOKEN, "/mcp/");
-    expect((await client.listTools()).tools).toHaveLength(12);
+    expect((await client.listTools()).tools).toHaveLength(13);
   });
 });
 
@@ -102,21 +103,21 @@ describe("bot auth", () => {
     await expect(connect(await botEnv([]), "e".repeat(64))).rejects.toThrow();
   });
 
-  it.each([
-    ["missing", undefined],
-    ["not JSON", "not json"],
-    ["not a list of clients", JSON.stringify({ id: "x" })],
-  ])("fails closed with 503 when GROKCHAT_BOT_CLIENTS is %s", async (_name, raw) => {
-    const entries = Object.entries({ ...(await botEnv([])), GROKCHAT_BOT_CLIENTS: raw });
-    const workerEnv = Object.fromEntries(
-      entries.filter(([, value]) => value !== undefined),
-    ) as unknown as Env;
+  it("fails closed with 503 when D1 cannot be read during auth, quoting nothing", async () => {
+    const broken = {
+      prepare: () => {
+        throw new Error(`boom ${BOT_TOKEN}`);
+      },
+    } as unknown as D1Database;
+    const workerEnv: Env = { ...(await botEnv([])), DB: broken };
     const response = await call(
       workerEnv,
       initialize("/mcp", { authorization: `Bearer ${BOT_TOKEN}` }),
     );
     expect(response.status).toBe(503);
-    expect(await response.json()).toStrictEqual({ error: "bot_auth_unavailable" });
+    const text = await response.text();
+    expect(JSON.parse(text)).toStrictEqual({ error: "bot_auth_unavailable" });
+    expect(text).not.toContain(BOT_TOKEN);
   });
 
   it("gives each token its own scope: the other bot's token sees the other accounts", async () => {

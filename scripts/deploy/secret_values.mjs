@@ -10,8 +10,6 @@ export const SALT_BYTES = 16;
 export const TOKEN_KEY_BYTES = 32;
 /** src/frameworks/web/config.ts wants at least 32 characters; 32 bytes give 43. */
 export const SESSION_SECRET_BYTES = 32;
-/** src/frameworks/mcp/bot_auth.ts: tokens of at least 32 random bytes (43 base64url characters). */
-export const BOT_TOKEN_BYTES = 32;
 
 /** @param {number} count */
 export function randomBytes(count) {
@@ -119,13 +117,9 @@ export function newSessionSecret() {
   return base64Url(randomBytes(SESSION_SECRET_BYTES));
 }
 
-/** A bot's bearer token: 32 random bytes, base64url (43 characters). */
-export function newBotToken() {
-  return base64Url(randomBytes(BOT_TOKEN_BYTES));
-}
-
 /**
- * Lower-case hex SHA-256 of the token's UTF-8: what bot_auth.ts compares.
+ * Lower-case hex SHA-256 of a token's UTF-8: what bot_auth.ts looks up (the dashboard mints the
+ * tokens since GROKCHAT-16).
  * @param {string} text
  */
 export async function sha256Hex(text) {

@@ -65,6 +65,10 @@ export const TOOL_CATALOG: Readonly<Record<ToolName, ToolInfo>> = {
     ...READ,
     description: `An account's posts in [from, to), best first by sort_by, to see what works. ${REFUSALS}`,
   },
+  list_accounts: {
+    ...READ,
+    description: `Your accounts: each one's account_id (every account-addressed tool takes it), handle, status (active, paused, or needs_reconnect: publishing refused until the owner reconnects it), mode (auto publishes at once, review waits for the owner's approval) and disclosure_complete. Call it first, and again whenever the owner says an account was added: the same token reaches every account assigned to you. ${REFUSALS}`,
+  },
   get_policy: {
     ...READ,
     description: `An account's status, disclosure and posting policy: auto or review, daily cap, minimum gap, quiet hours, time zone and link policy (REFUSE: no https:// links). ${REFUSALS}`,

@@ -1,10 +1,14 @@
-import { parseBotClients } from "../../interface_adapters/schemas/bot_clients_schema";
 import type { Env } from "../env";
-import { BotAuthenticator, bearerToken } from "./bot_auth";
+import { bearerToken, type BotAuthenticator } from "./bot_auth";
 import { serveMcp, type ToolHandlers } from "./mcp_server";
 
-/** Builds the tool handlers for one request from the Worker's env (the composition root's job). */
-export type ToolHandlerFactory = (env: Env) => ToolHandlers;
+/** What the MCP route is built from, per request, by the composition root. */
+export interface McpRouteDeps {
+  /** The tool handlers over the Worker's graph for this env. */
+  tools(env: Env): ToolHandlers;
+  /** Bot auth over this env's D1 people. */
+  authenticator(env: Env): BotAuthenticator;
+}
 
 function jsonError(status: 401 | 503, error: string, headers: HeadersInit = {}): Response {
   return Response.json({ error }, { status, headers });
@@ -26,24 +30,31 @@ export function secretsOf(env: Env, token: string): readonly string[] {
   ].flatMap((value) => (value === undefined || value.trim() === "" ? [] : [value.trim()]));
 }
 
+/** The person the token belongs to, or "unavailable" when D1 could not be read (fail closed). */
+async function actorFor(deps: McpRouteDeps, env: Env, token: string) {
+  try {
+    return await deps.authenticator(env).authenticate(token);
+  } catch {
+    console.error("grokchat mcp: bot auth unavailable");
+    return "unavailable" as const;
+  }
+}
+
 /**
- * `/mcp` and `/mcp/` (plan §3.5): bot auth from `GROKCHAT_BOT_CLIENTS`, then a stateless MCP
- * server. A missing or malformed secret fails closed (503, nobody gets in); a wrong or missing
- * token is 401 before any MCP processing. Neither response quotes the token or the secret.
+ * `/mcp` and `/mcp/` (plan §3.5, GROKCHAT-16): bot auth against the people in D1, then a
+ * stateless MCP server. A wrong or missing token is 401 before any MCP processing; a D1 failure
+ * during auth is 503 and lets nobody in. Neither response quotes the token.
  */
-export function mcpRoute(handlers: ToolHandlerFactory) {
+export function mcpRoute(deps: McpRouteDeps) {
   return async (request: Request, env: Env): Promise<Response> => {
-    const clients = parseBotClients(env.GROKCHAT_BOT_CLIENTS);
-    if (!clients.ok) {
-      console.error(`grokchat mcp: GROKCHAT_BOT_CLIENTS refused (${clients.problem})`);
+    const token = bearerToken(request.headers.get("authorization"));
+    const actor = token === null ? null : await actorFor(deps, env, token);
+    if (actor === "unavailable") {
       return jsonError(503, "bot_auth_unavailable");
     }
-    const token = bearerToken(request.headers.get("authorization"));
-    const actor =
-      token === null ? null : await new BotAuthenticator(clients.clients).authenticate(token);
     if (token === null || actor === null) {
       return jsonError(401, "unauthorized", { "WWW-Authenticate": 'Bearer realm="grokchat"' });
     }
-    return serveMcp(request, { actor, secrets: secretsOf(env, token) }, handlers(env));
+    return serveMcp(request, { actor, secrets: secretsOf(env, token) }, deps.tools(env));
   };
 }

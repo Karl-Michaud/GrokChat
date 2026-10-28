@@ -20,6 +20,7 @@ import type { AccountServices } from "./frameworks/durable_objects/account_servi
 import { SystemClock } from "./frameworks/durable_objects/system_clock";
 import type { Env } from "./frameworks/env";
 import { buildHttpApp } from "./frameworks/http/app";
+import { BotAuthenticator } from "./frameworks/mcp/bot_auth";
 import { mcpRoute } from "./frameworks/mcp/mcp_route";
 import { buildWebApp } from "./frameworks/web/web_app";
 import { HealthController } from "./interface_adapters/health/health_controller";
@@ -54,7 +55,10 @@ function entryFor(env: Env): EnvEntry {
     const tools = mcpTools(graph);
     const app = buildHttpApp({
       health: () => handleHealth(graph.reader),
-      mcp: mcpRoute(() => tools),
+      mcp: mcpRoute({
+        tools: () => tools,
+        authenticator: () => new BotAuthenticator(graph.people, graph.owners),
+      }),
       web: buildWebApp(dashboardControllers(graph)),
     });
     const clock = new SystemClock();

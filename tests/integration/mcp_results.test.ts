@@ -31,10 +31,16 @@ afterEach(() => {
 
 const stores = () => d1Stores(env.DB);
 
-/** A D1 binding that fails every statement with a message carrying the bot's token. */
+/**
+ * A D1 binding that fails every statement with a message carrying the bot's token, except bot
+ * auth's two reads (the person by token hash, their accounts), so the call gets past auth.
+ */
 const brokenDb = (): D1Database =>
   ({
-    prepare: () => {
+    prepare: (query: string) => {
+      if (query.includes("FROM people") || query.includes("WHERE person_id = ?1")) {
+        return env.DB.prepare(query);
+      }
       throw new Error(`boom ${BOT_TOKEN}`);
     },
   }) as unknown as D1Database;
@@ -84,7 +90,7 @@ describe("tool refusals and boundary checks", () => {
 });
 
 describe("logging (m3)", () => {
-  it("never logs the Authorization header, a token or the bot-clients secret", async () => {
+  it("never logs the Authorization header or a token, even when auth or a tool fails", async () => {
     const lines: string[] = [];
     const capture = (...args: unknown[]) => {
       lines.push(args.map(String).join(" "));
@@ -96,13 +102,18 @@ describe("logging (m3)", () => {
       const account = await seedAccount();
       const workerEnv = await botEnv([account.id]);
       await call(workerEnv, initialize("/mcp", { authorization: `Bearer ${"f".repeat(64)}` }));
+      const authDown = {
+        prepare: () => {
+          throw new Error(`down ${BOT_TOKEN}`);
+        },
+      } as unknown as D1Database;
       await call(
-        { ...workerEnv, GROKCHAT_BOT_CLIENTS: `[${BOT_TOKEN}` },
+        { ...workerEnv, DB: authDown },
         initialize("/mcp", { authorization: `Bearer ${BOT_TOKEN}` }),
       );
       const client = await connect({ ...workerEnv, DB: brokenDb() });
       await client.callTool({ name: "get_policy", arguments: { account_id: account.id } });
-      expect(lines).toContain("grokchat mcp: GROKCHAT_BOT_CLIENTS refused (not_json)");
+      expect(lines).toContain("grokchat mcp: bot auth unavailable");
       expect(lines).toContain("grokchat mcp: tool get_policy failed");
       const all = lines.join("\n");
       expect(all).not.toContain(BOT_TOKEN);

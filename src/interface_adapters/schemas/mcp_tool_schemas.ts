@@ -74,4 +74,5 @@ export const TOOL_SCHEMAS = {
     sort_by: z.enum(METRIC_NAMES),
   }),
   get_policy: accountOnly,
+  list_accounts: z.object({}),
 } satisfies { readonly [K in ToolName]: z.ZodType<ToolArgs[K]> };

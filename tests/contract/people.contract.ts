@@ -66,9 +66,7 @@ export function personRepositoryContract(make: () => PeopleStores): void {
     expect(await people.get(gone.id)).toBeNull();
     expect(await people.findByTokenHash(HASH_A)).toBeNull();
     expect(await owners.accountsOf(gone.id)).toStrictEqual([]);
-    expect(await owners.list()).toStrictEqual([
-      { accountId: accountId("a-2"), personId: kept.id },
-    ]);
+    expect(await owners.list()).toStrictEqual([{ accountId: accountId("a-2"), personId: kept.id }]);
     expect(await accounts.get(accountId("a-1"))).not.toBeNull();
     await people.delete(personId("never"));
     expect(await people.list()).toStrictEqual([kept]);

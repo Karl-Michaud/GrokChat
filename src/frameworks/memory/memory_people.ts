@@ -3,7 +3,6 @@ import { nameKey, type AccountOwnership, type Person } from "../../entities/peop
 import type { AccountOwners } from "../../use_cases/ports/account_owners";
 import type { BotTokenIssuer, IssuedToken } from "../../use_cases/ports/bot_token_issuer";
 import type { PersonRepository } from "../../use_cases/ports/person_repository";
-import { tokenSha256 } from "../crypto/bot_token_issuer";
 import type { MemoryAccountRepository } from "./memory_repositories";
 
 const byId = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -94,6 +93,10 @@ export class SequentialTokenIssuer implements BotTokenIssuer {
   async issue(): Promise<IssuedToken> {
     this.count += 1;
     const token = `token-${String(this.count)}-`.padEnd(43, "x");
-    return { token, sha256: await tokenSha256(token) };
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+    const sha256 = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+    return { token, sha256 };
   }
 }

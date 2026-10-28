@@ -1,5 +1,5 @@
 /**
- * The 13 MCP tools (plan §3.4) over the Worker's production graph: the same D1 records, account
+ * The 13 MCP tools (plan §3.4; list_accounts since GROKCHAT-16) over the Worker's production graph: the same D1 records, account
  * Durable Objects and R2 media as the dashboard, so a bot sees what the dashboard connected.
  */
 import {
@@ -16,6 +16,7 @@ import {
   GetPolicyController,
   GetPostController,
   GetPostMetricsController,
+  ListAccountsController,
   ListBacklogController,
 } from "../../interface_adapters/mcp/reading_controllers";
 import { presentTool, type ToolPresenter } from "../../interface_adapters/mcp/tool_presenter";
@@ -31,6 +32,7 @@ import { GetPolicyInteractor } from "../../use_cases/get_policy/interactor";
 import { GetPostMetricsInteractor } from "../../use_cases/get_post_metrics/interactor";
 import { GetPostInteractor } from "../../use_cases/get_post/interactor";
 import { ListBacklogInteractor } from "../../use_cases/list_backlog/interactor";
+import { ListOwnAccountsInteractor } from "../../use_cases/list_own_accounts/interactor";
 import { StageMediaFromUrlInteractor } from "../../use_cases/stage_media_from_url/interactor";
 import type { ToolHandlers } from "../mcp/mcp_server";
 import type { WorkerGraph } from "./worker_graph";
@@ -113,6 +115,10 @@ function accountReadingTools(g: WorkerGraph) {
           call.actor,
           args,
         ),
+      ),
+    list_accounts: (call) =>
+      presentTool(views.listAccountsView, call.secrets, (p) =>
+        new ListAccountsController(new ListOwnAccountsInteractor(g.accounts, p)).handle(call.actor),
       ),
   } satisfies Partial<ToolHandlers>;
 }

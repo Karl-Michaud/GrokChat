@@ -1,4 +1,4 @@
-/** The three scripts as the owner runs them, in --dry-run: nothing runs, nothing is written. */
+/** The deploy scripts as the owner runs them, in --dry-run: nothing runs, nothing is written. */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -33,23 +33,26 @@ describe("the deploy scripts in a dry run", () => {
     expect(readdirSync(cwd)).toStrictEqual(["x.env"]);
   });
 
-  it("add-bot prints the put, masked, and writes no file", () => {
+  it("import-bots prints the execute it would run and the people, never a hash", () => {
     const cwd = workdir();
-    const run = script("add-bot.mjs", ["--dry-run", "--id", "muse", "--accounts", "acc-1"], cwd);
+    const hash = "c".repeat(64);
+    const list = [{ id: "karl", tokenSha256: hash, accounts: ["acc-1"] }];
+    writeFileSync(join(cwd, ".bot-clients.local.json"), JSON.stringify(list));
+    const run = script("import-bots.mjs", ["--dry-run"], cwd);
     expect(run.status).toBe(0);
-    expect(run.stdout).toMatch(
-      /secret put GROKCHAT_BOT_CLIENTS {2}\(stdin: <\d+ characters, masked>\)/,
+    expect(run.stdout).toBe(
+      "would run: npx wrangler d1 execute grokchat --remote --yes --file <3 statements>  (dry run)\n" +
+        "people: Karl (karl); account assignments: 1\n",
     );
-    expect(run.stdout).toContain("would write .bot-tokens.local (mode 600)");
-    expect(readdirSync(cwd)).toStrictEqual([]);
+    expect(readdirSync(cwd)).toStrictEqual([".bot-clients.local.json"]);
   });
 
   it("fail with a message and exit 1 on bad use, and set-admin-password needs a terminal", () => {
     const cwd = workdir();
-    const bot = script("add-bot.mjs", ["--dry-run", "--id", "muse"], cwd);
+    const bot = script("import-bots.mjs", ["--dry-run"], cwd);
     expect([bot.status, bot.stderr]).toStrictEqual([
       1,
-      "error: usage: npm run add-bot -- --id <bot> --accounts <id,id> [--dry-run]\n",
+      "error: .bot-clients.local.json is missing: copy it from the machine that ran add-bot\n",
     ]);
     const unknown = script("provision-secrets.mjs", ["--nope"], cwd);
     expect(unknown.status).toBe(1);

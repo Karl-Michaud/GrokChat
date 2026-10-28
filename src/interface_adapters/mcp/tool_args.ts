@@ -59,6 +59,9 @@ export interface AccountWindowArgs {
   readonly to: string;
 }
 
+/** A tool that takes no argument (list_accounts): the caller is the whole input. */
+export type NoArgs = Readonly<Record<string, never>>;
+
 export interface ComparePostsArgs extends AccountWindowArgs {
   readonly sort_by: MetricName;
 }
@@ -77,6 +80,7 @@ export interface ToolArgs {
   readonly get_account_metrics: AccountWindowArgs;
   readonly compare_posts: ComparePostsArgs;
   readonly get_policy: AccountArgs;
+  readonly list_accounts: NoArgs;
 }
 
 export type ToolName = keyof ToolArgs;
