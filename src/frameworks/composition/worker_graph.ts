@@ -12,6 +12,7 @@ import { SystemClock } from "../durable_objects/system_clock";
 import type { Env } from "../env";
 import { HttpsMediaFetcher } from "../media_fetch/https_media_fetcher";
 import { R2MediaBlobStore } from "../r2/r2_media_blob_store";
+import { R2PendingUploads } from "../r2/r2_pending_uploads";
 import { RandomIds } from "../runtime/random_ids";
 import { AuditedXAccountConnector } from "../x_auth/recorded_oauth";
 import { XTokenEndpoint } from "../x_auth/token_endpoint";
@@ -26,6 +27,7 @@ import { MediaAttachments } from "../../use_cases/authoring/media_attachments";
 import { PartsValidator } from "../../use_cases/authoring/parts_validator";
 import { PostCommand } from "../../use_cases/authoring/post_command";
 import { MediaIntake } from "../../use_cases/media/media_intake";
+import { PartUpload } from "../../use_cases/media/part_upload";
 import type { AuditLog } from "../../use_cases/ports/audit_log";
 import type { Clock } from "../../use_cases/ports/clock";
 import type { XAccountConnector } from "../../use_cases/ports/x_account_connector";
@@ -58,6 +60,7 @@ function workerDrivers(env: Env) {
     /** The account's Durable Object: `AccountPublisher` and `AccountXGateway` in one client. */
     objects: new AccountObjects(env.ACCOUNT),
     blobs: new R2MediaBlobStore(env.MEDIA),
+    uploads: new R2PendingUploads(env.MEDIA),
     allowedHosts,
     fetcher: new HttpsMediaFetcher(allowedHosts),
     hasher: new WebCryptoContentHasher(),
@@ -73,6 +76,7 @@ export function workerGraph(env: Env) {
   const actionAudit = new ActionAudit(drivers.audit, clock);
   const guard = new AccessGuard(actionAudit);
   const steps = new GuardedTransition(drivers.writer);
+  const intake = new MediaIntake({ ...drivers, audit: actionAudit });
   return {
     ...drivers,
     actionAudit,
@@ -82,7 +86,8 @@ export function workerGraph(env: Env) {
     accountCommand: new AccountCommand(accounts, guard, actionAudit),
     validator: new PartsValidator(media),
     attachments: new MediaAttachments(media),
-    intake: new MediaIntake({ ...drivers, audit: actionAudit }),
+    intake,
+    parts: new PartUpload({ ...drivers, intake }),
     connector: (): XAccountConnector => xConnector(env, drivers.audit, clock),
   };
 }

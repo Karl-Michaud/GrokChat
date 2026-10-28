@@ -1,6 +1,6 @@
 /**
  * The MCP server through main.ts (plan §6 integration, R6) on the production graph: the SDK client
- * lists the 14 tools, creates posts that the account's Durable Object sends through the real X
+ * lists the 15 tools, creates posts that the account's Durable Object sends through the real X
  * drivers (X faked at `fetch` only), stages media through the real https fetcher into R2, and is
  * refused without the right token.
  */
@@ -53,10 +53,11 @@ const TOOLS = [
   "list_backlog",
   "list_media",
   "stage_media_from_url",
+  "upload_media",
 ];
 
 describe("the MCP server's surface", () => {
-  it("lists exactly the 14 tools (no get_personality: Grok owns personalities), each described and with an input schema, and no resources", async () => {
+  it("lists exactly the 15 tools (no get_personality: Grok owns personalities), each described and with an input schema, and no resources", async () => {
     const client = await connect(await botEnv([]));
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toStrictEqual(TOOLS);
@@ -84,7 +85,7 @@ describe("the MCP server's surface", () => {
 
   it("works for a client connected at /mcp/", async () => {
     const client = await connect(await botEnv([]), BOT_TOKEN, "/mcp/");
-    expect((await client.listTools()).tools).toHaveLength(14);
+    expect((await client.listTools()).tools).toHaveLength(15);
   });
 });
 

@@ -11,6 +11,7 @@ import type { CreatePostInputBoundary } from "../../use_cases/create_post/input_
 import type { DeletePostInputBoundary } from "../../use_cases/delete_post/input_boundary";
 import type { EditPostInputBoundary } from "../../use_cases/edit_post/input_boundary";
 import type { StageMediaFromUrlInputBoundary } from "../../use_cases/stage_media_from_url/input_boundary";
+import type { UploadMediaInputBoundary } from "../../use_cases/upload_media/input_boundary";
 import { instantArg } from "./time_args";
 import type {
   CreatePostArgs,
@@ -19,6 +20,7 @@ import type {
   PartArgs,
   PostArgs,
   StageMediaArgs,
+  UploadMediaArgs,
 } from "./tool_args";
 
 function partInput(part: PartArgs): PartInput {
@@ -61,6 +63,25 @@ export class StageMediaFromUrlController {
 
   handle(actor: Actor, args: StageMediaArgs): Promise<void> {
     return this.useCase.execute({ actor, accountId: accountId(args.account_id), url: args.url });
+  }
+}
+
+/** `upload_media` (GROKCHAT-20): a single-part upload is part 0 of 1; hashes are lowercased. */
+export class UploadMediaController {
+  constructor(private readonly useCase: UploadMediaInputBoundary) {}
+
+  handle(actor: Actor, args: UploadMediaArgs): Promise<void> {
+    return this.useCase.execute({
+      actor,
+      accountId: accountId(args.account_id),
+      label: args.label ?? "",
+      fileSha256: args.sha256.toLowerCase(),
+      data: args.data_base64,
+      partSha256: args.part_sha256.toLowerCase(),
+      uploadId: args.upload_id ?? null,
+      partIndex: args.part_index ?? 0,
+      partCount: args.part_count ?? 1,
+    });
   }
 }
 

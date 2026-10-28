@@ -15,6 +15,14 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ### Added
 
+- **Bots upload their own images** (GROKCHAT-20):
+  - MCP tool **`upload_media`** (15 tools): a bot sends a PNG, JPEG, WebP or GIF it made in its own workspace as base64, in one call or in parts of at most 256 KiB decoded, each with its own SHA-256 and the whole file's SHA-256. A garbled part is refused at once with `part_hash_mismatch` naming the part, so only that part is resent; resending a part is idempotent. When every part is in, the file is assembled, its hash checked (`file_hash_mismatch`) and stored through `MediaIntake` with the new source `bot_upload` (magic bytes, X's limits, the R2 quota guard, the same cleanup), audited as `media.bot_upload`; it returns `media_id` for `create_post` / `create_thread`;
+  - scoped to the token's person's accounts; other refusals: `bad_base64`, `part_out_of_range`, `part_too_large`, `upload_not_found`, `upload_expired`, `upload_mismatch`, `not_media`, `too_large`, `media_quota`, `invalid_label`, `scope`, `not_found`;
+  - **no migration**: unfinished uploads' parts sit in R2 under `uploads/` (port `PendingUploads`, memory and R2 drivers on one contract suite), expire after an hour, and the metrics tick deletes them inside its budget (`UploadCleanup`, run after the staged-media cleanup by `CleanupSteps`);
+  - parts sent at the same time (parallel tool calls) stage the file once: each call lists the parts again after writing its own, and only the call that claims the upload (`PendingUploads.claim`, an R2 conditional put on the record's etag, with a one-minute lease) assembles it; the others answer `complete: false` with empty `missing_parts`, and every part's bytes are counted once in the R2 usage. The descriptions and the setup prompt tell bots to send parts one at a time;
+  - `list_media` and the Media page show the `bot_upload` source; the tool descriptions, the setup prompt, the plan (§17) and the runbook (§10) explain when to use `upload_media` and when `stage_media_from_url`;
+  - **Why:** Grok bots render images in their workspace with no public link, and the sandbox has no outbound network, so the only way out for the bytes is the MCP tool call itself.
+
 - **Images for bots** (GROKCHAT-18):
   - **Grok's image host is allowed**: `GROKCHAT_MEDIA_HOSTS` is `imgen.x.ai`, so a Grok-generated image link stages with `stage_media_from_url` and posts. Every fetch protection stays (https, exact host match, every redirect re-checked, no literal IP, size caps, magic bytes);
   - **a host refusal says what to do**: `host_not_allowed` carries a `message` naming the allowed hosts (or that none is set) and pointing at the dashboard upload;

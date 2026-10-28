@@ -3,11 +3,17 @@ import type { Instant } from "../time/instant";
 
 export type MediaKind = "PHOTO" | "GIF";
 
-/** Where staged media came from: the dashboard's upload form, or a bot's URL and its host. */
+/**
+ * Where staged media came from: the dashboard's upload form, a bot's URL and its host, or a file
+ * a bot sent itself through `upload_media` (GROKCHAT-20).
+ */
 export type MediaSource =
-  { readonly kind: "dashboard" } | { readonly kind: "url"; readonly host: string };
+  | { readonly kind: "dashboard" }
+  | { readonly kind: "url"; readonly host: string }
+  | { readonly kind: "bot_upload" };
 
 export const DASHBOARD_SOURCE: MediaSource = { kind: "dashboard" };
+export const BOT_UPLOAD_SOURCE: MediaSource = { kind: "bot_upload" };
 
 /** Media fetched or uploaded into GrokChat's store, waiting to be attached to a post. */
 export interface StagedMedia {

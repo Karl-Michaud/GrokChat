@@ -13,9 +13,9 @@ const THREAD = { account_id: "a", parts: [{ text: "hi" }], idempotency_key: "k" 
 const WINDOW = { account_id: "a", from: "2026-10-27T00:00:00Z", to: "2026-10-28T00:00:00+02:00" };
 
 describe("tool input schemas", () => {
-  it("has a schema for exactly the 14 catalogued tools", () => {
+  it("has a schema for exactly the 15 catalogued tools", () => {
     expect(Object.keys(TOOL_SCHEMAS).sort()).toStrictEqual([...TOOL_NAMES].sort());
-    expect(TOOL_NAMES).toHaveLength(14);
+    expect(TOOL_NAMES).toHaveLength(15);
   });
 
   it("lists every derived status for list_backlog (compile-time check)", () => {
@@ -65,6 +65,42 @@ describe("tool input schemas", () => {
   it("edit_post cannot add a reply target: in_reply_to is not one of its fields (GROKCHAT-17)", () => {
     const parsed = TOOL_SCHEMAS.edit_post.parse({ post_id: "p", in_reply_to: "1" });
     expect(parsed).toStrictEqual({ post_id: "p" });
+  });
+
+  it("upload_media: hex SHA-256s, base64 up to 1,000,000 characters, optional part fields (GROKCHAT-20)", () => {
+    const hash = "aB".repeat(32);
+    const UPLOAD = { account_id: "a", sha256: hash, data_base64: "AAEC", part_sha256: hash };
+    expect(TOOL_SCHEMAS.upload_media.parse({ ...UPLOAD, extra: 1 })).toStrictEqual(UPLOAD);
+    const full = {
+      ...UPLOAD,
+      label: "x".repeat(1_000),
+      upload_id: "u",
+      part_index: 10_000,
+      part_count: 10_000,
+    };
+    expect(TOOL_SCHEMAS.upload_media.parse(full)).toStrictEqual(full);
+    expect(ok("upload_media", { ...UPLOAD, data_base64: "A" })).toBe(true);
+    expect(ok("upload_media", { ...UPLOAD, data_base64: "A".repeat(1_000_000) })).toBe(true);
+    expect(ok("upload_media", { ...UPLOAD, part_index: 0, part_count: 1 })).toBe(true);
+    for (const bad of [
+      { sha256: "a".repeat(63) },
+      { sha256: "a".repeat(65) },
+      { sha256: `x${"a".repeat(64)}` },
+      { sha256: `${"a".repeat(64)}x` },
+      { part_sha256: "g".repeat(64) },
+      { data_base64: "" },
+      { data_base64: "A".repeat(1_000_001) },
+      { label: "x".repeat(1_001) },
+      { upload_id: "" },
+      { part_index: -1 },
+      { part_index: 10_001 },
+      { part_index: 0.5 },
+      { part_count: 0 },
+      { part_count: 10_001 },
+      { account_id: undefined },
+    ]) {
+      expect([bad, ok("upload_media", { ...UPLOAD, ...bad })]).toStrictEqual([bad, false]);
+    }
   });
 
   it("create_thread: 1 to 25 parts", () => {

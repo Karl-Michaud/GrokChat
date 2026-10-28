@@ -36,6 +36,21 @@ export interface StageMediaArgs {
   readonly url: string;
 }
 
+/**
+ * upload_media (GROKCHAT-20): a file the bot made, whole or in parts. Hashes are SHA-256 hex;
+ * `part_index` is from 0 (default 0) of `part_count` (default 1).
+ */
+export interface UploadMediaArgs {
+  readonly account_id: string;
+  readonly label?: string | undefined;
+  readonly sha256: string;
+  readonly data_base64: string;
+  readonly part_sha256: string;
+  readonly upload_id?: string | undefined;
+  readonly part_index?: number | undefined;
+  readonly part_count?: number | undefined;
+}
+
 export interface EditPostArgs {
   readonly post_id: string;
   readonly parts?: readonly PartArgs[] | undefined;
@@ -82,6 +97,7 @@ export interface ToolArgs {
   readonly create_post: CreatePostArgs;
   readonly create_thread: CreateThreadArgs;
   readonly stage_media_from_url: StageMediaArgs;
+  readonly upload_media: UploadMediaArgs;
   readonly edit_post: EditPostArgs;
   readonly cancel_post: PostArgs;
   readonly delete_post: PostArgs;

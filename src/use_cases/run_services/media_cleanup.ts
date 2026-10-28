@@ -9,6 +9,7 @@ import type { MediaBlobStore } from "../ports/media_blob_store";
 import type { MediaCleanupCandidates } from "../ports/media_cleanup_candidates";
 import type { MediaRepository } from "../ports/media_repository";
 import type { MediaUsageRepository } from "../ports/media_usage_repository";
+import type { CleanupStep } from "./cleanup_step";
 
 export interface MediaCleanupPorts {
   readonly media: MediaRepository;
@@ -24,7 +25,7 @@ export interface MediaCleanupPorts {
  * item's declared cost checked before it and spent after it. What does not fit waits for the next
  * tick, oldest first, so every due item is reached.
  */
-export class MediaCleanup {
+export class MediaCleanup implements CleanupStep {
   constructor(private readonly ports: MediaCleanupPorts) {}
 
   async run(meter: BudgetMeter): Promise<number> {

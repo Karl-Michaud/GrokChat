@@ -33,9 +33,17 @@ export interface MediaOrigin {
   readonly source: MediaSource;
 }
 
-/** A dashboard upload is audited as the human's `media.upload`; a URL as `media.stage`. */
-export const intakeAction = (source: MediaSource): string =>
-  source.kind === "dashboard" ? "media.upload" : "media.stage";
+const INTAKE_ACTIONS: Readonly<Record<MediaSource["kind"], string>> = {
+  dashboard: "media.upload",
+  url: "media.stage",
+  bot_upload: "media.bot_upload",
+};
+
+/**
+ * A dashboard upload is audited as the human's `media.upload`, a URL as `media.stage`, a bot's own
+ * file (`upload_media`, GROKCHAT-20) as `media.bot_upload`.
+ */
+export const intakeAction = (source: MediaSource): string => INTAKE_ACTIONS[source.kind];
 
 export interface MediaIntakePorts {
   readonly media: MediaRepository;

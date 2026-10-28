@@ -201,6 +201,7 @@ describe("tool views", () => {
       id: stagedMediaId("m-url"),
       source: { kind: "url", host: "imgen.x.ai" },
     });
+    const sent = aMedia({ id: stagedMediaId("m-bot"), source: { kind: "bot_upload" } });
     expect(
       views.listMediaView({
         ok: true,
@@ -208,6 +209,7 @@ describe("tool views", () => {
         items: [
           { media: upload, used: false, expiresAt: T0 + 2 * DAY },
           { media: fetched, used: true, expiresAt: null },
+          { media: sent, used: false, expiresAt: null },
         ],
       }),
     ).toStrictEqual({
@@ -233,6 +235,16 @@ describe("tool views", () => {
             uploaded_at: "2026-10-27T12:00:00.000Z",
             source: "imgen.x.ai",
             used: true,
+            expires_at: null,
+          },
+          {
+            media_id: "m-bot",
+            label: null,
+            content_type: "image/png",
+            bytes: 1000,
+            uploaded_at: "2026-10-27T12:00:00.000Z",
+            source: "bot_upload",
+            used: false,
             expires_at: null,
           },
         ],

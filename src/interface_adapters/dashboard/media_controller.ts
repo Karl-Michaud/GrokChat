@@ -99,6 +99,9 @@ export interface MediaFileView {
   readonly contentType: string;
 }
 
+/** How the Media page names where a file came from; a URL shows its host. */
+const SOURCE_NAMES = { dashboard: "Dashboard upload", bot_upload: "Bot upload" } as const;
+
 function itemView(listing: MediaListing): MediaItemView {
   const { media, used, expiresAt } = listing;
   return {
@@ -109,7 +112,7 @@ function itemView(listing: MediaListing): MediaItemView {
     type: TYPE_NAMES[media.contentType] ?? media.contentType,
     size: fileSize(media.size),
     uploaded: dateTimeLabel(media.stagedAt),
-    source: media.source.kind === "dashboard" ? "Dashboard upload" : media.source.host,
+    source: media.source.kind === "url" ? media.source.host : SOURCE_NAMES[media.source.kind],
     status: used ? { label: "Used", tone: "good" } : { label: "Unused", tone: "neutral" },
     expires:
       expiresAt === null

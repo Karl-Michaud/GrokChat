@@ -188,6 +188,15 @@ describe("MediaController: the page (GROKCHAT-18)", () => {
       expires: `Kept until ${new Date(T0 + 7 * DAY).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`,
     });
     expect(byId.get("m-url")).toMatchObject({ source: "imgen.x.ai", type: "image/x-odd" });
+    await world.media.save({
+      ...fetched,
+      id: stagedMediaId("m-bot"),
+      source: { kind: "bot_upload" },
+    });
+    const again = new Map(
+      ((await view(media)).sections[0]?.items ?? []).map((item) => [item.id, item]),
+    );
+    expect(again.get("m-bot")).toMatchObject({ source: "Bot upload" });
   });
 
   it(`shows at most ${String(MEDIA_PER_ACCOUNT)} items per account, newest first`, async () => {

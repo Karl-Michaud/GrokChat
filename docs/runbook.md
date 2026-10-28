@@ -320,11 +320,22 @@ too, and its values then override the tests' own.
 
 ## 10. Images for bots
 
-A bot attaches images in one of two ways (GROKCHAT-18):
+A bot attaches images in one of three ways (GROKCHAT-18, GROKCHAT-20):
 
 - **Grok-generated.** The bot generates the image with Grok, then passes the `imgen.x.ai` link
   to `stage_media_from_url` at once (the links expire after about 4 hours) and the returned
   `media_id` to `create_post`.
+- **An image the bot made in its own workspace** (a meme, a mascot; GROKCHAT-20). The bot
+  sends the bytes itself with `upload_media`: the file's SHA-256, then the base64 in parts of
+  at most 200,000 characters (256 KiB decoded at most), each with its own SHA-256, one at a
+  time, and passes the returned `media_id` to `create_post`. Parts sent at the same time
+  still stage the file once: the call that sees every part in claims the upload for a minute
+  and assembles it, and the others answer `complete: false` with no `missing_parts`. A garbled part is refused with
+  `part_hash_mismatch` naming it, and only that part is resent; once every part is in, the
+  file is checked against its hash (`file_hash_mismatch`) and stored like any staged media
+  (source **Bot upload** on the Media page, `bot_upload` in `list_media`, audited as
+  `media.bot_upload`). Unfinished uploads expire after an hour (`upload_expired`); the metrics
+  tick deletes their parts, kept in R2 under `uploads/`.
 - **A file you have.** Open **Media**, choose the account, give it a label (optional, up to
   80 characters) and upload a PNG, JPEG, WebP or GIF (photos up to 5 MB, GIFs up to 15 MB;
   the type is read from the bytes, not the file name). Tell the bot; it calls `list_media`
@@ -339,6 +350,12 @@ Media page removes unused media at once; media a waiting post holds cannot be de
 (`staged_media.label`, `staged_media.source` and an index). Then stage one Grok image and post
 it on a test account, and upload one file on **Media** and have the bot find it with
 `list_media`.
+
+**Releasing GROKCHAT-20.** No migration; deploy as in section 7. Then ask a bot to make a small
+image in its workspace and upload it with `upload_media` without posting it: it should come
+back `complete: true` with a `media_id`, and the Media page should list it as **Bot upload**
+(delete it there afterwards). If a bot reports `bad_base64`, have it send standard base64
+(`+` and `/`, `=` padding), not base64url.
 
 ## 11. Replies
 
