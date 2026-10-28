@@ -1080,6 +1080,11 @@ a.cell-text:hover {
   white-space: nowrap;
 }
 
+/* The last label ends at the plot's edge instead of overhanging it. */
+.chart-x span:last-child {
+  text-align: right;
+}
+
 .chart-empty {
   position: absolute;
   inset: 0;

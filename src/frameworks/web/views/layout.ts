@@ -146,15 +146,13 @@ export function shell(page: Page, frame: PageFrame): Html {
 }
 
 export function errorPage(message: string, frame: PageFrame): Html {
-  const body = html`<div class="card">
-    <div class="empty" role="alert">
-      ${icon("inbox")}<strong>${message}</strong>
-      <a class="btn" href="/dashboard/analytics">Back to the dashboard</a>
-    </div>
+  const notice = html`<div class="empty" role="alert">
+    ${icon("inbox")}<strong>${message}</strong>
+    <a class="btn" href="/dashboard/analytics">Back to the dashboard</a>
   </div>`;
   return frame.csrf === ""
-    ? authPage("Refused", body, frame)
-    : shell({ title: "Refused", body }, frame);
+    ? authPage("Refused", notice, frame)
+    : shell({ title: "Refused", body: html`<div class="card">${notice}</div>` }, frame);
 }
 
 function authPage(title: string, body: Html, frame: PageFrame): Html {

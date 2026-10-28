@@ -101,13 +101,14 @@ Vars live in `wrangler.jsonc`, and changing one needs a deploy:
      authorise the app. You return to Accounts with "connected @handle".
    - The new account is **PAUSED**. Tick both disclosure boxes and **Save disclosure**.
      Publishing stays refused until both are confirmed.
-   - Set the policy and save it. Start in **REVIEW** mode, so every bot post waits in the
-     backlog for your approval. Switch to AUTO only once the bot's posts have been right
-     for a while.
-   - **Activate**.
-4. Note the **Account id** that the account's section shows. `add-bot` takes it.
+   - Open **Posting policy** on its card, set it and save it. Start in **Review first**, so
+     every bot post waits on the **Posts** page (status "Needs review") for your approval.
+     Switch to auto-publish only once the bot's posts have been right for a while.
+   - Turn its switch to **Publishing on**.
+4. Copy the **Account id** from the bottom of its card. `add-bot` takes it. The **Connect a
+   Grok bot** panel below the cards shows the whole `add-bot` command and the MCP URL.
 
-To reconnect an account, use **Reconnect on X** in its section. Do this when the section
+To reconnect an account, use **Reconnect on X** on its card. Do this when the section
 says publishing is refused until the account is reconnected, or when X revoked access. A reconnect as a different X user is refused.
 
 ## 3. Add a bot and configure a Grok bot
@@ -204,27 +205,40 @@ file and run `npm run provision-secrets -- --rotate --env-file <path>`.
 
 ## 5. Kill switch
 
-- **One account.** Dashboard → **Accounts** → **Pause (kill switch)**. Nothing more is
-  published for the account from the next publish tick (at most a minute). Posts that are
-  waiting stay in the backlog. **Activate** resumes.
+- **One account.** Dashboard → **Accounts** → turn the account's switch off ("Paused").
+  Nothing more is published for the account from the next publish tick (at most a
+  minute). Posts that are waiting stay scheduled. Turning it back on resumes.
 - **One post.** On the post's page, **Cancel** it before it starts, or **Delete on X**
   once it is published. Delete removes every sent part, last part first.
 - **Every bot.** Revoke them (section 3).
 - **Everything.** Pause every account. Then deploy, or roll back, only when `/health`
   shows `"publishing":0`.
 
-## 6. Read costs and R2 usage
+## 6. Read analytics, costs and R2 usage
 
-- **Costs.** Dashboard → **Costs**: X API spend per account and operation, from our own
+- **Analytics** (the dashboard's home): impressions, engagements, likes, reposts, replies,
+  link clicks, follower growth, posts published and X spend for the last 24 hours, 3, 7,
+  14 or 30 days or all time, against the period before; every account or one (the
+  sidebar's account switcher). Each chart has **Show as a table**.
+  - The numbers are what each post _gained_ in the range: a post's metrics are read on a
+    decaying schedule (plan §3.3 #8), and each read counts the change since the one
+    before. Link clicks come from X's non-public metrics, which X gives for posts under 30
+    days old only.
+  - **Followers** are read once a UTC day per connected account by the `*/15` metrics tick
+    (one User read, $0.010 a day per account), so follower growth moves in daily steps.
+- **Costs.** The **X API spend** card: X API spend in the range, per account, from our own
   ledger, which gets an entry for every X call. Compare it with the X developer portal's
-  usage page and its spending limit.
-- **Media.** Dashboard → **Media**: R2 stored bytes, and this month's Class A and Class B
-  operations, against the free tier's 10 GB, 1M and 10M.
+  usage page and its spending limit. Every call and its cost is also on the **Activity**
+  page.
+- **Media.** The **Media storage (R2)** card: R2 stored bytes, and this month's Class A
+  and Class B operations, against the free tier's 10 GB, 1M and 10M.
   - The quota guard refuses uploads with `media_quota` from 8 GB stored or 800k Class A,
     and stops reads at 8M Class B.
   - Staged media is deleted 7 days after its post publishes, or 2 days after staging if it
     was never used.
-- **Audit.** Dashboard → **Audit**: every X call and every refused or completed action.
+- **Activity.** Every request: what bots, you and GrokChat itself did (created, edited,
+  scheduled, published, cancelled, deleted, refused, metrics reads), on which account, at
+  what X cost. Filter by account, by who, and by kind.
 - **Workers usage.** Cloudflare dashboard → Workers & Pages → `grokchat` → Metrics. For
   errors:
 
@@ -264,3 +278,21 @@ npx wrangler rollback <version id> -m "<reason>"     # same quiet-time rule as a
 - Secrets and D1 stay as they are, so a release whose migrations the older code cannot
   read cannot be rolled back this way. Fix forward instead.
 - Like a deploy, a rollback resets every Durable Object: wait for `"publishing":0`.
+
+## 9. Local preview
+
+To see the dashboard on your machine with realistic data, without touching production:
+
+1. Write a `.dev.vars` (gitignored; see `.dev.vars.example`) with throwaway values only:
+   a random `GROKCHAT_SESSION_SECRET`, a `GROKCHAT_ADMIN_PASSWORD_HASH` for a local
+   password, `GROKCHAT_PUBLIC_ORIGIN=http://localhost:8787`, and dummy X app values.
+   Never a production secret.
+2. `npm run seed:local` applies the migrations to the **local** D1 and fills it with three
+   accounts and about two months of posts, metrics, follower snapshots, activity and
+   costs (deterministic; a run replaces the previous seed). It never runs against the
+   deployed database. `-- --dry-run` prints the SQL.
+3. `npx wrangler dev`, then open `http://localhost:8787/dashboard/login`. The theme toggle
+   is at the bottom of the sidebar.
+
+Move `.dev.vars` out of the clone before `npm run check`: the workerd test plugin loads it
+too, and its values then override the tests' own.
