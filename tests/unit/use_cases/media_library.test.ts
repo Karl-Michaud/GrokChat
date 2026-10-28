@@ -60,8 +60,16 @@ describe("listMedia (GROKCHAT-18)", () => {
     );
     const old = aMedia({ id: stagedMediaId("old"), stagedAt: T0 - DAY });
     const held = aMedia({ id: stagedMediaId("held"), stagedAt: T0, attachedTo: postId("waiting") });
-    const freed = aMedia({ id: stagedMediaId("freed"), stagedAt: T0, attachedTo: postId("dropped") });
-    const sent = aMedia({ id: stagedMediaId("sent"), stagedAt: T0 + 1, attachedTo: postId("done") });
+    const freed = aMedia({
+      id: stagedMediaId("freed"),
+      stagedAt: T0,
+      attachedTo: postId("dropped"),
+    });
+    const sent = aMedia({
+      id: stagedMediaId("sent"),
+      stagedAt: T0 + 1,
+      attachedTo: postId("done"),
+    });
     const theirs = aMedia({ id: stagedMediaId("theirs"), ownerAccountId: OTHER_ACCOUNT });
     for (const item of [old, held, freed, sent, theirs]) {
       await world.media.save(item);
@@ -170,12 +178,12 @@ describe("deleteMedia (GROKCHAT-18)", () => {
     expect(world.media.rows.size).toBe(0);
     expect(world.blobs.blobs.size).toBe(0);
     expect(await world.usage.current(T0)).toMatchObject({ storedBytes: 0, classA: 1 });
-    expect(world.audit.events.map((event) => [event.actor, event.action, event.detail])).toStrictEqual(
-      [
-        ["human:owner", "media.upload", id],
-        ["human:owner", "media.delete", id],
-      ],
-    );
+    expect(
+      world.audit.events.map((event) => [event.actor, event.action, event.detail]),
+    ).toStrictEqual([
+      ["human:owner", "media.upload", id],
+      ["human:owner", "media.delete", id],
+    ]);
   });
 
   it("media of a cancelled post counts as unused and may be deleted", async () => {
@@ -197,12 +205,12 @@ describe("deleteMedia (GROKCHAT-18)", () => {
     });
     expect(await remove(world, "ghost")).toStrictEqual({ ok: false, code: "not_found" });
     expect(world.media.rows.get(stagedMediaId("media-1"))).toStrictEqual(held);
-    expect(world.audit.events.map((event) => [event.action, event.detail, event.postId])).toStrictEqual(
-      [
-        ["refused.media.delete", "media_in_use", "p"],
-        ["refused.media.delete", "human_only", "p"],
-      ],
-    );
+    expect(
+      world.audit.events.map((event) => [event.action, event.detail, event.postId]),
+    ).toStrictEqual([
+      ["refused.media.delete", "media_in_use", "p"],
+      ["refused.media.delete", "human_only", "p"],
+    ]);
   });
 });
 
@@ -234,8 +242,6 @@ describe("getMediaFile (GROKCHAT-18 thumbnails)", () => {
     expect(await world.usage.current(T0)).toMatchObject({ classB: 0 });
     await world.usage.record({ storedBytes: 0, classA: 0, classB: 8_000_000 }, T0);
     expect(await file(world, item.id)).toStrictEqual({ ok: false, code: "media_quota" });
-    expect(world.audit.events.map((event) => event.action)).toStrictEqual([
-      "refused.media.view",
-    ]);
+    expect(world.audit.events.map((event) => event.action)).toStrictEqual(["refused.media.view"]);
   });
 });

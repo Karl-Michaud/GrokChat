@@ -38,7 +38,10 @@ function toResult(outcome: ToolOutcome): ToolResult {
     return { isError: false, body: outcome.body };
   }
   const body = { error: outcome.code, part: outcome.part ?? null };
-  return { isError: true, body: outcome.message === undefined ? body : { ...body, message: outcome.message } };
+  return {
+    isError: true,
+    body: outcome.message === undefined ? body : { ...body, message: outcome.message },
+  };
 }
 
 /**

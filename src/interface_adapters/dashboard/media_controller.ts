@@ -183,7 +183,11 @@ export class MediaController {
     for (const { account, owner } of inView) {
       const items = await this.listed(account);
       if (items.length > 0) {
-        sections.push({ badge: badgeOf(accounts, account.id), owner: owner ?? "Unassigned", items });
+        sections.push({
+          badge: badgeOf(accounts, account.id),
+          owner: owner ?? "Unassigned",
+          items,
+        });
       }
     }
     return page({
@@ -232,7 +236,9 @@ export class MediaController {
       this.useCases.deleteMedia,
       { actor: ADMIN, mediaId: stagedMediaId(id) },
       (output) =>
-        output.ok ? redirect(href(MEDIA_PAGE, { account: output.accountId })) : refused(output.code),
+        output.ok
+          ? redirect(href(MEDIA_PAGE, { account: output.accountId }))
+          : refused(output.code),
     );
   }
 

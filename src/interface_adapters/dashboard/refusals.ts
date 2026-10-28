@@ -45,12 +45,14 @@ const REFUSALS: ReadonlyMap<string, RefusalView> = new Map(
     person_not_found: { status: 404, message: "That person does not exist." },
     not_media: {
       status: 400,
-      message: "That file is not a PNG, JPEG, WebP or GIF (its contents were checked, not its name).",
+      message:
+        "That file is not a PNG, JPEG, WebP or GIF (its contents were checked, not its name).",
     },
     too_large: { status: 400, message: "Too large: photos up to 5 MB, GIFs up to 15 MB." },
     media_quota: {
       status: 409,
-      message: "Media storage is at its free-tier guard; wait for the cleanup or delete unused media.",
+      message:
+        "Media storage is at its free-tier guard; wait for the cleanup or delete unused media.",
     },
     media_in_use: { status: 409, message: "A post still uses that media; it cannot be deleted." },
     invalid_label: { status: 400, message: "A label is at most 80 characters." },

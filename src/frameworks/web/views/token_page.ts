@@ -115,16 +115,14 @@ function stalePage(view: StaleTokenView, frame: PageFrame): Html {
           <p class="callout warning" role="alert">
             ${icon("warning")}
             <span>
-              <strong>This token was already issued.</strong> The page was reloaded or the form
-              sent twice, so the token was not rotated again. ${view.personName}: ${view.current}.
-              If you missed copying it, rotate again: the current token then stops working.
+              <strong>This token was already issued.</strong> The page was reloaded or the form sent
+              twice, so the token was not rotated again. ${view.personName}: ${view.current}. If you
+              missed copying it, rotate again: the current token then stops working.
             </span>
           </p>
           <form method="post" action="${action}" hx-boost="false" class="inline-form">
             ${csrfField(frame.csrf)}<input type="hidden" name="issued" value="${view.issued}" />
-            <button class="btn btn-primary btn-sm">
-              ${icon("key")}<span>Rotate again</span>
-            </button>
+            <button class="btn btn-primary btn-sm">${icon("key")}<span>Rotate again</span></button>
           </form>
         </div>
       </section>`,

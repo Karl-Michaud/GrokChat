@@ -137,9 +137,9 @@ describe("stageMediaFromUrl: Grok's image host and the host refusal (GROKCHAT-18
       code: "host_not_allowed",
       allowedHosts: [],
     });
-    expect(await stage(world, "https://other.example/a.png", ["imgen.x.ai", "cdn.x"])).toStrictEqual(
-      { ok: false, code: "host_not_allowed", allowedHosts: ["imgen.x.ai", "cdn.x"] },
-    );
+    expect(
+      await stage(world, "https://other.example/a.png", ["imgen.x.ai", "cdn.x"]),
+    ).toStrictEqual({ ok: false, code: "host_not_allowed", allowedHosts: ["imgen.x.ai", "cdn.x"] });
     expect(world.fetcher.requests).toStrictEqual([]);
   });
 
@@ -153,7 +153,10 @@ describe("stageMediaFromUrl: Grok's image host and the host refusal (GROKCHAT-18
       allowedHosts: ["imgen.x.ai"],
     });
     world.fetcher.responses.set(IMGEN, { ok: false, reason: "bad_type" });
-    expect(await stage(world, IMGEN, ["imgen.x.ai"])).toStrictEqual({ ok: false, code: "bad_type" });
+    expect(await stage(world, IMGEN, ["imgen.x.ai"])).toStrictEqual({
+      ok: false,
+      code: "bad_type",
+    });
   });
 });
 
@@ -197,9 +200,9 @@ describe("stageMediaUpload (dashboard)", () => {
       attachedTo: null,
     });
     expect(await world.usage.current(T0)).toMatchObject({ storedBytes: GIF.length, classA: 1 });
-    expect(world.audit.events.map((event) => [event.actor, event.action, event.detail])).toStrictEqual(
-      [["human:owner", "media.upload", "id-1"]],
-    );
+    expect(
+      world.audit.events.map((event) => [event.actor, event.action, event.detail]),
+    ).toStrictEqual([["human:owner", "media.upload", "id-1"]]);
     expect(await upload(world, PNG, HUMAN, ACCOUNT, "")).toMatchObject({ ok: true });
     expect(world.media.rows.get(stagedMediaId("id-2"))?.label).toBeNull();
   });

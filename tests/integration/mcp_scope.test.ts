@@ -84,6 +84,7 @@ const OTHER_ACCOUNT_IDS: readonly Case[] = [
   ["get_account_metrics", (w) => ({ account_id: w.theirs.id, ...WINDOW }), "scope"],
   ["compare_posts", (w) => ({ account_id: w.theirs.id, sort_by: "likes", ...WINDOW }), "scope"],
   ["get_policy", (w) => ({ account_id: w.theirs.id }), "scope"],
+  ["list_media", (w) => ({ account_id: w.theirs.id }), "scope"],
 ];
 
 const OTHER_POST_IDS: readonly Case[] = [
@@ -125,6 +126,7 @@ const OTHER_MEDIA_IDS: readonly Case[] = [
 const UNKNOWN_IDS: readonly Case[] = [
   ["create_post", () => ({ account_id: "nobody", text: "x", idempotency_key: "s-5" }), "not_found"],
   ["get_policy", () => ({ account_id: "nobody" }), "not_found"],
+  ["list_media", () => ({ account_id: "nobody" }), "not_found"],
   ["get_account_metrics", () => ({ account_id: "nobody", ...WINDOW }), "scope"],
   ["compare_posts", () => ({ account_id: "nobody", sort_by: "likes", ...WINDOW }), "scope"],
   ["list_backlog", () => ({ account_id: "nobody" }), "scope"],

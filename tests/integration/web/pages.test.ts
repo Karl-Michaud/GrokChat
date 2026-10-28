@@ -14,7 +14,7 @@ import {
   sentState,
   T0,
 } from "../../unit/support/builders";
-import { Browser, controllersFor, dashboard, ORIGIN, PASSWORD } from "./browser";
+import { Browser, controllersFor, dashboard, issuedField, ORIGIN, PASSWORD } from "./browser";
 
 async function loggedIn() {
   const setup = await dashboard();
@@ -225,8 +225,9 @@ describe("the dashboard pages (GROKCHAT-15)", () => {
     const { browser, world } = await populated();
     await world.people.save(aPerson({ id: personId("p-k"), name: "Karl" }));
     await world.owners.assign(ACCOUNT, personId("p-k"));
-    await browser.page("/dashboard/accounts");
-    const response = await browser.post("/dashboard/people/p-k/token");
+    const { html: accounts } = await browser.page("/dashboard/accounts");
+    expect(issuedField(accounts, "p-k")).toBe("none");
+    const response = await browser.post("/dashboard/people/p-k/token", { issued: "none" });
     const html = await response.text();
     expect([response.status, response.headers.get("cache-control")]).toStrictEqual([
       200,
@@ -271,15 +272,7 @@ describe("the dashboard pages (GROKCHAT-15)", () => {
     ]) {
       expect([path, (await browser.page(path)).status]).toStrictEqual([path, 400]);
     }
-    for (const path of [
-      "backlog",
-      "calendar",
-      "metrics",
-      "costs",
-      "media",
-      "audit",
-      "personalities",
-    ]) {
+    for (const path of ["backlog", "calendar", "metrics", "costs", "audit", "personalities"]) {
       expect([path, (await browser.get(`/dashboard/${path}`)).status]).toStrictEqual([path, 404]);
     }
   });

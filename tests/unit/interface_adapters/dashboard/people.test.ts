@@ -109,7 +109,10 @@ describe("PeopleController", () => {
     expect(view.prompt).not.toContain(view.token);
     expect(CONNECTOR_NAME).toBe("grokchat");
     const again = await people.token(PERSON, ORIGIN, String(T0));
-    expect(again).toMatchObject({ kind: "page", view: { kind: "issued", view: { rotated: true } } });
+    expect(again).toMatchObject({
+      kind: "page",
+      view: { kind: "issued", view: { rotated: true } },
+    });
   });
 
   it("a refused issue shows the refusal", async () => {

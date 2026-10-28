@@ -42,7 +42,12 @@ export class ListMediaInteractor implements ListMediaInputBoundary {
       this.presenter.present(refusal("not_found"));
       return;
     }
-    const action = { actor: input.actor, action: "media.list", accountId: account.id, postId: null };
+    const action = {
+      actor: input.actor,
+      action: "media.list",
+      accountId: account.id,
+      postId: null,
+    };
     if (!(await this.ports.guard.inScope(action))) {
       this.presenter.present(refusal("scope"));
       return;

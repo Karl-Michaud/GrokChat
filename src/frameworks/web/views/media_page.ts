@@ -10,6 +10,41 @@ import { chip, copyField, csrfField, empty, who } from "./components";
 import { icon } from "./icons";
 import { shell, type Html } from "./layout";
 
+/** The account select: one optgroup per person, then Unassigned. */
+function accountSelect(view: MediaPageView): Html {
+  return html`<label
+    >Account
+    <select name="account" required>
+      ${view.groups.map(
+        (group) =>
+          html`<optgroup label="${group.label}">
+            ${group.options.map(
+              (option) =>
+                html`<option value="${option.value}" ${option.selected ? "selected" : ""}>
+                  ${option.label}
+                </option>`,
+            )}
+          </optgroup>`,
+      )}
+    </select></label
+  >`;
+}
+
+/** The label and the file: the label is optional, the type is checked by its bytes. */
+function fileFields(view: MediaPageView): Html {
+  return html`<label
+      >Label
+      <input
+        name="label"
+        maxlength="${String(view.maxLabel)}"
+        placeholder="e.g. launch banner"
+        autocomplete="off"
+    /></label>
+    <label class="upload-file"
+      >File <input type="file" name="file" accept="${view.accept}" required
+    /></label>`;
+}
+
 /**
  * The upload form (GROKCHAT-18): a plain multipart POST with the CSRF field, so it works with no
  * script; htmx is off for it (`hx-boost="false"`), so the browser sends the file itself.
@@ -36,34 +71,7 @@ function uploadCard(view: MediaPageView, csrf: string): Html {
         enctype="multipart/form-data"
         hx-boost="false"
       >
-        ${csrfField(csrf)}
-        <label
-          >Account
-          <select name="account" required>
-            ${view.groups.map(
-              (group) =>
-                html`<optgroup label="${group.label}">
-                  ${group.options.map(
-                    (option) =>
-                      html`<option value="${option.value}" ${option.selected ? "selected" : ""}>
-                        ${option.label}
-                      </option>`,
-                  )}
-                </optgroup>`,
-            )}
-          </select></label
-        >
-        <label
-          >Label
-          <input
-            name="label"
-            maxlength="${String(view.maxLabel)}"
-            placeholder="e.g. launch banner"
-            autocomplete="off"
-        /></label>
-        <label class="upload-file"
-          >File <input type="file" name="file" accept="${view.accept}" required
-        /></label>
+        ${csrfField(csrf)} ${accountSelect(view)} ${fileFields(view)}
         <div class="upload-submit">
           <button class="btn btn-primary">${icon("upload")}<span>Upload</span></button>
         </div>
@@ -111,7 +119,10 @@ function deleteControl(item: MediaItemView, csrf: string): Html {
 function tile(item: MediaItemView, csrf: string): Html {
   return html`<li class="media-tile">
     <a class="media-thumb" href="${item.fileUrl}" target="_blank" rel="noopener"
-      ><img src="${item.fileUrl}" alt="${item.labelled ? item.label : "Untitled image"}" loading="lazy"
+      ><img
+        src="${item.fileUrl}"
+        alt="${item.labelled ? item.label : "Untitled image"}"
+        loading="lazy"
     /></a>
     <div class="media-info">
       <div class="media-title">

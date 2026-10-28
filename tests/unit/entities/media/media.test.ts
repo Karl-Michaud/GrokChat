@@ -148,7 +148,8 @@ describe("Grok's image host (GROKCHAT-18)", () => {
   const hosts = ["imgen.x.ai"];
 
   it("allows an imgen.x.ai link exactly as xAI returns it", () => {
-    const url = "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-8f1c2b7e-3a4d-4e5f-9a6b-1c2d3e4f5a6b.jpeg";
+    const url =
+      "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-8f1c2b7e-3a4d-4e5f-9a6b-1c2d3e4f5a6b.jpeg";
     expect(checkMediaUrl(url, hosts)).toStrictEqual({ allowed: true });
   });
 
@@ -231,7 +232,10 @@ describe("parseMediaLabel", () => {
   it("at most 80 characters", () => {
     expect(MAX_LABEL_LENGTH).toBe(80);
     expect(parseMediaLabel("a".repeat(80))).toStrictEqual({ ok: true, label: "a".repeat(80) });
-    expect(parseMediaLabel(` ${"a".repeat(80)} `)).toStrictEqual({ ok: true, label: "a".repeat(80) });
+    expect(parseMediaLabel(` ${"a".repeat(80)} `)).toStrictEqual({
+      ok: true,
+      label: "a".repeat(80),
+    });
     expect(parseMediaLabel("a".repeat(81))).toStrictEqual({ ok: false });
   });
 });

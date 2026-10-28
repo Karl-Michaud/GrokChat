@@ -19,7 +19,10 @@ export const MEDIA_FILE_CACHE = "private, max-age=86400, immutable";
  */
 export function mediaRoutes(app: WebApp, { media }: WebControllers): void {
   app.get(MEDIA_PAGE, async (c) => {
-    const query = { account: c.req.query("account") ?? null, uploaded: c.req.query("uploaded") ?? null };
+    const query = {
+      account: c.req.query("account") ?? null,
+      uploaded: c.req.query("uploaded") ?? null,
+    };
     return respond(c, await media.media(query), mediaPage);
   });
   app.post(MEDIA_PAGE, async (c) => {
@@ -39,7 +42,10 @@ export function mediaRoutes(app: WebApp, { media }: WebControllers): void {
     const outcome = await media.file(c.req.param("id"));
     if (outcome.kind !== "page") {
       const message = outcome.kind === "refused" ? outcome.message : "Not found.";
-      return c.html(errorPage(message, frameOf(c)), outcome.kind === "refused" ? outcome.status : 404);
+      return c.html(
+        errorPage(message, frameOf(c)),
+        outcome.kind === "refused" ? outcome.status : 404,
+      );
     }
     c.header("Content-Type", outcome.view.contentType);
     c.header("Content-Disposition", "inline");

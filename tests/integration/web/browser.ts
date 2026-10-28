@@ -159,6 +159,19 @@ export class Browser {
   }
 }
 
+/**
+ * The `issued` field of a person's token form on a page (GROKCHAT-18), as a browser would send it
+ * back: the nonce that lets the form rotate the token exactly once.
+ */
+export function issuedField(html: string, person: string): string {
+  const form = html.indexOf(`action="/dashboard/people/${person}/token"`);
+  const value = /name="issued" value="([^"]*)"/.exec(html.slice(form))?.[1];
+  if (form < 0 || value === undefined) {
+    throw new Error(`no token form for ${person}`);
+  }
+  return value;
+}
+
 /** The dashboard over an in-memory world, and a browser for it. */
 export async function dashboard(overrides: Partial<Env> = {}) {
   const world = makeWorld();
