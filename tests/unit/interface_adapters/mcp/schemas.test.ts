@@ -85,6 +85,18 @@ describe("tool input schemas", () => {
     expect(TOOL_SCHEMAS.list_accounts.parse({ extra: 1 })).toStrictEqual({});
   });
 
+  it("list_media: an account id, status unused or all, limit 1 to 50 (GROKCHAT-18)", () => {
+    expect(ok("list_media", { account_id: "a" })).toBe(true);
+    expect(ok("list_media", { account_id: "a", status: "unused", limit: 1 })).toBe(true);
+    expect(ok("list_media", { account_id: "a", status: "all", limit: 50 })).toBe(true);
+    expect(ok("list_media", { account_id: "a", status: "used" })).toBe(false);
+    expect(ok("list_media", { account_id: "a", status: "" })).toBe(false);
+    expect(ok("list_media", { account_id: "a", limit: 0 })).toBe(false);
+    expect(ok("list_media", { account_id: "a", limit: 51 })).toBe(false);
+    expect(ok("list_media", { account_id: "a", limit: 2.5 })).toBe(false);
+    expect(ok("list_media", {})).toBe(false);
+  });
+
   it("the account tools need an account id", () => {
     expect(ok("get_policy", {})).toBe(false);
     expect(TOOL_SCHEMAS.get_policy.parse({ account_id: "a" })).toStrictEqual({ account_id: "a" });

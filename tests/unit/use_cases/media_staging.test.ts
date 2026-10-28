@@ -224,6 +224,19 @@ describe("stageMediaUpload (dashboard)", () => {
     expect(await upload(world, overGif)).toStrictEqual({ ok: false, code: "too_large" });
   });
 
+  it("a body past the GIF limit is too large before its bytes are even read as media", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    expect(await upload(world, new Uint8Array(15 * 1024 * 1024 + 1))).toStrictEqual({
+      ok: false,
+      code: "too_large",
+    });
+    expect(await upload(world, new Uint8Array(15 * 1024 * 1024))).toStrictEqual({
+      ok: false,
+      code: "not_media",
+    });
+  });
+
   it("refuses a label over 80 characters and stores nothing", async () => {
     const world = makeWorld();
     await world.seedAccount();

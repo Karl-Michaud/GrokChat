@@ -50,6 +50,7 @@ export class DeleteMediaInteractor implements DeleteMediaInputBoundary {
     if (!(await this.ports.guard.humanOnly(action))) {
       return refusal("human_only");
     }
+    // Stryker disable next-line ConditionalExpression: reading no post id is the same null, one call later.
     const post = media.attachedTo === null ? null : await this.ports.reader.get(media.attachedTo);
     if (mediaInUse(post)) {
       await this.ports.audit.refused(action, "media_in_use");

@@ -201,6 +201,65 @@ describe("MediaController: the page (GROKCHAT-18)", () => {
     expect(items[0]?.id).toBe(`m-${String(MEDIA_PER_ACCOUNT + 1)}`);
   });
 
+  it("names its route, what the file input offers, and each type", async () => {
+    expect([MEDIA_PAGE, MEDIA_ACCEPT]).toStrictEqual([
+      "/dashboard/media",
+      "image/png,image/jpeg,image/webp,image/gif",
+    ]);
+    const { world, media } = await setup();
+    for (const [id, contentType] of [
+      ["m-jpeg", "image/jpeg"],
+      ["m-webp", "image/webp"],
+    ] as const) {
+      await world.media.save({ ...(await world.stage(ACCOUNT, "PHOTO", id)), contentType });
+    }
+    const items = (await view(media)).sections[0]?.items ?? [];
+    expect(items.map((item) => [item.id, item.type, item.fileUrl]).sort()).toStrictEqual([
+      ["m-jpeg", "JPEG", "/dashboard/media/m-jpeg/file"],
+      ["m-webp", "WebP", "/dashboard/media/m-webp/file"],
+    ]);
+  });
+
+  it("a person's accounts share one group in the upload select", async () => {
+    const { world, media } = await setup();
+    await world.people.save(aPerson({ id: personId("p-k"), name: "Karl" }));
+    await world.owners.assign(ACCOUNT, personId("p-k"));
+    await world.owners.assign(OTHER_ACCOUNT, personId("p-k"));
+    expect((await view(media)).groups).toStrictEqual([
+      {
+        label: "Karl",
+        options: [
+          { value: "acc-1", label: "@one", selected: false },
+          { value: "acc-2", label: "@two", selected: false },
+        ],
+      },
+      { label: "Unassigned", options: [{ value: "acc-3", label: "@three", selected: false }] },
+    ]);
+  });
+
+  it("a refused listing shows nothing rather than failing the page", async () => {
+    const { world } = await setup();
+    await world.stage(ACCOUNT);
+    const refusing = {
+      ...dashboardUseCases(world),
+      listPeople: (p: { present(output: { ok: false; code: "human_only" }): void }) => ({
+        execute: () => {
+          p.present({ ok: false, code: "human_only" });
+          return Promise.resolve();
+        },
+      }),
+      listMedia: (p: { present(output: { ok: false; code: "scope" }): void }) => ({
+        execute: () => {
+          p.present({ ok: false, code: "scope" });
+          return Promise.resolve();
+        },
+      }),
+    };
+    const page = await view(new MediaController(refusing));
+    expect(page.sections).toStrictEqual([]);
+    expect(page.groups.map((group) => group.label)).toStrictEqual(["Unassigned"]);
+  });
+
   it("no accounts: no upload groups and no sections", async () => {
     const world = makeWorld();
     const page = await view(new MediaController(dashboardUseCases(world)));

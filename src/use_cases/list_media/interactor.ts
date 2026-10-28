@@ -65,6 +65,7 @@ export class ListMediaInteractor implements ListMediaInputBoundary {
   }
 
   private async listing(media: StagedMedia): Promise<MediaListing> {
+    // Stryker disable next-line ConditionalExpression: reading no post id is the same null, one call later.
     const post = media.attachedTo === null ? null : await this.ports.reader.get(media.attachedTo);
     return { media, used: mediaInUse(post), expiresAt: mediaExpiresAt(media, post) };
   }
