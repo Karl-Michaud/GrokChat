@@ -9,6 +9,8 @@ export type CreatePostRefusalCode =
   | "idempotency_mismatch"
   | "publish_at_past"
   | "reply_target_invalid"
+  /** X allows API replies only to the account's own posts (GROKCHAT-17): a target it published. */
+  | "reply_target_not_own"
   | PartsRefusalCode;
 
 export type CreatePostOutputData =

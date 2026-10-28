@@ -25,6 +25,7 @@ function creator(world: World) {
     {
       accounts: world.accounts,
       reader: world.reader,
+      ownPosts: world.reader,
       writer: world.writer,
       attachments: world.attachments,
       validator: world.validator,

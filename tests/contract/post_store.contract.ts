@@ -7,6 +7,7 @@ import { botId, idempotencyKey, postId, xPostId } from "../../src/entities/ident
 import { HOUR, MINUTE } from "../../src/entities/time/instant";
 import type { AuditLog } from "../../src/use_cases/ports/audit_log";
 import type { CostLedger } from "../../src/use_cases/ports/cost_ledger";
+import type { OwnXPosts } from "../../src/use_cases/ports/own_x_posts";
 import type { PostReader } from "../../src/use_cases/ports/post_reader";
 import type { PostWriter } from "../../src/use_cases/ports/post_writer";
 import type { PublishingCount } from "../../src/use_cases/ports/publishing_count";
@@ -22,7 +23,7 @@ import {
 } from "../unit/support/builders";
 
 export interface PostStore {
-  readonly reader: PostReader & PublishingCount;
+  readonly reader: PostReader & PublishingCount & OwnXPosts;
   readonly writer: PostWriter;
   readonly audit: AuditLog;
   readonly costs: CostLedger;
@@ -67,6 +68,58 @@ export function postStoreContract(make: () => PostStore): void {
     const reply = aPost({ id: postId("reply-1"), replyTo: xPostId("1850000000000000001") });
     await writer.add(reply);
     expect(await reader.get(reply.id)).toStrictEqual(reply);
+  });
+
+  it("an X post is the account's own only while a SENT part of one of its posts carries it", async () => {
+    const { reader, writer } = make();
+    const own = xPostId("1850000000000000001");
+    const other = xPostId("1850000000000000002");
+    const gone = xPostId("1850000000000000003");
+    expect(await reader.isOwnPublishedXPost(ACCOUNT, own)).toBe(false);
+    await writer.add(
+      aPost({
+        id: postId("thread"),
+        lifecycle: "DONE",
+        parts: [part("a", sentState("1850000000000000001")), part("b", sendingState())],
+      }),
+    );
+    await writer.add(
+      aPost({
+        id: postId("theirs"),
+        accountId: OTHER_ACCOUNT,
+        lifecycle: "DONE",
+        parts: [part("c", sentState("1850000000000000002"))],
+      }),
+    );
+    await writer.add(
+      aPost({
+        id: postId("deleted"),
+        lifecycle: "DONE",
+        parts: [part("d", { kind: "DELETED", xPostId: gone })],
+      }),
+    );
+    await writer.add(aPost({ id: postId("reply"), replyTo: other }));
+    expect(await reader.isOwnPublishedXPost(ACCOUNT, own)).toBe(true);
+    expect(await reader.isOwnPublishedXPost(OTHER_ACCOUNT, own)).toBe(false);
+    expect(await reader.isOwnPublishedXPost(ACCOUNT, other)).toBe(false);
+    expect(await reader.isOwnPublishedXPost(OTHER_ACCOUNT, other)).toBe(true);
+    expect(await reader.isOwnPublishedXPost(ACCOUNT, gone)).toBe(false);
+  });
+
+  it("a part saved as SENT makes its X post the account's own", async () => {
+    const { reader, writer } = make();
+    const post = aPost({ id: postId("later"), lifecycle: "PUBLISHING" });
+    await writer.add(post);
+    const id = xPostId("1850000000000000004");
+    expect(await reader.isOwnPublishedXPost(ACCOUNT, id)).toBe(false);
+    const sent = {
+      ...post,
+      lifecycle: "DONE" as const,
+      parts: [part("hello world", sentState("1850000000000000004"))],
+      version: post.version + 1,
+    };
+    expect(await writer.save(sent, post.version, "PUBLISHING")).toStrictEqual({ kind: "ok" });
+    expect(await reader.isOwnPublishedXPost(ACCOUNT, id)).toBe(true);
   });
 
   it("(bot, key) is unique: the second add returns the first post; humans and other keys do not collide", async () => {

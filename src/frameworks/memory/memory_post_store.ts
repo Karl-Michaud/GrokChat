@@ -1,4 +1,10 @@
-import type { AccountId, BotId, IdempotencyKey, PostId } from "../../entities/identity/ids";
+import type {
+  AccountId,
+  BotId,
+  IdempotencyKey,
+  PostId,
+  XPostId,
+} from "../../entities/identity/ids";
 import { metricsDue } from "../../entities/metrics/metrics_due";
 import { isDue, dueAt } from "../../entities/posts/due";
 import type { Lifecycle, Post } from "../../entities/posts/post";
@@ -9,6 +15,7 @@ import { inWindow, type Instant } from "../../entities/time/instant";
 import type { AuditLog } from "../../use_cases/ports/audit_log";
 import type { CostLedger } from "../../use_cases/ports/cost_ledger";
 import type { MetricsRepository } from "../../use_cases/ports/metrics_repository";
+import type { OwnXPosts } from "../../use_cases/ports/own_x_posts";
 import type { AccountWork, PostFilter, PostReader } from "../../use_cases/ports/post_reader";
 import type { AddResult, PostWriter, SaveResult } from "../../use_cases/ports/post_writer";
 import type { PublishingCount } from "../../use_cases/ports/publishing_count";
@@ -39,7 +46,7 @@ function matches(post: Post, filter: PostFilter): boolean {
 
 const ORDER = (a: Post, b: Post): number => a.publishAt - b.publishAt || a.id.localeCompare(b.id);
 
-export class MemoryPostReader implements PostReader, PublishingCount {
+export class MemoryPostReader implements PostReader, PublishingCount, OwnXPosts {
   constructor(
     private readonly table: MemoryPostTable,
     private readonly metrics: MetricsRepository,
@@ -67,6 +74,16 @@ export class MemoryPostReader implements PostReader, PublishingCount {
         .filter((post) => matches(post, filter))
         .sort(ORDER),
     );
+  }
+
+  isOwnPublishedXPost(account: AccountId, id: XPostId): Promise<boolean> {
+    const own = this.table
+      .all()
+      .filter((post) => post.accountId === account)
+      .some((post) =>
+        post.parts.some((part) => part.state.kind === "SENT" && part.state.xPostId === id),
+      );
+    return Promise.resolve(own);
   }
 
   recentActivity(account: AccountId): Promise<RecentActivity> {
