@@ -83,6 +83,7 @@ const ACTIONS: Readonly<Record<string, string>> = {
   "account.policy": "Updated the posting policy",
   "media.stage": "Staged media",
   "media.upload": "Uploaded media",
+  "media.bot_upload": "Bot uploaded media",
   "media.delete": "Deleted media",
   "media.list": "Listed media",
   "media.view": "Viewed media",

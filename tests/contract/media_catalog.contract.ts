@@ -34,7 +34,7 @@ export function mediaCatalogContract(make: () => CatalogStores): void {
     ]);
   });
 
-  it("returns each item as saved: its label and where it came from", async () => {
+  it("returns each item as saved: its label and where it came from (a bot upload too, GROKCHAT-20)", async () => {
     const { catalog, media } = make();
     const upload = aMedia({
       id: stagedMediaId("m-up"),
@@ -46,9 +46,17 @@ export function mediaCatalogContract(make: () => CatalogStores): void {
       id: stagedMediaId("m-url"),
       source: { kind: "url", host: "imgen.x.ai" },
     });
+    const sent = aMedia({
+      id: stagedMediaId("m-bot"),
+      label: "mascot",
+      source: { kind: "bot_upload" },
+      stagedAt: T0 - 1,
+    });
     await media.save(upload);
     await media.save(fetched);
-    expect(await catalog.recent(ACCOUNT, 10)).toStrictEqual([upload, fetched]);
+    await media.save(sent);
+    expect(await catalog.recent(ACCOUNT, 10)).toStrictEqual([upload, fetched, sent]);
     expect(await media.get(upload.id)).toStrictEqual(upload);
+    expect(await media.get(sent.id)).toStrictEqual(sent);
   });
 }

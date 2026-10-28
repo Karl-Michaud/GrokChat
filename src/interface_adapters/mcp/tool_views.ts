@@ -14,6 +14,13 @@ import type { ListBacklogOutputData } from "../../use_cases/list_backlog/output_
 import type { ListMediaOutputData, MediaListing } from "../../use_cases/list_media/output_data";
 import type { ListOwnAccountsOutputData } from "../../use_cases/list_own_accounts/output_data";
 import type { StageMediaFromUrlOutputData } from "../../use_cases/stage_media_from_url/output_data";
+import type {
+  HashMismatch,
+  UploadedMedia,
+  UploadInProgress,
+  UploadMediaOutputData,
+} from "../../use_cases/upload_media/output_data";
+import { MAX_PART_BYTES, MAX_UPLOAD_PARTS } from "../../entities/media/upload_parts";
 import type { AccountStatus } from "../../entities/accounts/account";
 import { disclosureComplete } from "../../entities/accounts/account";
 import { disclosureJson, policyJson, postJson, snapshotJson } from "./json_views";
@@ -67,6 +74,51 @@ export const stageMediaView: ToolView<StageMediaFromUrlOutputData> = (output) =>
   !output.ok && output.code === "host_not_allowed"
     ? { ok: false, code: output.code, message: hostRefusalMessage(output.allowedHosts) }
     : stagedView(output);
+
+/** What a bot is told for the upload refusals it can act on (GROKCHAT-20); the rest: the code. */
+function uploadMessage(output: UploadMediaOutputData & { readonly ok: false }): string | null {
+  if (output.code === "part_hash_mismatch" || output.code === "file_hash_mismatch") {
+    const { expected, actual } = output as HashMismatch<typeof output.code>;
+    return output.code === "part_hash_mismatch"
+      ? `Part ${String(output.part)} decodes to bytes whose SHA-256 is ${actual}, not the part_sha256 you sent (${expected}). Resend only part ${String(output.part)}, with the same upload_id.`
+      : `Every part arrived, but the file they make has SHA-256 ${actual}, not the sha256 you sent (${expected}). The upload was discarded: check the parts' order and the file's hash, then start again without upload_id.`;
+  }
+  return UPLOAD_MESSAGES[output.code] ?? null;
+}
+
+const UPLOAD_MESSAGES: Readonly<Partial<Record<string, string>>> = {
+  bad_base64:
+    "data_base64 is not standard base64 (A-Z, a-z, 0-9, +, /, = padding at the end; line breaks are ignored). Resend this part.",
+  part_too_large: `A part may hold at most ${String(MAX_PART_BYTES)} bytes once decoded: split the file into more parts.`,
+  part_out_of_range: `part_index runs from 0 to part_count - 1, and part_count from 1 to ${String(MAX_UPLOAD_PARTS)}.`,
+  upload_not_found: "No such upload for this account: start again without upload_id.",
+  upload_expired:
+    "The upload expired (an hour after its first part) and its parts were deleted: start again without upload_id.",
+  upload_mismatch:
+    "This upload_id was opened with another sha256 or part_count: send the same values on every part.",
+};
+
+const uploadedView = (output: UploadedMedia | UploadInProgress): JsonObject =>
+  output.complete
+    ? {
+        complete: true,
+        media_id: output.mediaId,
+        kind: output.kind,
+        size_bytes: output.size,
+        upload_id: output.uploadId,
+      }
+    : { complete: false, upload_id: output.uploadId, missing_parts: [...output.missing] };
+
+export const uploadMediaView: ToolView<UploadMediaOutputData> = (output) => {
+  if (output.ok) {
+    return { ok: true, body: uploadedView(output) };
+  }
+  const part = "part" in output ? output.part : null;
+  const message = uploadMessage(output);
+  return message === null
+    ? { ok: false, code: output.code, part }
+    : { ok: false, code: output.code, part, message };
+};
 
 /** edit_post and cancel_post: the post as it now stands. */
 export const postCommandView: ToolView<CommandResult<string>> = either((done) => ({
@@ -138,7 +190,7 @@ function mediaJson({ media, used, expiresAt }: MediaListing): JsonObject {
     content_type: media.contentType,
     bytes: media.size,
     uploaded_at: iso(media.stagedAt),
-    source: media.source.kind === "dashboard" ? "dashboard" : media.source.host,
+    source: media.source.kind === "url" ? media.source.host : media.source.kind,
     used,
     expires_at: expiresAt === null ? null : iso(expiresAt),
   };

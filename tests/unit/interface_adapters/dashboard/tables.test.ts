@@ -93,6 +93,7 @@ describe("label tables", () => {
       "account.policy",
       "media.stage",
       "media.upload",
+      "media.bot_upload",
       "media.delete",
       "media.list",
       "media.view",

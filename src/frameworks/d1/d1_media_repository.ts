@@ -1,4 +1,10 @@
-import type { MediaKind, MediaSource, StagedMedia } from "../../entities/content/staged_media";
+import {
+  BOT_UPLOAD_SOURCE,
+  DASHBOARD_SOURCE,
+  type MediaKind,
+  type MediaSource,
+  type StagedMedia,
+} from "../../entities/content/staged_media";
 import { accountId, postId, stagedMediaId, type StagedMediaId } from "../../entities/identity/ids";
 import type { MediaRepository } from "../../use_cases/ports/media_repository";
 
@@ -21,15 +27,18 @@ export const COLUMNS =
 
 const URL_SOURCE = "url:";
 
-/** `dashboard`, or `url:<host>` (migration 0006). */
+const BOT_UPLOAD = "bot_upload";
+
+/** `dashboard`, `url:<host>` (migration 0006), or `bot_upload` (GROKCHAT-20, no migration). */
 export function sourceColumn(source: MediaSource): string {
-  return source.kind === "dashboard" ? "dashboard" : `${URL_SOURCE}${source.host}`;
+  return source.kind === "url" ? `${URL_SOURCE}${source.host}` : source.kind;
 }
 
 export function sourceOf(column: string): MediaSource {
-  return column.startsWith(URL_SOURCE)
-    ? { kind: "url", host: column.slice(URL_SOURCE.length) }
-    : { kind: "dashboard" };
+  if (column.startsWith(URL_SOURCE)) {
+    return { kind: "url", host: column.slice(URL_SOURCE.length) };
+  }
+  return column === BOT_UPLOAD ? BOT_UPLOAD_SOURCE : DASHBOARD_SOURCE;
 }
 
 export function fromRow(row: MediaRow): StagedMedia {
