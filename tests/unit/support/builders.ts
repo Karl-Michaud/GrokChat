@@ -100,6 +100,8 @@ export function aMedia(overrides: Partial<StagedMedia> = {}): StagedMedia {
     sha256: "abc",
     stagedAt: T0,
     attachedTo: null,
+    label: null,
+    source: { kind: "url", host: "cdn.example.com" },
     ...overrides,
   };
 }

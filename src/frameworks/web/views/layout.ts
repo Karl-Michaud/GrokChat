@@ -16,6 +16,7 @@ const NAV: readonly (readonly [string, string, IconName])[] = [
   ["/dashboard/analytics", "Analytics", "analytics"],
   ["/dashboard/posts", "Posts", "posts"],
   ["/dashboard/accounts", "Accounts", "accounts"],
+  ["/dashboard/media", "Media", "image"],
   ["/dashboard/activity", "Activity", "activity"],
 ];
 

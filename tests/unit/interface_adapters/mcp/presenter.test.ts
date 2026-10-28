@@ -21,6 +21,26 @@ function presented(outcome: ToolOutcome, secrets: readonly string[] = []) {
 }
 
 describe("ToolPresenter", () => {
+  it("adds a refusal's message when it has one, after its code and part (GROKCHAT-18)", () => {
+    expect(
+      presented({ ok: false, code: "host_not_allowed", message: "Allowed hosts: a" }),
+    ).toStrictEqual({
+      isError: true,
+      body: { error: "host_not_allowed", part: null, message: "Allowed hosts: a" },
+    });
+    expect(presented({ ok: false, code: "scope", part: 2 })).toStrictEqual({
+      isError: true,
+      body: { error: "scope", part: 2 },
+    });
+  });
+
+  it("redacts a secret inside a refusal's message", () => {
+    expect(presented({ ok: false, code: "x", message: "has sekrit" }, ["sekrit"])).toStrictEqual({
+      isError: true,
+      body: { error: "x", part: null, message: `has ${REDACTED}` },
+    });
+  });
+
   it("passes a success through as a result that is not an error", () => {
     expect(presented({ ok: true, body: { a: 1, b: [true, null] } })).toStrictEqual({
       isError: false,

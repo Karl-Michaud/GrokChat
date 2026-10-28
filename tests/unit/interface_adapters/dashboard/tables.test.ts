@@ -93,6 +93,9 @@ describe("label tables", () => {
       "account.policy",
       "media.stage",
       "media.upload",
+      "media.delete",
+      "media.list",
+      "media.view",
       "session.login",
     ];
     expect(
@@ -122,6 +125,9 @@ describe("label tables", () => {
       "Updated the posting policy (info)",
       "Staged media (neutral)",
       "Uploaded media (neutral)",
+      "Deleted media (neutral)",
+      "Listed media (neutral)",
+      "Viewed media (neutral)",
       "Logged in (neutral)",
     ]);
   });

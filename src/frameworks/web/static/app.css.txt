@@ -1697,7 +1697,124 @@ textarea.prompt {
   min-height: 320px;
   font-family: var(--mono);
   font-size: 12px;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* GROKCHAT-18: a token is one 43-character word; on a phone it wraps instead of scrolling. */
+.token-field code,
+.token-page .copy-field code {
+  overflow-x: visible;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Media (GROKCHAT-18) ---------- */
+
+.upload-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  align-items: end;
+  gap: var(--s-3);
+}
+
+.upload-form input[type="file"] {
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 0;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+}
+
+.upload-form input[type="file"]::file-selector-button {
+  margin-right: var(--s-2);
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.media-notice .stack {
+  flex: 1;
+  min-width: 0;
+  gap: var(--s-2);
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.media-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.media-thumb {
+  display: block;
+  aspect-ratio: 16 / 10;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.media-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.media-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-3);
+}
+
+.media-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.media-title strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.media-tile .copy-field code {
+  font-size: 11.5px;
+}
+
+.media-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ---------- Post page ---------- */
@@ -1889,6 +2006,10 @@ textarea.prompt {
 /* ---------- Narrow screens ---------- */
 
 @media (max-width: 1080px) {
+  .upload-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .grid-2 {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2045,6 +2166,14 @@ textarea.prompt {
 }
 
 @media (max-width: 560px) {
+  .upload-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .media-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .topbar-tools:has(.new-person) {
     flex-wrap: wrap;
   }

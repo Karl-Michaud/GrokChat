@@ -38,6 +38,7 @@ import {
   SequentialTokenIssuer,
 } from "../../src/frameworks/memory/memory_people";
 import { MemoryTokenStore } from "../../src/frameworks/memory/memory_tokens";
+import { MemoryMediaCatalog } from "../../src/frameworks/memory/memory_media_catalog";
 import { MemoryMediaCleanupCandidates } from "../../src/frameworks/memory/memory_media_cleanup";
 import { xUserId } from "../../src/entities/identity/ids";
 import { T0 } from "../unit/support/builders";
@@ -51,6 +52,7 @@ import {
 import { MemoryActivityLog } from "../../src/frameworks/memory/memory_activity";
 import { MemoryFollowerStore } from "../../src/frameworks/memory/memory_followers";
 import { followerStoreContract } from "./followers.contract";
+import { mediaCatalogContract } from "./media_catalog.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import {
   accountOwnersContract,
@@ -108,6 +110,10 @@ describe("memory cleanup candidates", () => {
 describe("memory repositories", () => {
   accountRepositoryContract(() => new MemoryAccountRepository());
   mediaRepositoryContract(() => new MemoryMediaRepository());
+  mediaCatalogContract(() => {
+    const media = new MemoryMediaRepository();
+    return { media, catalog: new MemoryMediaCatalog(media) };
+  });
   blobStoreContract(() => new MemoryMediaBlobStore());
   mediaUsageContract(() => new MemoryMediaUsage());
 });

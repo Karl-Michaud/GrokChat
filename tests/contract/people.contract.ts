@@ -46,6 +46,28 @@ export function personRepositoryContract(make: () => PeopleStores): void {
     expect((await people.get(amy.id))?.token).toBeNull();
   });
 
+  it("replaceToken sets the token only while it is the expected one, so one of two racers wins (GROKCHAT-18)", async () => {
+    const { people } = make();
+    const amy = aPerson({ id: personId("p-1"), name: "Amy" });
+    await people.save(amy);
+    const first = { sha256: HASH_A, createdAt: T0 + 1 };
+    expect(await people.replaceToken(amy.id, T0, first)).toBe(false);
+    expect(await people.replaceToken(amy.id, null, first)).toBe(true);
+    expect(await people.get(amy.id)).toStrictEqual({ ...amy, token: first });
+    const second = { sha256: HASH_B, createdAt: T0 + 2 };
+    expect(await people.replaceToken(amy.id, null, second)).toBe(false);
+    expect(await people.replaceToken(amy.id, T0 + 2, second)).toBe(false);
+    const racers = await Promise.all([
+      people.replaceToken(amy.id, T0 + 1, second),
+      people.replaceToken(amy.id, T0 + 1, { sha256: "c".repeat(64), createdAt: T0 + 3 }),
+    ]);
+    expect(racers.filter(Boolean)).toHaveLength(1);
+    expect(await people.findByTokenHash(HASH_A)).toBeNull();
+    expect(await people.replaceToken(personId("nobody"), null, first)).toBe(false);
+    expect(await people.get(personId("nobody"))).toBeNull();
+    expect((await people.get(amy.id))?.name).toBe("Amy");
+  });
+
   it("delete removes the person, its token and its assignments, and nobody else's", async () => {
     const { people, owners, accounts } = make();
     const kept = aPerson({ id: personId("p-kept"), name: "Kept" });

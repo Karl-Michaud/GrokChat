@@ -17,7 +17,9 @@ import {
   GetPostController,
   GetPostMetricsController,
   ListAccountsController,
+  LIST_MEDIA_DEFAULT_LIMIT,
   ListBacklogController,
+  ListMediaController,
 } from "../../../../src/interface_adapters/mcp/reading_controllers";
 import {
   instantArg,
@@ -231,5 +233,17 @@ describe("reading controllers", () => {
     const list = new Spy();
     await new ListAccountsController(list).handle(ACTOR);
     expect(list.inputs).toStrictEqual([{ actor: ACTOR }]);
+  });
+
+  it("list_media defaults to the unused media, 20 at a time (GROKCHAT-18)", async () => {
+    const list = new Spy();
+    const controller = new ListMediaController(list);
+    await controller.handle(ACTOR, { account_id: "acc-1" });
+    await controller.handle(ACTOR, { account_id: "acc-1", status: "all", limit: 3 });
+    expect(LIST_MEDIA_DEFAULT_LIMIT).toBe(20);
+    expect(list.inputs).toStrictEqual([
+      { actor: ACTOR, accountId: "acc-1", status: "unused", limit: 20 },
+      { actor: ACTOR, accountId: "acc-1", status: "all", limit: 3 },
+    ]);
   });
 });

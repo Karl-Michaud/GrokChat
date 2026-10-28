@@ -1,5 +1,5 @@
 /**
- * The 13 MCP tools (plan §3.4; list_accounts since GROKCHAT-16) over the Worker's production graph: the same D1 records, account
+ * The 14 MCP tools (plan §3.4; list_accounts since GROKCHAT-16, list_media since GROKCHAT-18) over the Worker's production graph: the same D1 records, account
  * Durable Objects and R2 media as the dashboard, so a bot sees what the dashboard connected.
  */
 import {
@@ -18,6 +18,7 @@ import {
   GetPostMetricsController,
   ListAccountsController,
   ListBacklogController,
+  ListMediaController,
 } from "../../interface_adapters/mcp/reading_controllers";
 import { presentTool, type ToolPresenter } from "../../interface_adapters/mcp/tool_presenter";
 import * as views from "../../interface_adapters/mcp/tool_views";
@@ -32,6 +33,7 @@ import { GetPolicyInteractor } from "../../use_cases/get_policy/interactor";
 import { GetPostMetricsInteractor } from "../../use_cases/get_post_metrics/interactor";
 import { GetPostInteractor } from "../../use_cases/get_post/interactor";
 import { ListBacklogInteractor } from "../../use_cases/list_backlog/interactor";
+import { ListMediaInteractor } from "../../use_cases/list_media/interactor";
 import { ListOwnAccountsInteractor } from "../../use_cases/list_own_accounts/interactor";
 import { StageMediaFromUrlInteractor } from "../../use_cases/stage_media_from_url/interactor";
 import type { ToolHandlers } from "../mcp/mcp_server";
@@ -119,6 +121,10 @@ function accountReadingTools(g: WorkerGraph) {
     list_accounts: (call) =>
       presentTool(views.listAccountsView, call.secrets, (p) =>
         new ListAccountsController(new ListOwnAccountsInteractor(g.accounts, p)).handle(call.actor),
+      ),
+    list_media: (call, args) =>
+      presentTool(views.listMediaView, call.secrets, (p) =>
+        new ListMediaController(new ListMediaInteractor(g, p)).handle(call.actor, args),
       ),
   } satisfies Partial<ToolHandlers>;
 }

@@ -79,6 +79,19 @@ export function delta(current: number, previous: number | null): Delta | null {
     : { text: "0%", direction: "flat" };
 }
 
+const KIB = 1024;
+
+/** 950 B · 90 KB · 1.5 MB (binary units, as file sizes are usually shown). */
+export function fileSize(bytes: number): string {
+  if (bytes < KIB) {
+    return `${String(bytes)} B`;
+  }
+  if (bytes < KIB * KIB) {
+    return `${String(Math.round(bytes / KIB))} KB`;
+  }
+  return `${String(Number((bytes / (KIB * KIB)).toFixed(1)))} MB`;
+}
+
 /** Oct 27 */
 export function dayLabel(at: Instant): string {
   return new Date(at).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });

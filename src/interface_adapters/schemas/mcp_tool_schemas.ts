@@ -6,6 +6,7 @@ import { z } from "zod";
 import { MAX_PHOTOS, MAX_THREAD_PARTS } from "../../entities/content/post_part";
 import type { DerivedStatus } from "../../entities/posts/derived_status";
 import { METRIC_NAMES } from "../../entities/metrics/metrics_snapshot";
+import { MAX_MEDIA_LIST } from "../../use_cases/list_media/interactor";
 import type { ToolArgs, ToolName } from "../mcp/tool_args";
 
 /** Long enough for any id GrokChat hands out, short enough to refuse junk. */
@@ -79,4 +80,9 @@ export const TOOL_SCHEMAS = {
   }),
   get_policy: accountOnly,
   list_accounts: z.object({}),
+  list_media: z.object({
+    account_id: id,
+    status: z.enum(["unused", "all"]).optional(),
+    limit: z.number().int().min(1).max(MAX_MEDIA_LIST).optional(),
+  }),
 } satisfies { readonly [K in ToolName]: z.ZodType<ToolArgs[K]> };

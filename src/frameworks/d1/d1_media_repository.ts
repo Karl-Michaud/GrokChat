@@ -1,4 +1,4 @@
-import type { MediaKind, StagedMedia } from "../../entities/content/staged_media";
+import type { MediaKind, MediaSource, StagedMedia } from "../../entities/content/staged_media";
 import { accountId, postId, stagedMediaId, type StagedMediaId } from "../../entities/identity/ids";
 import type { MediaRepository } from "../../use_cases/ports/media_repository";
 
@@ -12,10 +12,25 @@ export interface MediaRow {
   readonly sha256: string;
   readonly staged_at: number;
   readonly attached_to: string | null;
+  readonly label: string | null;
+  readonly source: string;
 }
 
 export const COLUMNS =
-  "id, owner_account_id, kind, content_type, size, storage_key, sha256, staged_at, attached_to";
+  "id, owner_account_id, kind, content_type, size, storage_key, sha256, staged_at, attached_to, label, source";
+
+const URL_SOURCE = "url:";
+
+/** `dashboard`, or `url:<host>` (migration 0006). */
+export function sourceColumn(source: MediaSource): string {
+  return source.kind === "dashboard" ? "dashboard" : `${URL_SOURCE}${source.host}`;
+}
+
+export function sourceOf(column: string): MediaSource {
+  return column.startsWith(URL_SOURCE)
+    ? { kind: "url", host: column.slice(URL_SOURCE.length) }
+    : { kind: "dashboard" };
+}
 
 export function fromRow(row: MediaRow): StagedMedia {
   return {
@@ -28,6 +43,8 @@ export function fromRow(row: MediaRow): StagedMedia {
     sha256: row.sha256,
     stagedAt: row.staged_at,
     attachedTo: row.attached_to === null ? null : postId(row.attached_to),
+    label: row.label,
+    source: sourceOf(row.source),
   };
 }
 
@@ -53,7 +70,7 @@ export class D1MediaRepository implements MediaRepository {
   async save(media: StagedMedia): Promise<void> {
     await this.db
       .prepare(
-        `INSERT OR REPLACE INTO staged_media (${COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`,
+        `INSERT OR REPLACE INTO staged_media (${COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)`,
       )
       .bind(
         media.id,
@@ -65,6 +82,8 @@ export class D1MediaRepository implements MediaRepository {
         media.sha256,
         media.stagedAt,
         media.attachedTo,
+        media.label,
+        sourceColumn(media.source),
       )
       .run();
   }

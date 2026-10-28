@@ -72,6 +72,6 @@ describe("sniffMedia (magic bytes)", () => {
 
   it("size limits", () => {
     expect(MAX_MEDIA_BYTES).toStrictEqual({ PHOTO: 5 * 1024 * 1024, GIF: 15 * 1024 * 1024 });
-    expect(MAX_UPLOAD_BYTES).toBe(4 * 1024 * 1024);
+    expect(MAX_UPLOAD_BYTES).toBe(15 * 1024 * 1024);
   });
 });

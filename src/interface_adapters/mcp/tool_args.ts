@@ -63,6 +63,13 @@ export interface AccountWindowArgs {
   readonly to: string;
 }
 
+/** list_media (GROKCHAT-18): `unused` by default, at most 50. */
+export interface ListMediaArgs {
+  readonly account_id: string;
+  readonly status?: "unused" | "all" | undefined;
+  readonly limit?: number | undefined;
+}
+
 /** A tool that takes no argument (list_accounts): the caller is the whole input. */
 export type NoArgs = Readonly<Record<string, never>>;
 
@@ -85,6 +92,7 @@ export interface ToolArgs {
   readonly compare_posts: ComparePostsArgs;
   readonly get_policy: AccountArgs;
   readonly list_accounts: NoArgs;
+  readonly list_media: ListMediaArgs;
 }
 
 export type ToolName = keyof ToolArgs;

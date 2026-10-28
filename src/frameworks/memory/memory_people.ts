@@ -1,5 +1,11 @@
 import type { AccountId, PersonId } from "../../entities/identity/ids";
-import { nameKey, type AccountOwnership, type Person } from "../../entities/people/person";
+import {
+  nameKey,
+  type AccountOwnership,
+  type Person,
+  type PersonToken,
+} from "../../entities/people/person";
+import type { Instant } from "../../entities/time/instant";
 import type { AccountOwners } from "../../use_cases/ports/account_owners";
 import type { BotTokenIssuer, IssuedToken } from "../../use_cases/ports/bot_token_issuer";
 import type { PersonRepository } from "../../use_cases/ports/person_repository";
@@ -77,6 +83,15 @@ export class MemoryPersonRepository implements PersonRepository {
   save(person: Person): Promise<void> {
     this.rows.set(person.id, person);
     return Promise.resolve();
+  }
+
+  replaceToken(id: PersonId, expected: Instant | null, token: PersonToken): Promise<boolean> {
+    const person = this.rows.get(id);
+    if (person === undefined || (person.token?.createdAt ?? null) !== expected) {
+      return Promise.resolve(false);
+    }
+    this.rows.set(id, { ...person, token });
+    return Promise.resolve(true);
   }
 
   delete(id: PersonId): Promise<void> {

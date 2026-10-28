@@ -2,10 +2,18 @@ import { redact } from "../../entities/security/redact";
 import type { JsonObject, JsonValue, ToolResult } from "./tool_result";
 import { ToolViewModel } from "./tool_result";
 
-/** A use case's output as a tool shows it: a body, or a refusal code (and the part it is about). */
+/**
+ * A use case's output as a tool shows it: a body, or a refusal code (and the part it is about,
+ * and for some codes a sentence saying what to do, GROKCHAT-18).
+ */
 export type ToolOutcome =
   | { readonly ok: true; readonly body: JsonObject }
-  | { readonly ok: false; readonly code: string; readonly part?: number | null };
+  | {
+      readonly ok: false;
+      readonly code: string;
+      readonly part?: number | null;
+      readonly message?: string;
+    };
 
 /** Maps one use case's output data onto a tool outcome. */
 export type ToolView<Output> = (output: Output) => ToolOutcome;
@@ -29,7 +37,11 @@ function toResult(outcome: ToolOutcome): ToolResult {
   if (outcome.ok) {
     return { isError: false, body: outcome.body };
   }
-  return { isError: true, body: { error: outcome.code, part: outcome.part ?? null } };
+  const body = { error: outcome.code, part: outcome.part ?? null };
+  return {
+    isError: true,
+    body: outcome.message === undefined ? body : { ...body, message: outcome.message },
+  };
 }
 
 /**

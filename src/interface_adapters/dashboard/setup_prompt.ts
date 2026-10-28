@@ -55,9 +55,10 @@ function intro(): string {
 voiced by one or more "personalities", and each personality has two agents: a Scout (research:
 trends, what's working on X, angles) and a Writer (drafts posts in that personality's voice). You
 coordinate them, and you are the ONLY one that publishes: everything goes out through the
-GrokChat MCP server. GrokChat does posting only: create posts and threads, schedule, edit or
-cancel before publishing, delete our own posts, attach images, and read metrics. It cannot
-reply, like, repost or follow, so don't plan around those.
+GrokChat MCP server. GrokChat does posting only: create posts, threads and replies, schedule,
+edit or cancel before publishing, delete our own posts, attach images (Grok-generated, or
+uploaded by me on the dashboard), and read metrics. It cannot like, repost or follow, so don't
+plan around those.
 
 Work through the three phases below in order. Report back to me at the end of each phase
 before starting the next.`;
@@ -149,6 +150,10 @@ const RUNNING = `AFTER SETUP: HOW YOU RUN THINGS
   daily cap.
 - Use compare_posts, get_post_metrics and get_account_metrics to see what works on each
   account, and feed that back to the Scouts and Writers.
+- Images: prefer generating them with Grok, then stage the image's imgen.x.ai link right
+  away with stage_media_from_url (the links expire after a few hours) and pass the media_id
+  in media_ids. For a file I have, ask me to upload it on the GrokChat dashboard's Media
+  page for that account, then call list_media for the account and use its media_id.
 - To fix a scheduled post use edit_post; to drop it, cancel_post. Use delete_post only when
   I ask.
 - If a tool returns an error, read its \`error\` code, fix the cause (link, length, cap,

@@ -53,6 +53,7 @@ describe("the accounts page, by person (GROKCHAT-16)", () => {
         count: "1 account",
         token: "Token set Oct 27, 2026",
         hasToken: true,
+        issued: String(Date.UTC(2026, 9, 27, 23, 59)),
         ids: ["acc-2"],
       },
       {
@@ -63,6 +64,7 @@ describe("the accounts page, by person (GROKCHAT-16)", () => {
         count: "2 accounts",
         token: "No token",
         hasToken: false,
+        issued: "none",
         ids: ["acc-1", "acc-3"],
       },
       {
@@ -73,6 +75,7 @@ describe("the accounts page, by person (GROKCHAT-16)", () => {
         count: "0 accounts",
         token: "No token",
         hasToken: false,
+        issued: "none",
         ids: [],
       },
     ]);

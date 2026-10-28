@@ -6,8 +6,14 @@ import {
   PeopleController,
 } from "../../../../src/interface_adapters/dashboard/people_controller";
 import { setupPrompt, wrapList } from "../../../../src/interface_adapters/dashboard/setup_prompt";
+import { tokenDate } from "../../../../src/interface_adapters/dashboard/accounts_controller";
+import {
+  issuedField,
+  NO_TOKEN,
+  parseIssued,
+} from "../../../../src/interface_adapters/dashboard/token_form";
 import { TOOL_NAMES } from "../../../../src/interface_adapters/mcp/tool_catalog";
-import { ACCOUNT, anAccount, aPerson, PERSON } from "../../support/builders";
+import { ACCOUNT, anAccount, aPerson, PERSON, T0 } from "../../support/builders";
 import { dashboardUseCases, presenting } from "../../support/dashboard";
 import { makeWorld } from "../../support/world";
 
@@ -60,7 +66,10 @@ describe("PeopleController", () => {
       message: "That person does not exist.",
     });
     expect(await people.rename("ghost", "X")).toMatchObject({ status: 404 });
-    expect(await people.token("ghost", ORIGIN)).toMatchObject({ kind: "refused", status: 404 });
+    expect(await people.token("ghost", ORIGIN, "none")).toMatchObject({
+      kind: "refused",
+      status: 404,
+    });
   });
 
   it("assigns from the Owner select, '' unassigning", async () => {
@@ -76,11 +85,11 @@ describe("PeopleController", () => {
     const { world, people } = await setup();
     await world.people.save(aPerson());
     await world.owners.assign(ACCOUNT, PERSON);
-    const outcome = await people.token(PERSON, ORIGIN);
-    if (outcome.kind !== "page") {
+    const outcome = await people.token(PERSON, ORIGIN, "none");
+    if (outcome.kind !== "page" || outcome.view.kind !== "issued") {
       throw new Error("refused");
     }
-    const view = outcome.view;
+    const view = outcome.view.view;
     expect(view).toStrictEqual({
       personName: "Karl",
       rotated: false,
@@ -99,8 +108,11 @@ describe("PeopleController", () => {
     expect(view.token).toMatch(/^token-1-/);
     expect(view.prompt).not.toContain(view.token);
     expect(CONNECTOR_NAME).toBe("grokchat");
-    const again = await people.token(PERSON, ORIGIN);
-    expect(again).toMatchObject({ kind: "page", view: { rotated: true } });
+    const again = await people.token(PERSON, ORIGIN, String(T0));
+    expect(again).toMatchObject({
+      kind: "page",
+      view: { kind: "issued", view: { rotated: true } },
+    });
   });
 
   it("a refused issue shows the refusal", async () => {
@@ -109,11 +121,55 @@ describe("PeopleController", () => {
       ...dashboardUseCases(world),
       issueToken: presenting({ ok: false, code: "human_only" }),
     });
-    expect(await refusing.token(PERSON, ORIGIN)).toStrictEqual({
+    expect(await refusing.token(PERSON, ORIGIN, "none")).toStrictEqual({
       kind: "refused",
       status: 403,
       message: "Only the dashboard's owner may do this.",
     });
+  });
+});
+
+describe("the token form's issued field (GROKCHAT-18)", () => {
+  it("a reload of an issued form asks instead of rotating, naming the current token", async () => {
+    const { world, people } = await setup();
+    await world.people.save(aPerson());
+    expect(await people.token(PERSON, ORIGIN, "none")).toMatchObject({ view: { kind: "issued" } });
+    expect(await people.token(PERSON, ORIGIN, "none")).toStrictEqual({
+      kind: "page",
+      view: {
+        kind: "stale",
+        view: {
+          personId: PERSON,
+          personName: "Karl",
+          current: `Token set ${tokenDate(T0)}`,
+          issued: String(T0),
+        },
+      },
+    });
+  });
+
+  it("a stale form for a person whose token was revoked offers a first token", async () => {
+    const { world } = await setup();
+    const refusing = new PeopleController({
+      ...dashboardUseCases(world),
+      issueToken: presenting({ ok: false, code: "token_already_issued", person: aPerson() }),
+    });
+    expect(await refusing.token(PERSON, ORIGIN, "1")).toMatchObject({
+      view: { kind: "stale", view: { current: "No token", issued: "none" } },
+    });
+  });
+
+  it("issuedField and parseIssued round-trip; anything else is no expectation", () => {
+    expect(issuedField(null)).toBe(NO_TOKEN);
+    expect(NO_TOKEN).toBe("none");
+    expect(issuedField(T0)).toBe(String(T0));
+    expect(parseIssued("none")).toStrictEqual({ createdAt: null });
+    expect(parseIssued(String(T0))).toStrictEqual({ createdAt: T0 });
+    expect(parseIssued("0")).toStrictEqual({ createdAt: 0 });
+    expect(parseIssued("999999999999999")).toStrictEqual({ createdAt: 999999999999999 });
+    for (const junk of ["", "x", "1.5", "-1", " 1", "1 ", "1e3", "1000000000000000", "None"]) {
+      expect(parseIssued(junk)).toBeNull();
+    }
   });
 });
 

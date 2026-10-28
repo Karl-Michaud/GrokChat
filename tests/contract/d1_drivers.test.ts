@@ -5,6 +5,7 @@ import { WebCryptoBotTokenIssuer } from "../../src/frameworks/crypto/bot_token_i
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { freshStorage } from "../integration/support/fresh_d1";
 import { followerStoreContract } from "./followers.contract";
+import { mediaCatalogContract } from "./media_catalog.contract";
 import { mediaCleanupCandidatesContract } from "./media_cleanup.contract";
 import {
   accountOwnersContract,
@@ -51,6 +52,7 @@ describe("D1 cleanup candidates", () => {
 describe("D1 repositories", () => {
   accountRepositoryContract(() => stores().accounts);
   mediaRepositoryContract(() => stores().media);
+  mediaCatalogContract(stores);
   mediaUsageContract(() => stores().usage);
 });
 

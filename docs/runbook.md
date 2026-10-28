@@ -78,11 +78,12 @@ Rules for secrets:
 Vars live in `wrangler.jsonc`, and changing one needs a deploy:
 
 - `GROKCHAT_PUBLIC_ORIGIN` is `https://grokchat.grokchat.workers.dev`.
-- `GROKCHAT_MEDIA_HOSTS` is empty, which refuses every `stage_media_from_url` request with
-  `host_not_allowed`. To allow media by URL, list the hosts, comma-separated (for example
-  `"pbs.twimg.com,images.example.com"`), and deploy. Workers cannot resolve DNS, so this
-  list is the only guard against server-side request forgery (U18). List only hosts you
-  trust.
+- `GROKCHAT_MEDIA_HOSTS` is `imgen.x.ai`, Grok's image host (GROKCHAT-18), so a bot can stage
+  an image it generated with `stage_media_from_url`. A URL on any other host is refused with
+  `host_not_allowed`, and the refusal's message names the allowed hosts. To allow another
+  host, add it, comma-separated (for example `"imgen.x.ai,images.example.com"`), and deploy.
+  Workers cannot resolve DNS, so this list is the only guard against server-side request
+  forgery (U18). List only hosts you trust.
 
 ## 2. Connect an X account
 
@@ -136,13 +137,17 @@ person. Bot auth reads all of it on every MCP request, so a change applies to th
    page and the token is gone: rotate to get a new one.
 
 4. **Configure the person's Grok bot** with the connector settings, then paste the setup
-   prompt. Its Phase 1 checks the tools (13), lists the accounts, and proves that an account
+   prompt. Its Phase 1 checks the tools (14), lists the accounts, and proves that an account
    id that is not theirs is refused as `scope`. A wrong token fails the **whole** Grok request
    with "Authentication failed" (U9), not only the tool call.
 
 **Adding an account later never changes the token.** Connect it, finish its disclosure, and
 set its **Owner** to the person. The bot sees it on its next `list_accounts` call. Setting an
 Owner to someone else, or to Unassigned, takes it away from the bot at once.
+
+Reloading the token page, or sending its form twice, never rotates the token again: the form
+carries a one-time nonce, and a stale one shows "This token was already issued" with a
+deliberate **Rotate again** button.
 
 **Rotate** (in the person's section, then **Rotate now**) when a token may have leaked: the
 old one stops working at once, so update the bot's connector straight after. **Delete** asks
@@ -312,3 +317,25 @@ To see the dashboard on your machine with realistic data, without touching produ
 
 Move `.dev.vars` out of the clone before `npm run check`: the workerd test plugin loads it
 too, and its values then override the tests' own.
+
+## 10. Images for bots
+
+A bot attaches images in one of two ways (GROKCHAT-18):
+
+- **Grok-generated.** The bot generates the image with Grok, then passes the `imgen.x.ai` link
+  to `stage_media_from_url` at once (the links expire after about 4 hours) and the returned
+  `media_id` to `create_post`.
+- **A file you have.** Open **Media**, choose the account, give it a label (optional, up to
+  80 characters) and upload a PNG, JPEG, WebP or GIF (photos up to 5 MB, GIFs up to 15 MB;
+  the type is read from the bytes, not the file name). Tell the bot; it calls `list_media`
+  for the account and uses the `media_id` (the page also shows it, with **Copy**).
+
+Uploads are stored like staged media: under the R2 quota guard (`media_quota`) and deleted by
+the same cleanup (2 days after upload if unused, 7 days after its post). **Delete** on the
+Media page removes unused media at once; media a waiting post holds cannot be deleted.
+
+**Releasing GROKCHAT-18.** Apply its migration before the deploy (section 7):
+`npx wrangler d1 migrations apply grokchat --remote` adds `0006_media_labels.sql`
+(`staged_media.label`, `staged_media.source` and an index). Then stage one Grok image and post
+it on a test account, and upload one file on **Media** and have the bot find it with
+`list_media`.

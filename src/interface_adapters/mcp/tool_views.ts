@@ -11,6 +11,7 @@ import type { GetPolicyOutputData } from "../../use_cases/get_policy/output_data
 import type { GetPostMetricsOutputData } from "../../use_cases/get_post_metrics/output_data";
 import type { GetPostOutputData } from "../../use_cases/get_post/output_data";
 import type { ListBacklogOutputData } from "../../use_cases/list_backlog/output_data";
+import type { ListMediaOutputData, MediaListing } from "../../use_cases/list_media/output_data";
 import type { ListOwnAccountsOutputData } from "../../use_cases/list_own_accounts/output_data";
 import type { StageMediaFromUrlOutputData } from "../../use_cases/stage_media_from_url/output_data";
 import type { AccountStatus } from "../../entities/accounts/account";
@@ -44,11 +45,28 @@ export const createPostView: ToolView<CreatePostOutputData> = either((created) =
   duplicate: created.duplicate,
 }));
 
-export const stageMediaView: ToolView<StageMediaFromUrlOutputData> = either((staged) => ({
+/**
+ * What a bot is told when a URL's host is refused (GROKCHAT-18): the allowed hosts (config, not a
+ * secret), or plainly that none is, and where a file the owner has goes instead.
+ */
+export function hostRefusalMessage(allowedHosts: readonly string[]): string {
+  const upload =
+    "For a file the owner has, ask them to upload it on the GrokChat dashboard's Media page, then find its media_id with grokchat___list_media.";
+  return allowedHosts.length === 0
+    ? `No media host is allowed: GROKCHAT_MEDIA_HOSTS is empty, so every URL is refused. ${upload}`
+    : `The URL's host is not allowed. Allowed hosts: ${allowedHosts.join(", ")}. ${upload}`;
+}
+
+const stagedView = either((staged: StageMediaFromUrlOutputData & { readonly ok: true }) => ({
   media_id: staged.mediaId,
   kind: staged.kind,
   size_bytes: staged.size,
 }));
+
+export const stageMediaView: ToolView<StageMediaFromUrlOutputData> = (output) =>
+  !output.ok && output.code === "host_not_allowed"
+    ? { ok: false, code: output.code, message: hostRefusalMessage(output.allowedHosts) }
+    : stagedView(output);
 
 /** edit_post and cancel_post: the post as it now stands. */
 export const postCommandView: ToolView<CommandResult<string>> = either((done) => ({
@@ -109,4 +127,24 @@ export const listAccountsView: ToolView<ListOwnAccountsOutputData> = either((lis
     mode: account.policy.mode === "AUTO" ? "auto" : "review",
     disclosure_complete: disclosureComplete(account.disclosure),
   })),
+}));
+
+const iso = (at: number): string => new Date(at).toISOString();
+
+function mediaJson({ media, used, expiresAt }: MediaListing): JsonObject {
+  return {
+    media_id: media.id,
+    label: media.label,
+    content_type: media.contentType,
+    bytes: media.size,
+    uploaded_at: iso(media.stagedAt),
+    source: media.source.kind === "dashboard" ? "dashboard" : media.source.host,
+    used,
+    expires_at: expiresAt === null ? null : iso(expiresAt),
+  };
+}
+
+export const listMediaView: ToolView<ListMediaOutputData> = either((listed) => ({
+  account_id: listed.accountId,
+  media: listed.items.map(mediaJson),
 }));

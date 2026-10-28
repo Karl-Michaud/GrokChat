@@ -69,10 +69,10 @@ describe("the declared bindings", () => {
     expect(await (await env.MEDIA.get("probe"))?.text()).toBe("x");
   });
 
-  it("declares the production vars: the public origin, and no media host until one is listed", () => {
+  it("declares the production vars: the public origin, and Grok's image host as the only media host (GROKCHAT-18)", () => {
     expect(env.GROKCHAT_PUBLIC_ORIGIN).toBe("https://grokchat.grokchat.workers.dev");
     expect(validOrigin(env.GROKCHAT_PUBLIC_ORIGIN ?? "")).toBe(true);
-    expect(env.GROKCHAT_MEDIA_HOSTS).toBe("");
-    expect(mediaHosts(env)).toStrictEqual([]);
+    expect(env.GROKCHAT_MEDIA_HOSTS).toBe("imgen.x.ai");
+    expect(mediaHosts(env)).toStrictEqual(["imgen.x.ai"]);
   });
 });

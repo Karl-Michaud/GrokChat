@@ -1,12 +1,13 @@
 /**
  * The MCP server through main.ts (plan §6 integration, R6) on the production graph: the SDK client
- * lists the 13 tools, creates posts that the account's Durable Object sends through the real X
+ * lists the 14 tools, creates posts that the account's Durable Object sends through the real X
  * drivers (X faked at `fetch` only), stages media through the real https fetcher into R2, and is
  * refused without the right token.
  */
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../../src/frameworks/env";
+import { hostRefusalMessage } from "../../src/interface_adapters/mcp/tool_views";
 import {
   BOT_TOKEN,
   body,
@@ -50,11 +51,12 @@ const TOOLS = [
   "get_post_metrics",
   "list_accounts",
   "list_backlog",
+  "list_media",
   "stage_media_from_url",
 ];
 
 describe("the MCP server's surface", () => {
-  it("lists exactly the 13 tools (no get_personality: Grok owns personalities), each described and with an input schema, and no resources", async () => {
+  it("lists exactly the 14 tools (no get_personality: Grok owns personalities), each described and with an input schema, and no resources", async () => {
     const client = await connect(await botEnv([]));
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toStrictEqual(TOOLS);
@@ -82,7 +84,7 @@ describe("the MCP server's surface", () => {
 
   it("works for a client connected at /mcp/", async () => {
     const client = await connect(await botEnv([]), BOT_TOKEN, "/mcp/");
-    expect((await client.listTools()).tools).toHaveLength(13);
+    expect((await client.listTools()).tools).toHaveLength(14);
   });
 });
 
@@ -293,7 +295,11 @@ describe("stage_media_from_url → R2 → create_post with the media", () => {
       name: "stage_media_from_url",
       arguments: { account_id: account.id, url },
     });
-    expect(body(staged)).toStrictEqual({ error: code, part: null });
+    expect(body(staged)).toStrictEqual(
+      code === "host_not_allowed"
+        ? { error: code, part: null, message: hostRefusalMessage(["media.example"]) }
+        : { error: code, part: null },
+    );
     const rows = await env.DB.prepare(
       "SELECT COUNT(*) AS n FROM staged_media WHERE owner_account_id = ?",
     )
@@ -311,7 +317,12 @@ describe("stage_media_from_url → R2 → create_post with the media", () => {
       name: "stage_media_from_url",
       arguments: { account_id: account.id, url: "https://media.example/a.png" },
     });
-    expect(body(staged)).toStrictEqual({ error: "host_not_allowed", part: null });
+    expect(body(staged)).toStrictEqual({
+      error: "host_not_allowed",
+      part: null,
+      message: hostRefusalMessage([]),
+    });
+    expect(String(body(staged)["message"])).toContain("GROKCHAT_MEDIA_HOSTS is empty");
   });
 
   it("reads the allowlist case-insensitively, trimming spaces and empty entries", async () => {

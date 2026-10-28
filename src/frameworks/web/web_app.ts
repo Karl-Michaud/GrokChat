@@ -9,6 +9,7 @@ import {
   requireSession,
   securityHeaders,
 } from "./middleware";
+import { mediaRoutes } from "./media_routes";
 import { oauthRoutes } from "./oauth_routes";
 import { postRoutes } from "./post_routes";
 import { reportRoutes } from "./report_routes";
@@ -32,6 +33,7 @@ export function buildWebApp(controllers: WebControllers): WebApp {
   sessionRoutes(app, controllers);
   postRoutes(app, controllers);
   accountRoutes(app, controllers);
+  mediaRoutes(app, controllers);
   oauthRoutes(app, controllers);
   reportRoutes(app, controllers);
   app.onError((error, c) => {

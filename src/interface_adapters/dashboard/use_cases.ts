@@ -46,6 +46,14 @@ import type { SetAccountStatusInputData } from "../../use_cases/set_account_stat
 import type { SetAccountStatusOutputData } from "../../use_cases/set_account_status/output_data";
 import type { SetPolicyInputData } from "../../use_cases/set_policy/input_data";
 import type { SetPolicyOutputData } from "../../use_cases/set_policy/output_data";
+import type { DeleteMediaInputData } from "../../use_cases/delete_media/input_data";
+import type { DeleteMediaOutputData } from "../../use_cases/delete_media/output_data";
+import type { GetMediaFileInputData } from "../../use_cases/get_media_file/input_data";
+import type { GetMediaFileOutputData } from "../../use_cases/get_media_file/output_data";
+import type { ListMediaInputData } from "../../use_cases/list_media/input_data";
+import type { ListMediaOutputData } from "../../use_cases/list_media/output_data";
+import type { StageMediaUploadInputData } from "../../use_cases/stage_media_upload/input_data";
+import type { StageMediaUploadOutputData } from "../../use_cases/stage_media_upload/output_data";
 import type { UseCaseFactory } from "./presenter";
 
 /**
@@ -119,4 +127,12 @@ export interface OAuthUseCases {
 
 export interface ActivityUseCases extends AccountDirectory {
   readonly activity: UseCaseFactory<ListActivityInputData, ListActivityOutputData>;
+}
+
+/** GROKCHAT-18: the Media page: upload, list per account, thumbnails, delete. */
+export interface MediaUseCases extends AccountDirectory, PeopleDirectory {
+  readonly listMedia: UseCaseFactory<ListMediaInputData, ListMediaOutputData>;
+  readonly upload: UseCaseFactory<StageMediaUploadInputData, StageMediaUploadOutputData>;
+  readonly deleteMedia: UseCaseFactory<DeleteMediaInputData, DeleteMediaOutputData>;
+  readonly mediaFile: UseCaseFactory<GetMediaFileInputData, GetMediaFileOutputData>;
 }

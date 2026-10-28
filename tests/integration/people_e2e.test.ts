@@ -15,7 +15,7 @@ import worker from "../../src/main";
 import { freshStorage } from "./support/fresh_d1";
 import { body, call, connect, initialize, isError, seedAccount } from "./support/mcp_client";
 import { stubX, type XWire } from "./support/x_wire";
-import { Browser, webEnv } from "./web/browser";
+import { Browser, issuedField, webEnv } from "./web/browser";
 
 type IncomingRequest = Parameters<typeof worker.fetch>[0];
 
@@ -61,7 +61,10 @@ async function issueToken(
   browser: Browser,
   person: string,
 ): Promise<{ token: string; response: Response; html: string }> {
-  const response = await browser.post(`/dashboard/people/${person}/token`);
+  const { html: page } = await browser.page("/dashboard/accounts");
+  const response = await browser.post(`/dashboard/people/${person}/token`, {
+    issued: issuedField(page, person),
+  });
   const html = await response.text();
   const token = /data-copy="([^"]+)"\s+aria-label="Copy token"/.exec(html)?.[1] ?? "";
   if (token === "") {
@@ -171,6 +174,52 @@ describe("a person's token, from the dashboard to the MCP endpoint", () => {
     expect(await status(workerEnv, second.token)).toBe(401);
     expect(await d1Stores(env.DB).owners.list()).toStrictEqual([]);
     expect((await browser.page("/dashboard/accounts")).html).toContain("Unassigned");
+  });
+
+  it("a reload re-sending the token form rotates nothing; rotating again is a deliberate press (GROKCHAT-18)", async () => {
+    const { browser, workerEnv } = await owner();
+    const account = await seedAccount();
+    const karl = await createPerson(browser, "Karl");
+    await browser.post(`/dashboard/accounts/${account.id}/owner`, { person: karl });
+    const { html: page } = await browser.page("/dashboard/accounts");
+    const form = { issued: issuedField(page, karl) };
+    const first = await browser.post(`/dashboard/people/${karl}/token`, form);
+    const token = /data-copy="([^"]+)"\s+aria-label="Copy token"/.exec(await first.text())?.[1];
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const stored = (await d1Stores(env.DB).people.get(personId(karl)))?.token;
+
+    // The browser's reload re-sends the same body: nothing rotates, the token keeps working.
+    const resent = await browser.post(`/dashboard/people/${karl}/token`, form);
+    const html = await resent.text();
+    expect([resent.status, resent.headers.get("cache-control")]).toStrictEqual([200, "no-store"]);
+    expect(html).toContain("This token was already issued.");
+    expect(html).not.toContain('aria-label="Copy token"');
+    expect((await d1Stores(env.DB).people.get(personId(karl)))?.token).toStrictEqual(stored);
+    expect(await status(workerEnv, token ?? "")).toBe(200);
+
+    // Its "Rotate again" carries the current token's nonce: one press, one rotation.
+    const again = { issued: issuedField(html, karl) };
+    expect(again.issued).toBe(String(stored?.createdAt));
+    const rotated = await browser.post(`/dashboard/people/${karl}/token`, again);
+    expect(await rotated.text()).toContain("The previous token has stopped working.");
+    expect(await status(workerEnv, token ?? "")).toBe(401);
+    const audit = await env.DB.prepare(
+      "SELECT action, detail FROM audit_events WHERE action LIKE '%person.token' ORDER BY seq",
+    ).all<{ action: string; detail: string }>();
+    expect(audit.results).toStrictEqual([
+      { action: "person.token", detail: `person ${karl} generated` },
+      { action: "refused.person.token", detail: "token_already_issued" },
+      { action: "person.token", detail: `person ${karl} rotated` },
+    ]);
+  });
+
+  it("a token form with no nonce issues nothing", async () => {
+    const { browser } = await owner();
+    const karl = await createPerson(browser, "Karl");
+    await browser.page("/dashboard/accounts");
+    const response = await browser.post(`/dashboard/people/${karl}/token`);
+    expect(await response.text()).toContain("This token was already issued.");
+    expect((await d1Stores(env.DB).people.get(personId(karl)))?.token).toBeNull();
   });
 
   it("issues nothing without the session's CSRF token or from another origin", async () => {

@@ -9,6 +9,7 @@ import {
   delta,
   dollars,
   exact,
+  fileSize,
   MINUS,
   percent,
   relativeTime,
@@ -133,5 +134,35 @@ describe("times, UTC", () => {
     [-30 * DAY, "Nov 26"],
   ])("relativeTime %d ms before now", (before, text) => {
     expect(relativeTime(T0 - before, T0)).toBe(text);
+  });
+});
+
+describe("fileSize (GROKCHAT-18)", () => {
+  it.each([
+    [0, "0 B"],
+    [1023, "1023 B"],
+    [1024, "1 KB"],
+    [90 * 1024 + 300, "90 KB"],
+    [1024 * 1024 - 1, "1024 KB"],
+    [1024 * 1024, "1 MB"],
+    [1.5 * 1024 * 1024, "1.5 MB"],
+    [15 * 1024 * 1024, "15 MB"],
+  ])("%i bytes is %s", (bytes, text) => {
+    expect(fileSize(bytes)).toBe(text);
+  });
+
+  it("is never more than one decimal, and grows with the size (property)", () => {
+    const value = (text: string): number => {
+      const [number = "0", unit = "B"] = text.split(" ");
+      return Number(number) * (unit === "MB" ? 1024 * 1024 : unit === "KB" ? 1024 : 1);
+    };
+    fc.assert(
+      fc.property(fc.nat(64 * 1024 * 1024), fc.nat(64 * 1024 * 1024), (a, b) => {
+        expect(fileSize(a)).toMatch(/^\d+(\.\d)? (B|KB|MB)$/);
+        if (a < b) {
+          expect(value(fileSize(a))).toBeLessThanOrEqual(value(fileSize(b)));
+        }
+      }),
+    );
   });
 });

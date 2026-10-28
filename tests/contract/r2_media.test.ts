@@ -22,6 +22,8 @@ import { XCallRecorder } from "../../src/use_cases/run_services/x_call_recorder"
 import { FakeXMediaUploader, FakeXWorld } from "../../src/frameworks/memory/fake_x";
 import { freshStorage } from "../integration/support/fresh_d1";
 import { aPost, anAccount, HUMAN, part, sentState, T0 } from "../unit/support/builders";
+
+const UPLOAD = { label: "banner", source: { kind: "dashboard" } } as const;
 import { required } from "../unit/support/publishing";
 import { PNG } from "../unit/support/world";
 import { blobStoreContract } from "./repositories.contract";
@@ -76,7 +78,7 @@ describe("the R2 quota guard on the real drivers", () => {
   it("an upload is counted (bytes, Class A) and refused once it would pass 8 GB", async () => {
     const { intake, stores } = media();
     const account = anAccount();
-    expect(await intake.store(HUMAN, account, PNG)).toMatchObject({ ok: true });
+    expect(await intake.store(HUMAN, account, PNG, UPLOAD)).toMatchObject({ ok: true });
     expect(await stores.usage.current(T0)).toStrictEqual({
       month: "2026-10",
       storedBytes: PNG.length,
@@ -85,7 +87,7 @@ describe("the R2 quota guard on the real drivers", () => {
     });
     const room = R2_GUARDS.storedBytes - PNG.length;
     await stores.usage.record({ storedBytes: room - PNG.length + 1, classA: 0, classB: 0 }, T0);
-    expect(await intake.store(HUMAN, account, PNG)).toStrictEqual({
+    expect(await intake.store(HUMAN, account, PNG, UPLOAD)).toStrictEqual({
       ok: false,
       code: "media_quota",
     });
@@ -95,19 +97,19 @@ describe("the R2 quota guard on the real drivers", () => {
   it("uploads stop at 800k Class A operations this month, and start again next month", async () => {
     const { intake, stores } = media();
     await stores.usage.record({ storedBytes: 0, classA: R2_GUARDS.classA, classB: 0 }, T0);
-    expect(await intake.store(HUMAN, anAccount(), PNG)).toStrictEqual({
+    expect(await intake.store(HUMAN, anAccount(), PNG, UPLOAD)).toStrictEqual({
       ok: false,
       code: "media_quota",
     });
     const november = Date.UTC(2026, 10, 1);
     const next = media();
     next.clock.set(november);
-    expect(await next.intake.store(HUMAN, anAccount(), PNG)).toMatchObject({ ok: true });
+    expect(await next.intake.store(HUMAN, anAccount(), PNG, UPLOAD)).toMatchObject({ ok: true });
   });
 
   it("reads stop at 8M Class B: the part is refused, nothing is read or uploaded", async () => {
     const { intake, stager, stores } = media();
-    const stored = await intake.store(HUMAN, anAccount(), PNG);
+    const stored = await intake.store(HUMAN, anAccount(), PNG, UPLOAD);
     if (!stored.ok) {
       throw new Error("staging failed");
     }
@@ -130,8 +132,8 @@ describe("staged-media cleanup on the real drivers", () => {
       clock.set(now);
       return cleanup.run(new InvocationBudgetMeter(invocationBudget(now + HOUR)));
     };
-    const unused = await intake.store(HUMAN, anAccount(), PNG);
-    const used = await intake.store(HUMAN, anAccount(), PNG);
+    const unused = await intake.store(HUMAN, anAccount(), PNG, UPLOAD);
+    const used = await intake.store(HUMAN, anAccount(), PNG, UPLOAD);
     if (!unused.ok || !used.ok) {
       throw new Error("staging failed");
     }

@@ -46,7 +46,9 @@ export function accountRoutes(app: WebApp, controllers: WebControllers): void {
 
 /**
  * People (GROKCHAT-16). The token route answers the POST with the one-time panel itself: never a
- * redirect, so the token is in no URL, and (like every dashboard response) `no-store`.
+ * redirect, so the token is in no URL, and (like every dashboard response) `no-store`. The form's
+ * `issued` field names the token it was shown with; a reload re-sends it after the token changed,
+ * so it asks before rotating again instead of rotating (GROKCHAT-18).
  */
 function peopleRoutes(app: WebApp, { people }: WebControllers): void {
   app.post("/dashboard/people", async (c) =>
@@ -61,7 +63,8 @@ function peopleRoutes(app: WebApp, { people }: WebControllers): void {
     return respond(c, await people.remove(c.req.param("id"), confirmation), NO_PAGE);
   });
   app.post("/dashboard/people/:id/token", async (c) => {
-    const outcome = await people.token(c.req.param("id"), c.get("config").origin);
+    const issued = (await formBody(c)).one("issued");
+    const outcome = await people.token(c.req.param("id"), c.get("config").origin, issued);
     c.header("Cache-Control", "no-store");
     return respond(c, outcome, tokenPage);
   });

@@ -1,0 +1,6 @@
+import type { GetMediaFileOutputData } from "./output_data";
+
+/** Implemented by a presenter in interface_adapters. */
+export interface GetMediaFileOutputBoundary {
+  present(output: GetMediaFileOutputData): void;
+}

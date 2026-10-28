@@ -7,6 +7,7 @@ import type { GetPolicyInputBoundary } from "../../use_cases/get_policy/input_bo
 import type { GetPostMetricsInputBoundary } from "../../use_cases/get_post_metrics/input_boundary";
 import type { GetPostInputBoundary } from "../../use_cases/get_post/input_boundary";
 import type { ListBacklogInputBoundary } from "../../use_cases/list_backlog/input_boundary";
+import type { ListMediaInputBoundary } from "../../use_cases/list_media/input_boundary";
 import type { ListOwnAccountsInputBoundary } from "../../use_cases/list_own_accounts/input_boundary";
 import { optionalWindow, windowArg } from "./time_args";
 import type {
@@ -14,8 +15,12 @@ import type {
   AccountWindowArgs,
   ComparePostsArgs,
   ListBacklogArgs,
+  ListMediaArgs,
   PostArgs,
 } from "./tool_args";
+
+/** list_media's defaults: what a new post can use, a page a bot reads at a glance. */
+export const LIST_MEDIA_DEFAULT_LIMIT = 20;
 
 export class GetPostController {
   constructor(private readonly useCase: GetPostInputBoundary) {}
@@ -85,5 +90,19 @@ export class ListAccountsController {
 
   handle(actor: Actor): Promise<void> {
     return this.useCase.execute({ actor });
+  }
+}
+
+/** list_media (GROKCHAT-18): an account's staged media, unused by default. */
+export class ListMediaController {
+  constructor(private readonly useCase: ListMediaInputBoundary) {}
+
+  handle(actor: Actor, args: ListMediaArgs): Promise<void> {
+    return this.useCase.execute({
+      actor,
+      accountId: accountId(args.account_id),
+      status: args.status ?? "unused",
+      limit: args.limit ?? LIST_MEDIA_DEFAULT_LIMIT,
+    });
   }
 }
