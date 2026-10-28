@@ -5,7 +5,6 @@ import {
   adminPasswordHash,
   base64Url,
   MIN_PASSWORD_LENGTH,
-  newBotToken,
   newestTokenKeyOnly,
   newSessionSecret,
   newTokenKey,
@@ -91,9 +90,9 @@ describe("the token keys", () => {
   });
 });
 
-describe("the session secret and bot tokens", () => {
+describe("the session secret and token hashes", () => {
   it("are 32 random bytes, base64url: 43 characters", () => {
-    for (const make of [newSessionSecret, newBotToken]) {
+    for (const make of [newSessionSecret]) {
       const value = make();
       expect(value).toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect(Buffer.from(value, "base64url")).toHaveLength(32);

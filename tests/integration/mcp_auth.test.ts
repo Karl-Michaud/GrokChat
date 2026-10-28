@@ -1,10 +1,18 @@
-/** Bot auth and the MCP shim's pieces, in workerd (crypto.subtle.timingSafeEqual is Workers-only). */
+/** Bot auth and the MCP shim's pieces, in workerd over a real local D1. */
 import { env } from "cloudflare:workers";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BotAuthenticator, bearerToken, MIN_TOKEN_LENGTH } from "../../src/frameworks/mcp/bot_auth";
 import { secretsOf } from "../../src/frameworks/mcp/mcp_route";
 import { callToolResult } from "../../src/frameworks/mcp/mcp_server";
-import { BOT_TOKEN, OTHER_BOT_TOKEN, sha256Hex } from "./support/mcp_client";
+import { personId } from "../../src/entities/identity/ids";
+import { d1Stores } from "../../src/frameworks/d1/d1_stores";
+import {
+  BOT_TOKEN,
+  OTHER_BOT_TOKEN,
+  seedAccount,
+  seedPerson,
+  sha256Hex,
+} from "./support/mcp_client";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -34,50 +42,49 @@ describe("bearerToken", () => {
   });
 });
 
-async function authenticator(): Promise<BotAuthenticator> {
-  return new BotAuthenticator([
-    { id: "first", tokenSha256: await sha256Hex(OTHER_BOT_TOKEN), accounts: ["a-1"] },
-    { id: "second", tokenSha256: await sha256Hex(BOT_TOKEN), accounts: ["a-2", "a-3"] },
-    { id: "third", tokenSha256: await sha256Hex("z".repeat(64)), accounts: [] },
-  ]);
-}
+describe("BotAuthenticator (GROKCHAT-16: people in D1)", () => {
+  const people = () => d1Stores(env.DB);
 
-describe("BotAuthenticator", () => {
-  it("finds the entry whose hash matches and scopes the actor to exactly its accounts", async () => {
-    expect(await (await authenticator()).authenticate(BOT_TOKEN)).toStrictEqual({
+  it("finds the person whose token hash matches, scoped to exactly their accounts, read per call", async () => {
+    const a1 = await seedAccount();
+    const a2 = await seedAccount();
+    await seedPerson(personId("auth-first"), OTHER_BOT_TOKEN, [a1.id]);
+    await seedPerson(personId("auth-second"), BOT_TOKEN, [a2.id]);
+    const auth = new BotAuthenticator(people().people, people().owners);
+    expect(await auth.authenticate(BOT_TOKEN)).toStrictEqual({
       kind: "bot",
-      scope: { botId: "second", accountIds: ["a-2", "a-3"] },
+      scope: { botId: "auth-second", accountIds: [a2.id] },
     });
-    expect(await (await authenticator()).authenticate(OTHER_BOT_TOKEN)).toMatchObject({
-      scope: { botId: "first", accountIds: ["a-1"] },
+    expect(await auth.authenticate(OTHER_BOT_TOKEN)).toMatchObject({
+      scope: { botId: "auth-first", accountIds: [a1.id] },
+    });
+    // The same authenticator sees a new assignment on its next call: nothing is cached.
+    await people().owners.assign(a1.id, personId("auth-second"));
+    expect(await auth.authenticate(BOT_TOKEN)).toMatchObject({
+      scope: { accountIds: [a1.id, a2.id].sort() },
     });
   });
 
-  it("refuses a token that matches no entry", async () => {
-    expect(await (await authenticator()).authenticate("y".repeat(64))).toBeNull();
+  it("refuses a token that matches no person, and a person with no token", async () => {
+    await people().people.save({
+      id: personId("auth-tokenless"),
+      name: "auth-tokenless",
+      createdAt: 0,
+      token: null,
+    });
+    const auth = new BotAuthenticator(people().people, people().owners);
+    expect(await auth.authenticate("y".repeat(64))).toBeNull();
   });
 
-  it("refuses everyone when there are no entries", async () => {
-    expect(await new BotAuthenticator([]).authenticate(BOT_TOKEN)).toBeNull();
-  });
-
-  it("compares with every entry, timing-safe, even after a match (no early exit)", async () => {
-    const auth = await authenticator();
-    const compare = vi.spyOn(crypto.subtle, "timingSafeEqual");
-    await auth.authenticate(OTHER_BOT_TOKEN);
-    expect(compare).toHaveBeenCalledTimes(3);
-    for (const [presented, stored] of compare.mock.calls) {
-      expect((presented as Uint8Array).byteLength).toBe(32);
-      expect((stored as Uint8Array).byteLength).toBe(32);
-    }
-  });
-
-  it("keeps the matching entry when later entries do not match", async () => {
-    const auth = new BotAuthenticator([
-      { id: "only", tokenSha256: await sha256Hex(BOT_TOKEN), accounts: ["a"] },
-      { id: "later", tokenSha256: await sha256Hex("q".repeat(64)), accounts: ["b"] },
-    ]);
-    expect(await auth.authenticate(BOT_TOKEN)).toMatchObject({ scope: { botId: "only" } });
+  it("hashes the token as SHA-256 hex of its UTF-8, the format the import and add-bot used", async () => {
+    await seedPerson(personId("auth-hash"), "é".repeat(43), []);
+    const auth = new BotAuthenticator(people().people, people().owners);
+    expect(await auth.authenticate("é".repeat(43))).toMatchObject({
+      scope: { botId: "auth-hash" },
+    });
+    expect(await sha256Hex("abc")).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
   });
 });
 

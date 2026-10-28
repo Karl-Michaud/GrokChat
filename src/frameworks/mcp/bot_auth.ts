@@ -1,6 +1,8 @@
 import type { BotActor } from "../../entities/identity/actor";
-import { accountId, botId } from "../../entities/identity/ids";
-import type { BotClientEntry } from "../../interface_adapters/schemas/bot_clients_schema";
+import { botId } from "../../entities/identity/ids";
+import type { AccountOwners } from "../../use_cases/ports/account_owners";
+import type { PersonRepository } from "../../use_cases/ports/person_repository";
+import { tokenSha256 } from "../crypto/bot_token_issuer";
 
 /** Bot tokens are ≥ 32 random bytes (plan §3.5): 43 characters in base64url, 64 in hex. */
 export const MIN_TOKEN_LENGTH = 43;
@@ -13,48 +15,28 @@ export function bearerToken(header: string | null): string | null {
   return token === undefined || token.length < MIN_TOKEN_LENGTH ? null : token;
 }
 
-function hexBytes(hex: string): Uint8Array {
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let index = 0; index < bytes.length; index += 1) {
-    bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
-  }
-  return bytes;
-}
-
-interface Client {
-  readonly entry: BotClientEntry;
-  readonly digest: Uint8Array;
-}
-
 /**
- * Bot auth (plan §3.5): the SHA-256 of the presented token is compared with **every** entry's
- * hash with `crypto.subtle.timingSafeEqual`, with no early exit, so the time taken does not say
- * which entry (if any) matched. The actor's scope is exactly the entry's account ids: an account
- * not listed is refused by every interactor (fail closed).
+ * Bot auth (GROKCHAT-16): the SHA-256 of the presented token, looked up among the people in D1,
+ * then that person's accounts, both read on every request (nothing is cached), so assigning or
+ * unassigning an account, a rotation or a delete applies from the next call. The actor's scope is
+ * exactly those accounts, and its id is the person's (`bot:<person id>` in the audit).
+ *
+ * The lookup is an indexed equality on the hash, not a constant-time scan: a timing difference
+ * could at most tell a caller something about the stored SHA-256, which does not reveal a token
+ * of 256 random bits.
  */
 export class BotAuthenticator {
-  private readonly clients: readonly Client[];
-
-  constructor(entries: readonly BotClientEntry[]) {
-    this.clients = entries.map((entry) => ({ entry, digest: hexBytes(entry.tokenSha256) }));
-  }
+  constructor(
+    private readonly people: PersonRepository,
+    private readonly owners: AccountOwners,
+  ) {}
 
   async authenticate(token: string): Promise<BotActor | null> {
-    const presented = new Uint8Array(
-      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)),
-    );
-    let match: BotClientEntry | null = null;
-    for (const client of this.clients) {
-      const equal = crypto.subtle.timingSafeEqual(presented, client.digest);
-      match = equal ? client.entry : match;
+    const person = await this.people.findByTokenHash(await tokenSha256(token));
+    if (person === null) {
+      return null;
     }
-    return match === null ? null : actorOf(match);
+    const accountIds = await this.owners.accountsOf(person.id);
+    return { kind: "bot", scope: { botId: botId(person.id), accountIds } };
   }
-}
-
-function actorOf(entry: BotClientEntry): BotActor {
-  return {
-    kind: "bot",
-    scope: { botId: botId(entry.id), accountIds: entry.accounts.map(accountId) },
-  };
 }

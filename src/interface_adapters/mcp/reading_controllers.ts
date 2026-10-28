@@ -7,6 +7,7 @@ import type { GetPolicyInputBoundary } from "../../use_cases/get_policy/input_bo
 import type { GetPostMetricsInputBoundary } from "../../use_cases/get_post_metrics/input_boundary";
 import type { GetPostInputBoundary } from "../../use_cases/get_post/input_boundary";
 import type { ListBacklogInputBoundary } from "../../use_cases/list_backlog/input_boundary";
+import type { ListOwnAccountsInputBoundary } from "../../use_cases/list_own_accounts/input_boundary";
 import { optionalWindow, windowArg } from "./time_args";
 import type {
   AccountArgs,
@@ -75,5 +76,14 @@ export class GetPolicyController {
 
   handle(actor: Actor, args: AccountArgs): Promise<void> {
     return this.useCase.execute({ actor, accountId: accountId(args.account_id) });
+  }
+}
+
+/** list_accounts: no argument; the scope comes from the token. */
+export class ListAccountsController {
+  constructor(private readonly useCase: ListOwnAccountsInputBoundary) {}
+
+  handle(actor: Actor): Promise<void> {
+    return this.useCase.execute({ actor });
   }
 }

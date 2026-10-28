@@ -27,7 +27,7 @@
     "dev": "wrangler dev",
     "provision-secrets": "node scripts/provision-secrets.mjs",
     "set-admin-password": "node scripts/set-admin-password.mjs",
-    "add-bot": "node scripts/add-bot.mjs",
+    "import-bots": "node scripts/import-bots.mjs",
     "seed:local": "node scripts/seed-local.mjs"
   },
   "dependencies": {

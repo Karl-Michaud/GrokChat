@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { parseBotClients } from "../../../../src/interface_adapters/schemas/bot_clients_schema";
 import {
   EVERY_STATUS_LISTED,
   TOOL_SCHEMAS,
@@ -14,9 +13,9 @@ const THREAD = { account_id: "a", parts: [{ text: "hi" }], idempotency_key: "k" 
 const WINDOW = { account_id: "a", from: "2026-10-27T00:00:00Z", to: "2026-10-28T00:00:00+02:00" };
 
 describe("tool input schemas", () => {
-  it("has a schema for exactly the 12 catalogued tools", () => {
+  it("has a schema for exactly the 13 catalogued tools", () => {
     expect(Object.keys(TOOL_SCHEMAS).sort()).toStrictEqual([...TOOL_NAMES].sort());
-    expect(TOOL_NAMES).toHaveLength(12);
+    expect(TOOL_NAMES).toHaveLength(13);
   });
 
   it("lists every derived status for list_backlog (compile-time check)", () => {
@@ -70,6 +69,11 @@ describe("tool input schemas", () => {
     expect(ok("create_thread", { ...THREAD, parts: [{ media_ids: ["m"] }] })).toBe(false);
   });
 
+  it("list_accounts takes nothing", () => {
+    expect(TOOL_SCHEMAS.list_accounts.parse({})).toStrictEqual({});
+    expect(TOOL_SCHEMAS.list_accounts.parse({ extra: 1 })).toStrictEqual({});
+  });
+
   it("the account tools need an account id", () => {
     expect(ok("get_policy", {})).toBe(false);
     expect(TOOL_SCHEMAS.get_policy.parse({ account_id: "a" })).toStrictEqual({ account_id: "a" });
@@ -115,6 +119,7 @@ describe("tool catalog", () => {
       "get_policy",
       "get_post",
       "get_post_metrics",
+      "list_accounts",
       "list_backlog",
     ]);
     const destructive = TOOL_NAMES.filter((name) => TOOL_CATALOG[name].destructive);
@@ -135,67 +140,5 @@ describe("tool catalog", () => {
       expect(bare).toStrictEqual([]);
     }
     expect(TOOL_CATALOG.create_post.description).toContain("grokchat___stage_media_from_url");
-  });
-});
-
-const HASH = "a".repeat(64);
-
-describe("GROKCHAT_BOT_CLIENTS", () => {
-  it("parses clients, lower-casing the token hash", () => {
-    const raw = JSON.stringify([
-      { id: "bot-1", tokenSha256: "AB".repeat(32), accounts: ["acc-1", "acc-2"] },
-      { id: "bot-2", tokenSha256: HASH, accounts: [] },
-    ]);
-    expect(parseBotClients(raw)).toStrictEqual({
-      ok: true,
-      clients: [
-        { id: "bot-1", tokenSha256: "ab".repeat(32), accounts: ["acc-1", "acc-2"] },
-        { id: "bot-2", tokenSha256: HASH, accounts: [] },
-      ],
-    });
-  });
-
-  it("says why it refused: missing, not JSON, or invalid", () => {
-    expect(parseBotClients(undefined)).toStrictEqual({ ok: false, problem: "missing" });
-    expect(parseBotClients("")).toStrictEqual({ ok: false, problem: "not_json" });
-    expect(parseBotClients("{")).toStrictEqual({ ok: false, problem: "not_json" });
-    expect(parseBotClients("null")).toStrictEqual({ ok: false, problem: "invalid" });
-  });
-
-  it.each([
-    ["not a list but one client", JSON.stringify({ id: "b", tokenSha256: HASH, accounts: [] })],
-    ["a short hash", JSON.stringify([{ id: "b", tokenSha256: "a".repeat(63), accounts: [] }])],
-    [
-      "a 65-character hash",
-      JSON.stringify([{ id: "b", tokenSha256: "a".repeat(65), accounts: [] }]),
-    ],
-    [
-      "a hash after other text",
-      JSON.stringify([{ id: "b", tokenSha256: `x${"a".repeat(64)}`, accounts: [] }]),
-    ],
-    ["a non-hex hash", JSON.stringify([{ id: "b", tokenSha256: "g".repeat(64), accounts: [] }])],
-    ["an empty id", JSON.stringify([{ id: "", tokenSha256: HASH, accounts: [] }])],
-    ["an empty account id", JSON.stringify([{ id: "b", tokenSha256: HASH, accounts: [""] }])],
-    ["no accounts field", JSON.stringify([{ id: "b", tokenSha256: HASH }])],
-    [
-      "an unknown field (a raw token by mistake)",
-      JSON.stringify([{ id: "b", tokenSha256: HASH, accounts: [], token: "t" }]),
-    ],
-    [
-      "a duplicate id",
-      JSON.stringify([
-        { id: "b", tokenSha256: HASH, accounts: [] },
-        { id: "b", tokenSha256: "b".repeat(64), accounts: [] },
-      ]),
-    ],
-    [
-      "a duplicate token hash (case-insensitive)",
-      JSON.stringify([
-        { id: "b1", tokenSha256: HASH, accounts: [] },
-        { id: "b2", tokenSha256: HASH.toUpperCase(), accounts: [] },
-      ]),
-    ],
-  ])("fails closed when it has %s", (_name, raw) => {
-    expect(parseBotClients(raw)).toStrictEqual({ ok: false, problem: "invalid" });
   });
 });

@@ -6,10 +6,23 @@ import type {
   ActivityUseCases,
   AnalyticsUseCases,
   OAuthUseCases,
+  PeopleUseCases,
   PostCommandUseCases,
   PostPageUseCases,
   SessionUseCases,
 } from "../../../src/interface_adapters/dashboard/use_cases";
+import { AssignAccountInteractor } from "../../../src/use_cases/assign_account/interactor";
+import type { AssignAccountOutputBoundary as AssignAccountOutput } from "../../../src/use_cases/assign_account/output_boundary";
+import { CreatePersonInteractor } from "../../../src/use_cases/create_person/interactor";
+import type { CreatePersonOutputBoundary as CreatePersonOutput } from "../../../src/use_cases/create_person/output_boundary";
+import { DeletePersonInteractor } from "../../../src/use_cases/delete_person/interactor";
+import type { DeletePersonOutputBoundary as DeletePersonOutput } from "../../../src/use_cases/delete_person/output_boundary";
+import { IssuePersonTokenInteractor } from "../../../src/use_cases/issue_person_token/interactor";
+import type { IssuePersonTokenOutputBoundary as IssueTokenOutput } from "../../../src/use_cases/issue_person_token/output_boundary";
+import { ListPeopleInteractor } from "../../../src/use_cases/list_people/interactor";
+import type { ListPeopleOutputBoundary as ListPeopleOutput } from "../../../src/use_cases/list_people/output_boundary";
+import { RenamePersonInteractor } from "../../../src/use_cases/rename_person/interactor";
+import type { RenamePersonOutputBoundary as RenamePersonOutput } from "../../../src/use_cases/rename_person/output_boundary";
 import { ApprovePostInteractor } from "../../../src/use_cases/approve_post/interactor";
 import { CancelPostInteractor } from "../../../src/use_cases/cancel_post/interactor";
 import { ConfirmDisclosureInteractor } from "../../../src/use_cases/confirm_disclosure/interactor";
@@ -41,7 +54,8 @@ export type DashboardUseCases = SessionUseCases &
   AccountUseCases &
   OAuthUseCases &
   AnalyticsUseCases &
-  ActivityUseCases;
+  ActivityUseCases &
+  PeopleUseCases;
 
 /** Accepts exactly this password. */
 export const fixedPassword = (password: string): PasswordVerifier => ({
@@ -129,6 +143,20 @@ export function dashboardUseCases(
         p,
       ),
     mediaUsage: (p) => new GetMediaUsageInteractor(world.usage, guard, clock, p),
+    ...peopleUseCases(world),
+  };
+}
+
+/** GROKCHAT-16: the people use cases over the in-memory world, as main.ts wires them. */
+function peopleUseCases(world: World) {
+  const ports = { ...world, audit: world.actionAudit };
+  return {
+    listPeople: (p: ListPeopleOutput) => new ListPeopleInteractor(world, p),
+    createPerson: (p: CreatePersonOutput) => new CreatePersonInteractor(ports, p),
+    renamePerson: (p: RenamePersonOutput) => new RenamePersonInteractor(ports, p),
+    deletePerson: (p: DeletePersonOutput) => new DeletePersonInteractor(ports, p),
+    assignAccount: (p: AssignAccountOutput) => new AssignAccountInteractor(ports, p),
+    issueToken: (p: IssueTokenOutput) => new IssuePersonTokenInteractor(ports, p),
   };
 }
 

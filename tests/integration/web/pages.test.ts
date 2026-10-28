@@ -1,12 +1,13 @@
 /** Every dashboard page through the web app, over the in-memory world (GROKCHAT-15). */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { accountId, postId, xUserId } from "../../../src/entities/identity/ids";
+import { accountId, personId, postId, xUserId } from "../../../src/entities/identity/ids";
 import { DAY, HOUR } from "../../../src/entities/time/instant";
 import { APP_CSS, APP_JS, fingerprint, HTMX } from "../../../src/frameworks/web/static_assets";
 import { buildWebApp } from "../../../src/frameworks/web/web_app";
 import {
   ACCOUNT,
   aFollowerSnapshot,
+  aPerson,
   aPost,
   aSnapshot,
   part,
@@ -186,10 +187,61 @@ describe("the dashboard pages (GROKCHAT-15)", () => {
     const { html } = await browser.page("/dashboard/accounts");
     expect(html).toMatch(/class="switch"\s+role="switch"\s+aria-checked="true"/);
     expect(html).toContain(`data-copy="${ORIGIN}/mcp"`);
-    expect(html).toContain("npm run add-bot -- --id &lt;bot name&gt; --accounts acc-1,acc-2");
+    expect(html).not.toContain("add-bot");
     expect(html).toContain('data-copy="acc-1"');
     expect(html).toContain("Connect X account");
     expect(html).toContain('hx-boost="false"');
+  });
+
+  it("accounts by person (GROKCHAT-16): sections, Unassigned last, Owner selects, people forms", async () => {
+    const { browser, world } = await populated();
+    await world.people.save(aPerson({ id: personId("p-k"), name: "Karl" }));
+    await world.people.save(
+      aPerson({
+        id: personId("p-a"),
+        name: "Aaron",
+        token: { sha256: "a".repeat(64), createdAt: T0 },
+      }),
+    );
+    await world.owners.assign(ACCOUNT, personId("p-k"));
+    const { html } = await browser.page("/dashboard/accounts");
+    const order = ['aria-label="Aaron"', 'aria-label="Karl"', 'aria-label="Unassigned"'].map((at) =>
+      html.indexOf(at),
+    );
+    expect(order.every((at) => at > 0)).toBe(true);
+    expect([...order].sort((p, q) => p - q)).toStrictEqual(order);
+    expect(html).toContain("Token set Oct 27, 2026");
+    expect(html).toContain("No token");
+    expect(html).toContain('action="/dashboard/people"');
+    expect(html).toContain('action="/dashboard/people/p-k/token" hx-boost="false"');
+    expect(html).toContain("Rotate token");
+    expect(html).toContain('action="/dashboard/people/p-a/delete"');
+    expect(html).toContain('action="/dashboard/accounts/acc-1/owner"');
+    expect(html).toMatch(/<option value="p-k" selected>Karl<\/option>/);
+    expect(html).not.toMatch(/<script>|onclick=|onsubmit=|style="/);
+  });
+
+  it("the token panel: shown once in the POST's answer, no-store, out of htmx history", async () => {
+    const { browser, world } = await populated();
+    await world.people.save(aPerson({ id: personId("p-k"), name: "Karl" }));
+    await world.owners.assign(ACCOUNT, personId("p-k"));
+    await browser.page("/dashboard/accounts");
+    const response = await browser.post("/dashboard/people/p-k/token");
+    const html = await response.text();
+    expect([response.status, response.headers.get("cache-control")]).toStrictEqual([
+      200,
+      "no-store",
+    ]);
+    expect(html).toContain('hx-history="false"');
+    expect(html).toContain("This token is shown once.");
+    expect(html).toContain("Copy setup prompt");
+    expect(html).toContain(`data-copy="${ORIGIN}/mcp"`);
+    expect(html).toContain("@musechat_one");
+    expect(html).not.toMatch(/<script>|onclick=|style="/);
+    const token = /data-copy="(token-[^"]+)"/.exec(html)?.[1] ?? "";
+    expect(token).not.toBe("");
+    expect(html).toContain(`Bearer ${token}`);
+    expect((await browser.page("/dashboard/accounts")).html).not.toContain(token);
   });
 
   it("empty states say what to do next", async () => {

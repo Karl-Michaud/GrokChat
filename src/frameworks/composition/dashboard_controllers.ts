@@ -7,6 +7,7 @@ import { AccountsController } from "../../interface_adapters/dashboard/accounts_
 import { ActivityController } from "../../interface_adapters/dashboard/activity_controller";
 import { AnalyticsController } from "../../interface_adapters/dashboard/analytics_controller";
 import { OAuthController } from "../../interface_adapters/dashboard/oauth_controller";
+import { PeopleController } from "../../interface_adapters/dashboard/people_controller";
 import { PostCommandsController } from "../../interface_adapters/dashboard/post_commands_controller";
 import { PostsController } from "../../interface_adapters/dashboard/posts_controller";
 import { SessionController } from "../../interface_adapters/dashboard/session_controller";
@@ -15,9 +16,17 @@ import type {
   AccountUseCases,
   AnalyticsSource,
   OAuthUseCases,
+  PeopleDirectory,
+  PeopleUseCases,
   PostCommandUseCases,
   PostPageUseCases,
 } from "../../interface_adapters/dashboard/use_cases";
+import { AssignAccountInteractor } from "../../use_cases/assign_account/interactor";
+import { CreatePersonInteractor } from "../../use_cases/create_person/interactor";
+import { DeletePersonInteractor } from "../../use_cases/delete_person/interactor";
+import { IssuePersonTokenInteractor } from "../../use_cases/issue_person_token/interactor";
+import { ListPeopleInteractor } from "../../use_cases/list_people/interactor";
+import { RenamePersonInteractor } from "../../use_cases/rename_person/interactor";
 import { ApprovePostInteractor } from "../../use_cases/approve_post/interactor";
 import { CancelPostInteractor } from "../../use_cases/cancel_post/interactor";
 import { ConfirmDisclosureInteractor } from "../../use_cases/confirm_disclosure/interactor";
@@ -42,6 +51,22 @@ import type { WorkerGraph } from "./worker_graph";
 
 function directory(b: WorkerGraph): AccountDirectory {
   return { listAccounts: (p) => new ListAccountsInteractor(b.accounts, b.guard, p) };
+}
+
+function peopleDirectory(b: WorkerGraph): PeopleDirectory {
+  return { listPeople: (p) => new ListPeopleInteractor(b, p) };
+}
+
+/** GROKCHAT-16: every people command is human only and audited through the action audit. */
+function peopleUseCases(b: WorkerGraph): PeopleUseCases {
+  const ports = { ...b, audit: b.actionAudit };
+  return {
+    createPerson: (p) => new CreatePersonInteractor(ports, p),
+    renamePerson: (p) => new RenamePersonInteractor(ports, p),
+    deletePerson: (p) => new DeletePersonInteractor(ports, p),
+    assignAccount: (p) => new AssignAccountInteractor(ports, p),
+    issueToken: (p) => new IssuePersonTokenInteractor(ports, p),
+  };
 }
 
 function analyticsSource(b: WorkerGraph): AnalyticsSource {
@@ -73,6 +98,7 @@ function accountUseCases(b: WorkerGraph): AccountUseCases & OAuthUseCases {
   return {
     ...directory(b),
     ...analyticsSource(b),
+    ...peopleDirectory(b),
     setAccountStatus: (p) => new SetAccountStatusInteractor(accountCommand, p),
     confirmDisclosure: (p) => new ConfirmDisclosureInteractor(accountCommand, p),
     setPolicy: (p) => new SetPolicyInteractor(accountCommand, p),
@@ -113,6 +139,7 @@ export function dashboardControllers(b: WorkerGraph): WebControllers {
     posts: new PostsController(posts, b.clock),
     postCommands: new PostCommandsController(posts),
     accounts: new AccountsController(accounts),
+    people: new PeopleController(peopleUseCases(b)),
     oauth: new OAuthController(accounts),
     activity: new ActivityController(
       { ...directory(b), activity: (p) => new ListActivityInteractor(b.activity, b.guard, p) },

@@ -1,8 +1,8 @@
-// The GROKCHAT_BOT_CLIENTS list (src/interface_adapters/schemas/bot_clients_schema.ts): JSON
-// `[{ id, tokenSha256, accounts }]`, never a token. The scripts keep it in a local file so a new
-// bot can be added without reading the secret back (Cloudflare never returns a secret's value).
+// The old GROKCHAT_BOT_CLIENTS list, as add-bot kept it in .bot-clients.local.json: JSON
+// `[{ id, tokenSha256, accounts }]`, never a token. GROKCHAT-16 moved bot auth to the people in D1;
+// import-bots reads this file once to carry the live tokens over without reissuing them.
 
-/** Ids the scripts accept: also safe as a line key in the local token file. */
+/** Ids the old list accepted; they become person ids, so `bot:<id>` stays the audit actor. */
 const BOT_ID = /^[A-Za-z0-9_.-]{1,128}$/;
 const HASH = /^[0-9a-f]{64}$/;
 
@@ -13,22 +13,6 @@ const HASH = /^[0-9a-f]{64}$/;
 /** @param {string} id */
 export function validBotId(id) {
   return BOT_ID.test(id);
-}
-
-/**
- * The account ids of `--accounts a,b`: at least one, each 1 to 128 characters, no repeats.
- * @param {string} list
- * @returns {string[]}
- */
-export function parseAccounts(list) {
-  const accounts = list
-    .split(",")
-    .map((account) => account.trim())
-    .filter((account) => account.length > 0);
-  if (accounts.length === 0 || accounts.some((account) => account.length > 128)) {
-    throw new Error("--accounts takes one or more account ids, comma-separated");
-  }
-  return [...new Set(accounts)];
 }
 
 /**
@@ -52,8 +36,8 @@ function isClient(item) {
 }
 
 /**
- * The local list, checked as strictly as the Worker checks the secret: an extra field (a token
- * pasted in by hand, say) refuses the whole file. The error never quotes the file.
+ * The local list, checked as strictly as the Worker used to check the secret: an extra field (a
+ * token pasted in by hand, say) refuses the whole file. The error never quotes the file.
  * @param {unknown} json
  * @returns {BotClient[]}
  */
@@ -66,30 +50,9 @@ export function checkBotClients(json) {
   if (ids.size !== json.length || hashes.size !== json.length) {
     throw new Error("the bot client list names one id or one token hash twice");
   }
-  return json;
-}
-
-/**
- * The list with `client` added, or in place of the entry with its id (a new token for that bot).
- * @param {readonly BotClient[]} clients
- * @param {BotClient} client
- * @returns {BotClient[]}
- */
-export function withBotClient(clients, client) {
-  const index = clients.findIndex((existing) => existing.id === client.id);
-  if (index === -1) {
-    return [...clients, client];
+  const accounts = json.flatMap((client) => client.accounts);
+  if (new Set(accounts).size !== accounts.length) {
+    throw new Error("the bot client list gives one account twice: a person owns an account alone");
   }
-  return clients.map((existing, at) => (at === index ? client : existing));
-}
-
-/**
- * The local token file's text with this bot's line added or replaced: one `<id>=<token>` per bot.
- * @param {string} text
- * @param {string} id
- * @param {string} token
- */
-export function withTokenLine(text, id, token) {
-  const others = text.split("\n").filter((line) => line.length > 0 && !line.startsWith(`${id}=`));
-  return [...others, `${id}=${token}`].join("\n") + "\n";
+  return json;
 }

@@ -11,7 +11,10 @@ import type { GetPolicyOutputData } from "../../use_cases/get_policy/output_data
 import type { GetPostMetricsOutputData } from "../../use_cases/get_post_metrics/output_data";
 import type { GetPostOutputData } from "../../use_cases/get_post/output_data";
 import type { ListBacklogOutputData } from "../../use_cases/list_backlog/output_data";
+import type { ListOwnAccountsOutputData } from "../../use_cases/list_own_accounts/output_data";
 import type { StageMediaFromUrlOutputData } from "../../use_cases/stage_media_from_url/output_data";
+import type { AccountStatus } from "../../entities/accounts/account";
+import { disclosureComplete } from "../../entities/accounts/account";
 import { disclosureJson, policyJson, postJson, snapshotJson } from "./json_views";
 import type { ToolOutcome, ToolView } from "./tool_presenter";
 import type { JsonObject } from "./tool_result";
@@ -88,4 +91,22 @@ export const policyView: ToolView<GetPolicyOutputData> = either((found) => ({
   status: found.status,
   disclosure: disclosureJson(found.disclosure),
   policy: policyJson(found.policy),
+}));
+
+/** A bot's view of an account's status: DISCONNECTED and NEEDS_RECONNECT both need the owner. */
+const STATUS_WORDS: Readonly<Record<AccountStatus, string>> = {
+  ACTIVE: "active",
+  PAUSED: "paused",
+  NEEDS_RECONNECT: "needs_reconnect",
+  DISCONNECTED: "needs_reconnect",
+};
+
+export const listAccountsView: ToolView<ListOwnAccountsOutputData> = either((listed) => ({
+  accounts: listed.accounts.map((account) => ({
+    account_id: account.id,
+    handle: account.handle,
+    status: STATUS_WORDS[account.status],
+    mode: account.policy.mode === "AUTO" ? "auto" : "review",
+    disclosure_complete: disclosureComplete(account.disclosure),
+  })),
 }));

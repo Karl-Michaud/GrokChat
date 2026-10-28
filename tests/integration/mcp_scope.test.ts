@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Account } from "../../src/entities/accounts/account";
 import { stagedMediaId } from "../../src/entities/identity/ids";
 import { d1Stores } from "../../src/frameworks/d1/d1_stores";
+import { TOOL_NAMES } from "../../src/interface_adapters/mcp/tool_catalog";
 import { aMedia } from "../unit/support/builders";
 import { body, botEnv, connect, isError, OTHER_BOT_TOKEN, seedAccount } from "./support/mcp_client";
 import { stubX, type XWire } from "./support/x_wire";
@@ -216,7 +217,23 @@ describe("I2 / R7 over MCP: every tool × account, post and media id of another 
     const covered = new Set(
       [...OTHER_ACCOUNT_IDS, ...OTHER_POST_IDS, ...OTHER_MEDIA_IDS].map(([tool]) => tool),
     );
-    expect(covered.size).toBe(12);
+    // list_accounts takes no id: its scope is the token's alone (the test below).
+    expect([...covered, "list_accounts"].sort()).toStrictEqual([...TOOL_NAMES].sort());
+  });
+
+  it("list_accounts lists only the bot's own accounts", async () => {
+    const result = body(await world.client.callTool({ name: "list_accounts", arguments: {} }));
+    expect(result).toStrictEqual({
+      accounts: [
+        {
+          account_id: world.mine.id,
+          handle: world.mine.handle,
+          status: "active",
+          mode: "auto",
+          disclosure_complete: true,
+        },
+      ],
+    });
   });
 
   it("list_backlog without account_id shows only the bot's own accounts", async () => {

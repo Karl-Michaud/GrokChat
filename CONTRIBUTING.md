@@ -59,7 +59,7 @@ No new dependency without a decision record in `docs/decisions/` (`Agents/CLAUDE
 
 ## Secrets
 
-Never commit, print or log a secret. Production secrets are Worker secrets, set by `npm run provision-secrets`, `npm run set-admin-password` and `npm run add-bot` over `wrangler secret put`'s stdin (`docs/runbook.md`). Locally, copy `.dev.vars.example` to `.dev.vars` (gitignored) for `wrangler dev`.
+Never commit, print or log a secret. Production secrets are Worker secrets, set by `npm run provision-secrets`, and `npm run set-admin-password` over `wrangler secret put`'s stdin; bot tokens are generated on the dashboard and only their SHA-256 is stored, in D1 (`docs/runbook.md`). Locally, copy `.dev.vars.example` to `.dev.vars` (gitignored) for `wrangler dev`.
 
 ## Changelog
 

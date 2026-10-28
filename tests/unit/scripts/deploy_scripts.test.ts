@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { addBot } from "../../../scripts/add-bot.mjs";
+import { importBots } from "../../../scripts/import-bots.mjs";
+import { importStatements, personNameOf } from "../../../scripts/deploy/import_sql.mjs";
 import { UsageError } from "../../../scripts/deploy/cli.mjs";
-import { checkBotClients } from "../../../scripts/deploy/bot_clients.mjs";
-import { newTokenKey, parseTokenKeys, sha256Hex } from "../../../scripts/deploy/secret_values.mjs";
+import { newTokenKey, parseTokenKeys } from "../../../scripts/deploy/secret_values.mjs";
 import { provisionSecrets } from "../../../scripts/provision-secrets.mjs";
 import { setAdminPassword } from "../../../scripts/set-admin-password.mjs";
 import { FakeFiles, FakeSecrets, recorder } from "./support";
@@ -184,78 +184,124 @@ describe("provision-secrets", () => {
   });
 });
 
-const bot = (overrides: Partial<Parameters<typeof addBot>[0]> = {}) => ({
-  id: "muse-bot",
-  accounts: "acc-1,acc-2",
-  clientsFile: ".bot-clients.local.json",
-  tokensFile: ".bot-tokens.local",
-  newList: false,
-  ...overrides,
+const HASH_K = "a".repeat(64);
+const HASH_A = "b".repeat(64);
+const LIST = [
+  { id: "karl", tokenSha256: HASH_K, accounts: ["acc-1", "acc-2"] },
+  { id: "aaron", tokenSha256: HASH_A, accounts: ["acc-3"] },
+];
+
+function importDeps(text: string | null, status = 0) {
+  const files = new FakeFiles();
+  if (text !== null) {
+    files.texts.set(".bot-clients.local.json", text);
+  }
+  const runs: { command: string; args: readonly string[] }[] = [];
+  const sql: string[] = [];
+  const { lines, log } = recorder();
+  return {
+    runs,
+    sql,
+    lines,
+    deps: {
+      files,
+      log,
+      run: (command: string, args: readonly string[]) => {
+        runs.push({ command, args });
+        return { status, stdout: "" };
+      },
+      writeSql: (body: string) => {
+        sql.push(body);
+        return "/tmp/import.sql";
+      },
+    },
+  };
+}
+
+const importFlags = { file: ".bot-clients.local.json", dryRun: false, now: 1_000 };
+
+describe("import-bots (GROKCHAT-16)", () => {
+  it("runs the import's statements on the REMOTE database, and prints no hash", () => {
+    const { runs, sql, lines, deps } = importDeps(JSON.stringify(LIST));
+    importBots(importFlags, deps);
+    expect(runs).toStrictEqual([
+      {
+        command: "npx",
+        args: [
+          "wrangler",
+          "d1",
+          "execute",
+          "grokchat",
+          "--remote",
+          "--yes",
+          "--file",
+          "/tmp/import.sql",
+        ],
+      },
+    ]);
+    expect(sql).toStrictEqual([`${importStatements(LIST, 1_000).join("\n")}\n`]);
+    const said = lines.join("\n");
+    expect(said).toContain("Imported Karl (karl), Aaron (aaron) with 3 account assignment(s)");
+    expect(said).toContain("delete GROKCHAT_BOT_CLIENTS");
+    expect(said).not.toContain(HASH_K);
+  });
+
+  it("in a dry run, says what it would run and runs nothing", () => {
+    const { runs, sql, lines, deps } = importDeps(JSON.stringify(LIST));
+    importBots({ ...importFlags, dryRun: true }, deps);
+    expect([runs, sql]).toStrictEqual([[], []]);
+    expect(lines).toStrictEqual([
+      "would run: npx wrangler d1 execute grokchat --remote --yes --file <7 statements>  (dry run)",
+      "people: Karl (karl), Aaron (aaron); account assignments: 3",
+    ]);
+    const empty = importDeps("[]");
+    importBots({ ...importFlags, dryRun: true }, empty.deps);
+    expect(empty.lines[1]).toBe("people: none; account assignments: 0");
+    importBots(importFlags, empty.deps);
+    expect(empty.lines[2]).toMatch(/^Imported nobody with 0 account assignment/);
+  });
+
+  it("refuses a missing, non-JSON or malformed list without quoting it, and a failed execute", () => {
+    expect(() => {
+      importBots(importFlags, importDeps(null).deps);
+    }).toThrow(".bot-clients.local.json is missing: copy it from the machine that ran add-bot");
+    expect(() => {
+      importBots(importFlags, importDeps("not json").deps);
+    }).toThrow(".bot-clients.local.json is not JSON");
+    const leaked = importDeps('[{"id":"x","token":"leaked"}]');
+    expect(() => {
+      importBots(importFlags, leaked.deps);
+    }).toThrow(".bot-clients.local.json is not a bot client list");
+    expect(() => {
+      importBots(importFlags, leaked.deps);
+    }).not.toThrow(/leaked/);
+    expect(leaked.runs).toStrictEqual([]);
+    expect(() => {
+      importBots(importFlags, importDeps(JSON.stringify(LIST), 1).deps);
+    }).toThrow("`wrangler d1 execute` failed");
+  });
 });
 
-describe("add-bot", () => {
-  it("puts the list with the token's hash, writes the token only to the token file", async () => {
-    const files = new FakeFiles();
-    const secrets = new FakeSecrets();
-    const { lines, log } = recorder();
-    await addBot(bot(), { secrets, files, log });
-    const [, token = ""] =
-      /^muse-bot=(\S+)\n$/.exec(files.texts.get(".bot-tokens.local") ?? "") ?? [];
-    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    const list = [
-      { id: "muse-bot", tokenSha256: await sha256Hex(token), accounts: ["acc-1", "acc-2"] },
-    ];
-    expect(JSON.parse(secrets.value("GROKCHAT_BOT_CLIENTS"))).toStrictEqual(list);
-    const local = files.texts.get(".bot-clients.local.json") ?? "";
-    expect(checkBotClients(JSON.parse(local))).toStrictEqual(list);
-    expect(local).not.toContain(token);
-    expect(secrets.value("GROKCHAT_BOT_CLIENTS")).not.toContain(token);
-    expect(lines.join("\n")).not.toContain(token);
-    expect(lines.join("\n")).toContain(".bot-tokens.local");
-  });
-
-  it("adds to the local list, and gives a bot added again a new token in place", async () => {
-    const files = new FakeFiles();
-    const secrets = new FakeSecrets();
-    const deps = { secrets, files, log: () => undefined };
-    await addBot(bot(), deps);
-    await addBot(bot({ id: "other", accounts: "acc-3" }), deps);
-    await addBot(bot({ accounts: "acc-9" }), deps);
-    const list = checkBotClients(JSON.parse(secrets.puts.at(-1)?.value ?? ""));
-    expect(list.map((c) => [c.id, c.accounts])).toStrictEqual([
-      ["muse-bot", ["acc-9"]],
-      ["other", ["acc-3"]],
-    ]);
-    const tokens = (files.texts.get(".bot-tokens.local") ?? "").trim().split("\n");
-    expect(tokens.map((line) => line.split("=")[0])).toStrictEqual(["other", "muse-bot"]);
-    const muse = tokens[1]?.split("=")[1] ?? "";
-    expect(list[0]?.tokenSha256).toBe(await sha256Hex(muse));
-  });
-
-  it("refuses to overwrite a list set elsewhere unless --new-list", async () => {
-    const secrets = new FakeSecrets(["GROKCHAT_BOT_CLIENTS"]);
-    const files = new FakeFiles();
-    const deps = { secrets, files, log: () => undefined };
-    await expect(addBot(bot(), deps)).rejects.toThrow(/is missing: a new list would drop/);
-    expect([secrets.puts, files.writes]).toStrictEqual([[], []]);
-    await addBot(bot({ newList: true }), deps);
-    expect(secrets.puts).toHaveLength(1);
-  });
-
-  it("refuses a bad id, bad accounts or a bad local list, before anything is written", async () => {
-    const files = new FakeFiles();
-    const secrets = new FakeSecrets();
-    const deps = { secrets, files, log: () => undefined };
-    await expect(addBot(bot({ id: "a b" }), deps)).rejects.toThrow("--id is 1 to 128 of");
-    await expect(addBot(bot({ accounts: " , " }), deps)).rejects.toThrow(
-      "--accounts takes one or more account ids",
+describe("the import's statements", () => {
+  it("name each person after its id, quote values, and only fill what is missing", () => {
+    expect(personNameOf("karl")).toBe("Karl");
+    expect(personNameOf("x")).toBe("X");
+    const [insert, token, assign] = importStatements(
+      [{ id: "o", tokenSha256: HASH_K, accounts: ["it's"] }],
+      7,
     );
-    files.texts.set(".bot-clients.local.json", '[{"id":"x","token":"leaked"}]');
-    const refused = addBot(bot(), deps);
-    await expect(refused).rejects.toThrow(".bot-clients.local.json is not a bot client list");
-    await expect(addBot(bot(), deps)).rejects.not.toThrow(/leaked/);
-    files.texts.set(".bot-clients.local.json", "not json");
-    await expect(addBot(bot(), deps)).rejects.toThrow("is not a bot client list");
-    expect([secrets.puts, files.writes]).toStrictEqual([[], []]);
+    expect(insert).toBe(
+      "INSERT INTO people (id, name, token_sha256, token_created_at, created_at) " +
+        `SELECT 'o', 'O', '${HASH_K}', 7, 7 WHERE NOT EXISTS (SELECT 1 FROM people WHERE ` +
+        `token_sha256 = '${HASH_K}') ON CONFLICT DO NOTHING;`,
+    );
+    expect(token).toBe(
+      `UPDATE people SET token_sha256 = '${HASH_K}', token_created_at = 7 WHERE id = 'o' AND ` +
+        `token_sha256 IS NULL AND NOT EXISTS (SELECT 1 FROM people WHERE token_sha256 = '${HASH_K}');`,
+    );
+    expect(assign).toBe(
+      "UPDATE accounts SET person_id = 'o' WHERE id = 'it''s' AND person_id IS NULL AND " +
+        "EXISTS (SELECT 1 FROM people WHERE id = 'o');",
+    );
   });
 });

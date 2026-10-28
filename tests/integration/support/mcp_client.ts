@@ -9,7 +9,13 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { createExecutionContext } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import type { Account } from "../../../src/entities/accounts/account";
-import { accountId, xUserId, type AccountId } from "../../../src/entities/identity/ids";
+import {
+  accountId,
+  personId,
+  xUserId,
+  type AccountId,
+  type PersonId,
+} from "../../../src/entities/identity/ids";
 import type { Env } from "../../../src/frameworks/env";
 import { d1Stores } from "../../../src/frameworks/d1/d1_stores";
 import { AccountObjects } from "../../../src/frameworks/durable_objects/account_client";
@@ -27,19 +33,44 @@ export async function sha256Hex(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** The env the Worker sees: two bot clients, each scoped to its own accounts. */
+/** The two bots' people in D1 (GROKCHAT-16): `bot-mine` holds BOT_TOKEN, `bot-theirs` the other. */
+export const MINE = personId("bot-mine");
+export const THEIRS = personId("bot-theirs");
+
+/** Saves a person with this token's hash and makes `accounts` exactly theirs. */
+export async function seedPerson(
+  id: PersonId,
+  token: string,
+  accounts: readonly string[],
+): Promise<void> {
+  const { people, owners } = d1Stores(env.DB);
+  await people.save({
+    id,
+    name: id,
+    createdAt: 0,
+    token: { sha256: await sha256Hex(token), createdAt: 0 },
+  });
+  for (const account of await owners.accountsOf(id)) {
+    await owners.assign(account, null);
+  }
+  for (const account of accounts) {
+    await owners.assign(accountId(account), id);
+  }
+}
+
+/**
+ * The env the Worker sees, and two people in its D1, each holding a token and scoped to exactly
+ * their own accounts (seeded before this is called: an assignment needs the account's row).
+ */
 export async function botEnv(
   mine: readonly string[],
   theirs: readonly string[] = [],
   extra: Partial<Env> = {},
 ): Promise<Env> {
-  const clients = [
-    { id: "bot-mine", tokenSha256: await sha256Hex(BOT_TOKEN), accounts: mine },
-    { id: "bot-theirs", tokenSha256: await sha256Hex(OTHER_BOT_TOKEN), accounts: theirs },
-  ];
+  await seedPerson(MINE, BOT_TOKEN, mine);
+  await seedPerson(THEIRS, OTHER_BOT_TOKEN, theirs);
   return {
     ...env,
-    GROKCHAT_BOT_CLIENTS: JSON.stringify(clients),
     X_CLIENT_SECRET: CLIENT_SECRET,
     GROKCHAT_MEDIA_HOSTS: "media.example",
     ...extra,

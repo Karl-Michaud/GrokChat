@@ -51,6 +51,11 @@ import {
   MemoryAccountRepository,
   MemoryMediaRepository,
 } from "../../../src/frameworks/memory/memory_repositories";
+import {
+  MemoryAccountOwners,
+  MemoryPersonRepository,
+  SequentialTokenIssuer,
+} from "../../../src/frameworks/memory/memory_people";
 import { MemoryActivityLog } from "../../../src/frameworks/memory/memory_activity";
 import { MemoryFollowerStore } from "../../../src/frameworks/memory/memory_followers";
 import { FakeXTokenEndpoint, MemoryTokenStore } from "../../../src/frameworks/memory/memory_tokens";
@@ -205,6 +210,9 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const command = new PostCommand(reader, steps, guard, actionAudit);
   const accountCommand = new AccountCommand(accounts, guard, actionAudit);
   const intake = new MediaIntake({ media, blobs, usage, hasher, audit: actionAudit, ids, clock });
+  const owners = new MemoryAccountOwners(accounts);
+  const people = new MemoryPersonRepository(owners);
+  const issuer = new SequentialTokenIssuer();
 
   /** An active, disclosed account with tokens valid for two hours. */
   async function seedAccount(overrides: Partial<Account> = {}): Promise<Account> {
@@ -239,6 +247,9 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   return {
     clock,
     ids,
+    owners,
+    people,
+    issuer,
     audit,
     costs,
     metrics,

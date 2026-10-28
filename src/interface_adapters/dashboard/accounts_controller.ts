@@ -4,7 +4,10 @@ import { accountId } from "../../entities/identity/ids";
 import { MINUTE } from "../../entities/time/instant";
 import type { AccountCommandResult } from "../../use_cases/admin/account_command";
 import type { AccountBreakdown } from "../../use_cases/get_analytics/output_data";
-import { badgeOf, loadAccounts, type AccountBadge } from "./account_directory";
+import { personInitials } from "../../entities/people/person";
+import type { Instant } from "../../entities/time/instant";
+import type { PersonListing } from "../../use_cases/list_people/output_data";
+import { badgeOf, loadAccounts, TONES, type AccountBadge } from "./account_directory";
 import { ADMIN } from "./admin_actor";
 import { accountStatusChip, type Chip } from "./chips";
 import { compact, exact } from "./format";
@@ -13,6 +16,13 @@ import { invalid, page, redirect, refused, type Outcome } from "./outcome";
 import { parsePolicyForm, policyForm, type PolicyForm } from "./policy_form";
 import { runUseCase } from "./presenter";
 import type { AccountUseCases } from "./use_cases";
+
+/** One choice of a select (the Owner select). */
+export interface SelectOption {
+  readonly value: string;
+  readonly label: string;
+  readonly selected: boolean;
+}
 
 export interface AccountCard {
   readonly id: string;
@@ -31,15 +41,34 @@ export interface AccountCard {
   readonly followers: string;
   readonly posts7d: string;
   readonly policy: PolicyForm;
+  /** The Owner select: "Unassigned" first, then every person; the current one selected. */
+  readonly owners: readonly SelectOption[];
+}
+
+/** A person's section on the accounts page (GROKCHAT-16), with the cards of their accounts. */
+export interface PersonGroup {
+  readonly id: string;
+  readonly name: string;
+  readonly initials: string;
+  /** 1 to 8, from the person's place in the name-ordered list. */
+  readonly tone: number;
+  /** "2 accounts" */
+  readonly count: string;
+  /** "Token set Oct 27, 2026" or "No token". */
+  readonly token: string;
+  readonly hasToken: boolean;
+  readonly accounts: readonly AccountCard[];
 }
 
 export interface AccountsView {
-  readonly accounts: readonly AccountCard[];
+  readonly people: readonly PersonGroup[];
+  /** The accounts no person has: no bot may act on them. */
+  readonly unassigned: readonly AccountCard[];
+  /** Every account, for the empty state. */
+  readonly total: number;
   readonly notice: string | null;
   /** What a Grok bot's `server_url` is: this Worker's `/mcp`. */
   readonly mcpUrl: string;
-  /** The command that gives a bot a token for these accounts (docs/runbook.md). */
-  readonly addBot: string;
 }
 
 export const ACCOUNTS_PAGE = "/dashboard/accounts";
@@ -47,7 +76,7 @@ export const ACCOUNTS_PAGE = "/dashboard/accounts";
 /** The kill switch sets only these; reconnecting clears the others. */
 const SWITCHABLE = ["ACTIVE", "PAUSED"] as const;
 
-const plural = (count: number, one: string, many: string): string =>
+export const plural = (count: number, one: string, many: string): string =>
   `${exact(count)} ${count === 1 ? one : many}`;
 
 /** The policy in words: "10 posts a day", "30 min apart", "Quiet 22:00–06:00", … */
@@ -68,15 +97,40 @@ function followersOf(numbers: AccountBreakdown | undefined): string {
   return numbers === undefined || numbers.followers === null ? "—" : compact(numbers.followers);
 }
 
-function card(
-  account: Account,
-  accounts: readonly Account[],
-  numbers: AccountBreakdown | undefined,
-): AccountCard {
+/** Oct 27, 2026 */
+export function tokenDate(at: Instant): string {
+  return new Date(at).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function ownerOptions(people: readonly PersonListing[], owner: string): readonly SelectOption[] {
+  return [
+    { value: "", label: "Unassigned", selected: owner === "" },
+    ...people.map(({ person }) => ({
+      value: person.id,
+      label: person.name,
+      selected: person.id === owner,
+    })),
+  ];
+}
+
+interface CardContext {
+  readonly accounts: readonly Account[];
+  readonly people: readonly PersonListing[];
+  readonly week: readonly AccountBreakdown[] | null;
+}
+
+function card(account: Account, context: CardContext): AccountCard {
   const { disclosure, status } = account;
+  const numbers = context.week?.find((row) => row.accountId === account.id);
+  const owner = context.people.find(({ accountIds }) => accountIds.includes(account.id));
   return {
     id: account.id,
-    badge: badgeOf(accounts, account.id),
+    badge: badgeOf(context.accounts, account.id),
     status: accountStatusChip(status),
     needsReconnect: status === "NEEDS_RECONNECT" || status === "DISCONNECTED",
     canActivate: status === "PAUSED",
@@ -89,13 +143,32 @@ function card(
     followers: followersOf(numbers),
     posts7d: exact(numbers === undefined ? 0 : numbers.published),
     policy: policyForm(account.policy),
+    owners: ownerOptions(context.people, owner?.person.id ?? ""),
+  };
+}
+
+function group(listing: PersonListing, index: number, context: CardContext): PersonGroup {
+  const { person } = listing;
+  const accounts = context.accounts.filter((account) => listing.accountIds.includes(account.id));
+  return {
+    id: person.id,
+    name: person.name,
+    initials: personInitials(person.name),
+    tone: (index % TONES) + 1,
+    count: plural(accounts.length, "account", "accounts"),
+    token: person.token === null ? "No token" : `Token set ${tokenDate(person.token.createdAt)}`,
+    hasToken: person.token !== null,
+    accounts: accounts.map((account) => card(account, context)),
   };
 }
 
 const toOutcome = (output: AccountCommandResult<string>): Outcome<never> =>
   output.ok ? redirect(ACCOUNTS_PAGE) : refused(output.code);
 
-/** The account manager (GROKCHAT-15): connect, kill switch, disclosure, policy, bot setup. */
+/**
+ * The account manager (GROKCHAT-15): connect, kill switch, disclosure, policy; since GROKCHAT-16
+ * grouped by person, each card with its Owner select.
+ */
 export class AccountsController {
   constructor(private readonly useCases: AccountUseCases) {}
 
@@ -109,19 +182,20 @@ export class AccountsController {
       { actor: ADMIN, range: "7d", accountId: null },
       (output) => (output.ok ? output.accounts : null),
     );
+    const people = await runUseCase(this.useCases.listPeople, { actor: ADMIN }, (output) =>
+      output.ok ? output.people : [],
+    );
+    const context = { accounts, people, week };
+    const owned = new Set(people.flatMap(({ accountIds }) => accountIds));
     const connected = filled(query.connected);
-    const ids = accounts.map((account) => account.id).join(",");
     return page({
-      accounts: accounts.map((account) =>
-        card(
-          account,
-          accounts,
-          week?.find((row) => row.accountId === account.id),
-        ),
-      ),
+      people: people.map((listing, index) => group(listing, index, context)),
+      unassigned: accounts
+        .filter((account) => !owned.has(account.id))
+        .map((account) => card(account, context)),
+      total: accounts.length,
       notice: connected === null ? null : `Connected ${connected}. It starts paused.`,
       mcpUrl: `${query.origin}/mcp`,
-      addBot: `npm run add-bot -- --id <bot name> --accounts ${ids === "" ? "<account id>" : ids}`,
     });
   }
 

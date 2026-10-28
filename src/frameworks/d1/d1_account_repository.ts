@@ -18,6 +18,15 @@ const COLUMNS =
   "id, x_user_id, handle, status, bio_confirmed, automated_label_confirmed, " +
   "policy, is_app_owner";
 
+/**
+ * An upsert, never `INSERT OR REPLACE`: a replace deletes the row first, which would drop the
+ * columns this repository does not own (`person_id`, GROKCHAT-16) on every save.
+ */
+const UPDATES = COLUMNS.split(", ")
+  .filter((column) => column !== "id")
+  .map((column) => `${column} = excluded.${column}`)
+  .join(", ");
+
 function fromRow(row: AccountRow): Account {
   return {
     id: accountId(row.id),
@@ -62,7 +71,8 @@ export class D1AccountRepository implements AccountRepository {
   async save(account: Account): Promise<void> {
     await this.db
       .prepare(
-        `INSERT OR REPLACE INTO accounts (${COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
+        `INSERT INTO accounts (${COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ` +
+          `ON CONFLICT (id) DO UPDATE SET ${UPDATES}`,
       )
       .bind(
         account.id,

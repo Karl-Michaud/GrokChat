@@ -5,6 +5,7 @@ import { buildWebApp } from "../../../src/frameworks/web/web_app";
 import type { WebControllers } from "../../../src/frameworks/web/controllers";
 import { AccountsController } from "../../../src/interface_adapters/dashboard/accounts_controller";
 import { OAuthController } from "../../../src/interface_adapters/dashboard/oauth_controller";
+import { PeopleController } from "../../../src/interface_adapters/dashboard/people_controller";
 import { PostCommandsController } from "../../../src/interface_adapters/dashboard/post_commands_controller";
 import { PostsController } from "../../../src/interface_adapters/dashboard/posts_controller";
 import { ActivityController } from "../../../src/interface_adapters/dashboard/activity_controller";
@@ -42,6 +43,7 @@ export function controllersFor(world: World): WebControllers {
     posts: new PostsController(useCases, world.clock),
     postCommands: new PostCommandsController(useCases),
     accounts: new AccountsController(useCases),
+    people: new PeopleController(useCases),
     oauth: new OAuthController(useCases),
     activity: new ActivityController(useCases, world.clock),
   };
