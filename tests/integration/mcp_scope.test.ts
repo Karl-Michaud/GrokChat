@@ -80,6 +80,16 @@ const OTHER_ACCOUNT_IDS: readonly Case[] = [
     (w) => ({ account_id: w.theirs.id, url: "https://media.example/a.png" }),
     "scope",
   ],
+  [
+    "upload_media",
+    (w) => ({
+      account_id: w.theirs.id,
+      sha256: "0".repeat(64),
+      data_base64: "/9j/",
+      part_sha256: "0".repeat(64),
+    }),
+    "scope",
+  ],
   ["list_backlog", (w) => ({ account_id: w.theirs.id }), "scope"],
   ["get_account_metrics", (w) => ({ account_id: w.theirs.id, ...WINDOW }), "scope"],
   ["compare_posts", (w) => ({ account_id: w.theirs.id, sort_by: "likes", ...WINDOW }), "scope"],

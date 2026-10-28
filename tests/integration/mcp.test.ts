@@ -53,6 +53,7 @@ const TOOLS = [
   "list_backlog",
   "list_media",
   "stage_media_from_url",
+  "upload_media",
 ];
 
 describe("the MCP server's surface", () => {

@@ -17,7 +17,9 @@ export interface UploadCleanupPorts {
 /**
  * Deletes the parts of `upload_media` uploads past their expiry (GROKCHAT-20), inside the metrics
  * tick's budget like the staged-media cleanup: one listing, then each upload's declared cost
- * checked before it and spent after it, its bytes taken off the R2 usage.
+ * checked before it and spent after it, and one usage write giving their bytes back. A sweep that
+ * finds nothing writes nothing, so its one R2 listing (at most 2,880 a month) goes uncounted,
+ * well inside the 200k Class A between the quota guard and the free allowance.
  */
 export class UploadCleanup implements CleanupStep {
   constructor(private readonly ports: UploadCleanupPorts) {}
@@ -30,16 +32,20 @@ export class UploadCleanup implements CleanupStep {
     }
     const due = await uploads.expired(now, UPLOAD_CLEANUP_BATCH);
     meter.spend(UPLOAD_CLEANUP_QUERY_COST);
-    await usage.record({ storedBytes: 0, classA: 1, classB: 0 }, now);
     let deleted = 0;
+    let freed = 0;
     for (const upload of due) {
       if (!meter.fits(UPLOAD_CLEANUP_ITEM_COST, clock.now())) {
         break;
       }
       await uploads.discard(upload.id);
-      await usage.record({ storedBytes: -upload.partBytes, classA: 1, classB: 0 }, now);
       meter.spend(UPLOAD_CLEANUP_ITEM_COST);
       deleted += 1;
+      freed += upload.partBytes;
+    }
+    if (due.length > 0) {
+      // One usage write for the listing and each upload's listing; an empty sweep writes none.
+      await usage.record({ storedBytes: -freed, classA: 1 + deleted, classB: 0 }, now);
     }
     return deleted;
   }

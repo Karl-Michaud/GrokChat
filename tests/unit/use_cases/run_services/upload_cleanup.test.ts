@@ -61,9 +61,15 @@ describe("UploadCleanup (GROKCHAT-20)", () => {
   });
 
   it("leaves an upload that has not expired", async () => {
-    const { uploads, cleanup } = await setup(2, T0 + 1);
+    const { uploads, usage, cleanup } = await setup(2, T0 + 1);
     expect(await cleanup.run(meterWith(1000))).toBe(0);
     expect(uploads.entries.size).toBe(2);
+    expect(await usage.current(T0)).toStrictEqual({
+      month: "2026-10",
+      storedBytes: 20,
+      classA: 0,
+      classB: 0,
+    });
   });
 
   it(`asks for at most ${String(UPLOAD_CLEANUP_BATCH)}, and stops where the meter runs out`, async () => {
@@ -73,6 +79,12 @@ describe("UploadCleanup (GROKCHAT-20)", () => {
     const tight = await setup(3);
     const meter = meterWith(QUERY + 2 * ITEM + ITEM - 1);
     expect(await tight.cleanup.run(meter)).toBe(2);
+    expect(await tight.usage.current(T0)).toStrictEqual({
+      month: "2026-10",
+      storedBytes: 10,
+      classA: 3,
+      classB: 0,
+    });
     expect(meter.remaining().cloudflareCalls).toBe(ITEM - 1);
   });
 
