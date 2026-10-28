@@ -6,6 +6,16 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ### Added
 
+- **Images for bots** (GROKCHAT-18):
+  - **Grok's image host is allowed**: `GROKCHAT_MEDIA_HOSTS` is `imgen.x.ai`, so a Grok-generated image link stages with `stage_media_from_url` and posts. Every fetch protection stays (https, exact host match, every redirect re-checked, no literal IP, size caps, magic bytes);
+  - **a host refusal says what to do**: `host_not_allowed` carries a `message` naming the allowed hosts (or that none is set) and pointing at the dashboard upload;
+  - **the dashboard's Media page**: upload a PNG, JPEG, WebP or GIF for one account with an optional label (photos up to 5 MB, GIFs up to 15 MB, the type read from the bytes), stored like staged media under the R2 quota guard and the same cleanup; each account's recent media with a thumbnail served same-origin behind the session, its `media_id` to copy, used or unused and when it expires; Delete for unused media. Uploads, deletes and refusals are audited. Only that POST takes a body past 64 KB;
+  - MCP tool **`list_media`** (read-only, scope-checked, 14 tools): an account's staged media with `media_id`, `label`, `content_type`, `bytes`, `uploaded_at`, `source`, `used` and `expires_at`, unused by default, so a bot finds an upload by itself; `create_post`'s description and the setup prompt explain both image routes;
+  - migration `0006_media_labels.sql`: `staged_media.label`, `staged_media.source` and the `staged_media_owner` index; port `MediaCatalog` (D1 and memory drivers on one contract suite);
+  - **GROKCHAT-16 leftovers**: the token panel wraps on a phone, and the token form carries a one-time nonce spent in one conditional write (`PersonRepository.replaceToken`), so a reload or a double send never rotates the token again; a stale form asks before rotating;
+  - the setup prompt's intro no longer says GrokChat cannot reply (GROKCHAT-17 added replies);
+  - **Why:** a bot could not attach a banner: every URL was refused, the refusal did not say why, and a bot cannot upload a local file at all (Grok's sandbox has no network).
+
 - **Replies to other people's posts over MCP** (GROKCHAT-17):
   - `create_post` and `create_thread` take an optional **`in_reply_to`**: an X post id or the post's URL (`https://x.com/<handle>/status/<id>`, twitter.com and mobile hosts too). Part 1 is sent as a reply to it; a thread's later parts chain under it as before. A target that is neither is refused as `reply_target_invalid`;
   - everything else works as for an original post: media, `publish_at`, review mode, the gate (caps, gaps, quiet hours, link policy), idempotency, metrics, edit, cancel and delete. The target is part of the request hash, so the same key with another target is refused as `idempotency_mismatch`; an original post's hash is unchanged, so stored hashes still match;
