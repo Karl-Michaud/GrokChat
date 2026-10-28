@@ -10,6 +10,8 @@ export interface CreatePostInputData {
   readonly parts: readonly PartInput[];
   /** Null: publish now. The boundary has already checked it carried an offset (m5). */
   readonly publishAt: Instant | null;
+  /** Null: an original post. Otherwise the post to reply to, as an X post id or its URL. */
+  readonly replyTo: string | null;
   /** Required for bots (rev 4 B3). */
   readonly idempotencyKey: IdempotencyKey | null;
 }

@@ -9,6 +9,7 @@ import {
   EditPostController,
   StageMediaFromUrlController,
 } from "../../../../src/interface_adapters/mcp/authoring_controllers";
+import type { CreatePostInputData } from "../../../../src/use_cases/create_post/input_data";
 import {
   ComparePostsController,
   GetAccountMetricsController,
@@ -89,6 +90,7 @@ describe("authoring controllers build each use case's input from the arguments",
         accountId: "acc-1",
         parts: [{ text: "hi", media: ["m-1", "m-2"] }],
         publishAt: NOON_MS,
+        replyTo: null,
         idempotencyKey: "k",
       },
     ]);
@@ -102,6 +104,26 @@ describe("authoring controllers build each use case's input from the arguments",
       idempotency_key: "k",
     });
     expect(spy.inputs[0]).toMatchObject({ parts: [{ text: "hi", media: [] }], publishAt: null });
+  });
+
+  it("create_post and create_thread pass in_reply_to through as the reply target", async () => {
+    const spy = new Spy<CreatePostInputData>();
+    await new CreatePostController(spy).handle(ACTOR, {
+      account_id: "acc-1",
+      text: "hi",
+      in_reply_to: "https://x.com/a/status/1",
+      idempotency_key: "k",
+    });
+    await new CreateThreadController(spy).handle(ACTOR, {
+      account_id: "acc-1",
+      parts: [{ text: "a" }],
+      in_reply_to: "2",
+      idempotency_key: "k2",
+    });
+    expect(spy.inputs.map((input) => input.replyTo)).toStrictEqual([
+      "https://x.com/a/status/1",
+      "2",
+    ]);
   });
 
   it("create_thread: every part in order", async () => {
@@ -120,6 +142,7 @@ describe("authoring controllers build each use case's input from the arguments",
           { text: "b", media: [] },
         ],
         publishAt: null,
+        replyTo: null,
         idempotencyKey: "k2",
       },
     ]);

@@ -57,6 +57,7 @@ const POST_JSON = {
   lifecycle: "RESUMING",
   publish_at: "2026-10-27T12:00:00.000Z",
   resume_at: "2026-10-27T12:01:00.000Z",
+  in_reply_to: null,
   parts: [
     { text: "one", state: "SENT", x_post_id: "x-9" },
     { text: "two", state: "PENDING", x_post_id: null },
@@ -76,6 +77,12 @@ describe("json views", () => {
 
   it("shows a post with no resume time as null", () => {
     expect(postJson(toPostView(aPost()))).toMatchObject({ resume_at: null });
+  });
+
+  it("shows the X post a reply answers", () => {
+    expect(postJson(toPostView(aPost({ replyTo: xPostId("42") })))).toMatchObject({
+      in_reply_to: "42",
+    });
   });
 
   it("shows a metrics snapshot", () => {

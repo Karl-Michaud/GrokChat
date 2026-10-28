@@ -25,7 +25,7 @@ function partInput(part: PartArgs): PartInput {
   return { text: part.text, media: (part.media_ids ?? []).map(stagedMediaId) };
 }
 
-/** `create_post`: a single post is a thread of one. */
+/** `create_post`: a single post is a thread of one, and a reply is a post with `in_reply_to`. */
 export class CreatePostController {
   constructor(private readonly useCase: CreatePostInputBoundary) {}
 
@@ -35,6 +35,7 @@ export class CreatePostController {
       accountId: accountId(args.account_id),
       parts: [partInput(args)],
       publishAt: instantArg(args.publish_at),
+      replyTo: args.in_reply_to ?? null,
       idempotencyKey: idempotencyKey(args.idempotency_key),
     });
   }
@@ -49,6 +50,7 @@ export class CreateThreadController {
       accountId: accountId(args.account_id),
       parts: args.parts.map(partInput),
       publishAt: instantArg(args.publish_at),
+      replyTo: args.in_reply_to ?? null,
       idempotencyKey: idempotencyKey(args.idempotency_key),
     });
   }

@@ -51,6 +51,17 @@ describe("tool input schemas", () => {
     expect(ok("create_post", { ...CREATE, publish_at: "tomorrow" })).toBe(false);
   });
 
+  it("create_post and create_thread take an optional in_reply_to of up to 512 characters", () => {
+    for (const tool of ["create_post", "create_thread"] as const) {
+      const base = tool === "create_post" ? CREATE : THREAD;
+      expect(ok(tool, { ...base, in_reply_to: "1850000000000000001" })).toBe(true);
+      expect(ok(tool, { ...base, in_reply_to: "x".repeat(512) })).toBe(true);
+      expect(ok(tool, { ...base, in_reply_to: "x".repeat(513) })).toBe(false);
+      expect(ok(tool, { ...base, in_reply_to: "" })).toBe(false);
+      expect(ok(tool, { ...base, in_reply_to: 1 })).toBe(false);
+    }
+  });
+
   it("create_thread: 1 to 25 parts", () => {
     const parts = (n: number) => Array.from({ length: n }, () => ({ text: "p" }));
     expect(ok("create_thread", THREAD)).toBe(true);

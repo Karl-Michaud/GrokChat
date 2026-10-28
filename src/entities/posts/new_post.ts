@@ -1,5 +1,5 @@
 import type { PublishMode } from "../accounts/posting_policy";
-import type { AccountId } from "../identity/ids";
+import type { AccountId, XPostId } from "../identity/ids";
 import type { Instant } from "../time/instant";
 import type { Post } from "./post";
 
@@ -21,10 +21,13 @@ export function requestHash(
   account: AccountId,
   parts: readonly RequestedPart[],
   publishAt: Instant | null,
+  replyTo: XPostId | null,
 ): string {
   return JSON.stringify({
     account,
     parts: parts.map(({ text, media }) => ({ text, media })),
     publishAt,
+    // Left out for an original post, so the hashes of posts stored before replies still match.
+    ...(replyTo === null ? {} : { replyTo }),
   });
 }

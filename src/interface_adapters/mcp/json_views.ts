@@ -20,6 +20,7 @@ export function postJson(post: PostView): JsonObject {
     lifecycle: post.lifecycle,
     publish_at: isoTime(post.publishAt),
     resume_at: post.resumeAt === null ? null : isoTime(post.resumeAt),
+    in_reply_to: post.replyTo,
     parts: post.parts.map((part) => ({
       text: part.text,
       state: part.state,
