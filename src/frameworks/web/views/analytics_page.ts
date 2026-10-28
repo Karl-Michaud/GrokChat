@@ -4,7 +4,7 @@ import type { AccountRow, TopPostRow } from "../../../interface_adapters/dashboa
 import type { MediaMeter } from "../../../interface_adapters/dashboard/media_views";
 import type { PageFrame } from "../respond";
 import { barList, lineChartView, meterBar } from "./charts";
-import { card, empty, externalLink, kpiTile, segmented, tabs, who } from "./components";
+import { card, empty, externalLink, kpiStat, kpiTile, segmented, tabs, who } from "./components";
 import { shell, type Html } from "./layout";
 
 function accountsTable(rows: readonly AccountRow[]): Html {
@@ -120,7 +120,12 @@ function followers(view: AnalyticsView): Html {
 
 function body(view: AnalyticsView): Html {
   const scope = view.account === null ? "All accounts" : view.account.handle;
-  return html`<div class="kpis">${view.kpis.map((kpi) => kpiTile(kpi, view.compared))}</div>
+  return html`<div class="kpis">
+      ${view.kpis.headline.map((kpi) => kpiTile(kpi, view.compared))}
+    </div>
+    <div class="card kpi-strip">
+      ${view.kpis.secondary.map((kpi) => kpiStat(kpi, view.compared))}
+    </div>
     ${card(view.metricLabel, `${scope} · ${view.rangeLabel}`, lineChartView(view.chart, view.metricLabel), tabs(view.metrics, "Metric"))}
     <div class="grid-2">
       ${card("Followers", "Summed over the accounts, read once a day", followers(view))}

@@ -90,13 +90,21 @@ describe("the analytics page (GROKCHAT-15)", () => {
       "Link clicks",
     ]);
     expect(view.metrics[2]?.href).toBe("/dashboard/analytics?range=7d&metric=likes");
-    expect(view.kpis[0]).toStrictEqual({
+    expect(view.kpis.headline[0]).toMatchObject({
       label: "Impressions",
       value: "2.5K",
       exact: "2,500",
       delta: { text: "new", direction: "up" },
-      upIsGood: true,
+      polarity: "up-is-good",
     });
+    expect(view.kpis.headline[0]?.spark).toMatch(/^M0 \d/);
+    expect(view.kpis.secondary.map((tile) => tile.spark)).toStrictEqual([
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
     expect(view.chart.columns).toHaveLength(7);
     expect(view.chart.columns.at(-1)).toMatchObject({ label: "Oct 27", value: "1,500" });
     expect([view.followersNow, view.followerGrowth]).toStrictEqual(["120", "+30"]);
@@ -261,21 +269,39 @@ describe("analytics view pieces", () => {
       growth: 0,
       spend: { micros: 15_000, calls: 1, unknownPriced: 0 },
     };
-    const tiles = kpis(current, previous);
-    expect(
-      tiles.map((tile) => [tile.label, tile.value, tile.delta?.text, tile.upIsGood]),
-    ).toStrictEqual([
-      ["Impressions", "200", "+100%", true],
-      ["Engagements", "10", "0%", true],
-      ["Likes", "10", "0%", true],
-      ["Reposts", "0", "0%", true],
-      ["Replies", "0", "0%", true],
-      ["Link clicks", "0", "0%", true],
-      ["Follower growth", "+5", "new", true],
-      ["Posts published", "3", "−25%", true],
-      ["X spend", "$0.03", "+100%", false],
+    const buckets = [
+      { start: T0, values: { ...ZERO, impressions: 50 }, followers: null, published: 1 },
+      { start: T0 + DAY, values: { ...ZERO, impressions: 150 }, followers: 10, published: 2 },
+    ];
+    const tiles = kpis(current, previous, buckets);
+    const row = (tile: (typeof tiles.headline)[number]) => [
+      tile.label,
+      tile.value,
+      tile.delta?.text,
+      tile.polarity,
+    ];
+    expect(tiles.headline.map(row)).toStrictEqual([
+      ["Impressions", "200", "+100%", "up-is-good"],
+      ["Engagements", "10", "0%", "up-is-good"],
+      ["Follower growth", "+5", "new", "up-is-good"],
+      ["Posts published", "3", "−25%", "up-is-good"],
     ]);
-    expect(kpis(current, null).every((tile) => tile.delta === null)).toBe(true);
+    expect(tiles.secondary.map(row)).toStrictEqual([
+      ["Likes", "10", "0%", "up-is-good"],
+      ["Reposts", "0", "0%", "up-is-good"],
+      ["Replies", "0", "0%", "up-is-good"],
+      ["Link clicks", "0", "0%", "up-is-good"],
+      ["X spend", "$0.03", "+100%", "neutral"],
+    ]);
+    expect(tiles.headline.map((tile) => tile.spark)).toStrictEqual([
+      "M0 24 L100 0",
+      "M0 12 L100 12",
+      null,
+      "M0 24 L100 0",
+    ]);
+    expect(tiles.secondary.every((tile) => tile.spark === null)).toBe(true);
+    const none = kpis(current, null, []);
+    expect([...none.headline, ...none.secondary].every((tile) => tile.delta === null)).toBe(true);
   });
 
   it("metric values and bucket labels", () => {

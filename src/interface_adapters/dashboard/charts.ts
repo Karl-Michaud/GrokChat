@@ -140,6 +140,38 @@ export function lineChart(
   };
 }
 
+/** The sparkline box: a KPI tile's trend, stretched to the tile's width. */
+export const SPARK_WIDTH = 100;
+export const SPARK_HEIGHT = 24;
+
+/**
+ * A sparkline's path over the values: the first at the left edge, the last at the right, fitted
+ * between the lowest and highest known value (a flat series runs through the middle), broken
+ * where a value is unknown. Null when fewer than two values are known: no trend to draw.
+ */
+export function sparkline(values: readonly (number | null)[]): string | null {
+  const known = values.flatMap((value) => (value === null ? [] : [value]));
+  if (known.length < 2) {
+    return null;
+  }
+  const low = Math.min(...known);
+  const span = Math.max(...known) - low;
+  const y = (value: number): number =>
+    span === 0 ? SPARK_HEIGHT / 2 : SPARK_HEIGHT - ((value - low) / span) * SPARK_HEIGHT;
+  const last = values.length - 1;
+  let open = false;
+  const steps = values.flatMap((value, index) => {
+    if (value === null) {
+      open = false;
+      return [];
+    }
+    const command = open ? "L" : "M";
+    open = true;
+    return [`${command}${String(round((index * SPARK_WIDTH) / last))} ${String(round(y(value)))}`];
+  });
+  return steps.join(" ");
+}
+
 export interface BarRow {
   readonly label: string;
   readonly value: string;

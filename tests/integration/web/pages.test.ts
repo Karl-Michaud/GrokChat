@@ -136,6 +136,51 @@ describe("the dashboard pages (GROKCHAT-15)", () => {
     expect(post.html).toContain('action="/dashboard/posts/p-live/delete"');
   });
 
+  it("the shell: a full-height sidebar, the account filter in the sidebar and in the page's tools", async () => {
+    const { browser } = await populated();
+    const { html } = await browser.page("/dashboard/analytics");
+    expect(html).toMatch(/<aside class="sidebar">\s*<div class="sidebar-inner">/);
+    expect(html).toContain('class="switcher switcher-side"');
+    expect(html).toMatch(/<div class="topbar-tools">\s*<form\s+class="switcher switcher-top"/);
+    expect(html).toContain('for="account-switch-side"');
+    expect(html).toContain('id="account-switch-top"');
+    expect(html).toContain('aria-label="Log out"');
+    expect(html).toContain("viewport-fit=cover");
+    const posts = await browser.page("/dashboard/posts");
+    expect(posts.html).not.toContain("switcher-top");
+  });
+
+  it("analytics: four headline tiles with sparklines, then a strip of secondary stats", async () => {
+    const { browser } = await populated();
+    const { html } = await browser.page("/dashboard/analytics?range=all");
+    expect(html.match(/class="card kpi"/g)).toHaveLength(4);
+    expect(html.match(/class="kpi-stat"/g)).toHaveLength(5);
+    expect(html).toContain('class="card kpi-strip"');
+    expect(html).toMatch(/<svg\s+class="spark"/);
+    const week = await browser.page("/dashboard/analytics");
+    expect(week.html).toContain('<span class="delta is-flat"');
+    expect(week.html).toContain("No change");
+    expect(week.html).not.toContain("–0%");
+  });
+
+  it("posts and activity stack into labelled cards on a phone; a post never read says so once", async () => {
+    const { browser } = await populated();
+    const list = await browser.page("/dashboard/posts");
+    expect(list.html).toContain('class="table table-posts stack-sm"');
+    expect(list.html).toContain('data-label="Link clicks"');
+    expect(list.html).toContain('<tr class="is-unread">');
+    expect(list.html).toContain('class="cell-meta"');
+    const activity = await browser.page("/dashboard/activity");
+    expect(activity.html).toContain('class="table table-activity stack-sm"');
+    const unread = await browser.page("/dashboard/posts/p-next");
+    expect(unread.html).toContain("No metrics yet");
+    expect(unread.html).not.toContain('class="mini-metrics"');
+    expect(unread.html).toContain('class="chip neutral">Waiting</span>');
+    const live = await browser.page("/dashboard/posts/p-live");
+    expect(live.html).toContain('class="mini-metrics"');
+    expect(live.html).toContain('class="chip good">On X</span>');
+  });
+
   it("accounts: a card each, the kill switch, the bot setup with the MCP URL", async () => {
     const { browser } = await populated();
     const { html } = await browser.page("/dashboard/accounts");

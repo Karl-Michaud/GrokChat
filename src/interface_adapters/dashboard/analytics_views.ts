@@ -5,7 +5,7 @@ import type { AnalyticsBucket, RankedPost } from "../../entities/analytics/repor
 import { DAY } from "../../entities/time/instant";
 import type { Analytics, PeriodTotals } from "../../use_cases/get_analytics/output_data";
 import { badgeOf, bareHandle, type AccountBadge } from "./account_directory";
-import { barRows, lineChart, type BarRow, type LineChartView } from "./charts";
+import { barRows, lineChart, sparkline, type BarRow, type LineChartView } from "./charts";
 import {
   clockLabel,
   compact,
@@ -54,51 +54,101 @@ export function metricValue(values: MetricValues, metric: ChartMetric): number {
   return metric === "engagements" ? engagements(values) : values[metric];
 }
 
+/**
+ * How a KPI's change is coloured: "up-is-good" greens a rise and reds a fall; "neutral" (spend,
+ * where a lower bill is not a better result in the same sense) colours neither.
+ */
+export type KpiPolarity = "up-is-good" | "neutral";
+
 export interface Kpi {
   readonly label: string;
   readonly value: string;
   /** The exact figure, for the tile's title. */
   readonly exact: string;
   readonly delta: Delta | null;
-  /** Whether going up is good (spend: no), so the delta is coloured by what it means. */
-  readonly upIsGood: boolean;
+  readonly polarity: KpiPolarity;
+  /** The headline tiles' trend over the range, a sparkline path; null for none. */
+  readonly spark: string | null;
 }
 
-function kpi(
-  label: string,
-  current: number,
-  previous: number | null,
-  show: (value: number) => string = compact,
-  upIsGood = true,
-): Kpi {
+/** The KPI tiles: four headline ones with their trend, then the secondary stats. */
+export interface KpiGroups {
+  readonly headline: readonly Kpi[];
+  readonly secondary: readonly Kpi[];
+}
+
+interface KpiInput {
+  readonly label: string;
+  readonly current: number;
+  readonly previous: number | null;
+  readonly show?: (value: number) => string;
+  readonly polarity?: KpiPolarity;
+  readonly series?: readonly (number | null)[];
+}
+
+function kpi(input: KpiInput): Kpi {
   return {
-    label,
-    value: show(current),
-    exact: exact(current),
-    delta: delta(current, previous),
-    upIsGood,
+    label: input.label,
+    value: (input.show ?? compact)(input.current),
+    exact: exact(input.current),
+    delta: delta(input.current, input.previous),
+    polarity: input.polarity ?? "up-is-good",
+    spark: input.series === undefined ? null : sparkline(input.series),
   };
 }
 
-/** The KPI row: what the period gained, against the period before. */
-export function kpis(current: PeriodTotals, previous: PeriodTotals | null): readonly Kpi[] {
-  const metric = (key: ChartMetric) =>
-    kpi(
-      METRIC_LABELS[key],
-      metricValue(current.values, key),
-      previous === null ? null : metricValue(previous.values, key),
-    );
-  return [
-    metric("impressions"),
-    metric("engagements"),
-    metric("likes"),
-    metric("reposts"),
-    metric("replies"),
-    metric("linkClicks"),
-    kpi("Follower growth", current.growth, previous?.growth ?? null, signedCompact),
-    kpi("Posts published", current.published, previous?.published ?? null),
-    kpi("X spend", current.spend.micros, previous?.spend.micros ?? null, dollars, false),
-  ];
+function metricKpi(
+  key: ChartMetric,
+  current: PeriodTotals,
+  previous: PeriodTotals | null,
+  buckets: readonly AnalyticsBucket[] | null,
+): Kpi {
+  return kpi({
+    label: METRIC_LABELS[key],
+    current: metricValue(current.values, key),
+    previous: previous === null ? null : metricValue(previous.values, key),
+    ...(buckets === null
+      ? {}
+      : { series: buckets.map((bucket) => metricValue(bucket.values, key)) }),
+  });
+}
+
+/** The KPI tiles: what the period gained, against the period before, the headline ones trended. */
+export function kpis(
+  current: PeriodTotals,
+  previous: PeriodTotals | null,
+  buckets: readonly AnalyticsBucket[],
+): KpiGroups {
+  const secondary = (key: ChartMetric) => metricKpi(key, current, previous, null);
+  return {
+    headline: [
+      metricKpi("impressions", current, previous, buckets),
+      metricKpi("engagements", current, previous, buckets),
+      kpi({
+        label: "Follower growth",
+        current: current.growth,
+        previous: previous?.growth ?? null,
+        show: signedCompact,
+        series: buckets.map((bucket) => bucket.followers),
+      }),
+      kpi({
+        label: "Posts published",
+        current: current.published,
+        previous: previous?.published ?? null,
+        series: buckets.map((bucket) => bucket.published),
+      }),
+    ],
+    secondary: [
+      ...(["likes", "reposts", "replies", "linkClicks"] as const).map(secondary),
+      kpi({
+        label: "X spend",
+        current: current.spend.micros,
+        previous: previous?.spend.micros ?? null,
+        show: dollars,
+        polarity: "neutral",
+      }),
+    ],
+  };
 }
 
 /** Hours for the hourly ranges, days otherwise. */

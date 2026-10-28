@@ -10,7 +10,7 @@ import type { PostView } from "../../use_cases/views/post_view";
 import { badgeOf, bareHandle, type AccountBadge } from "./account_directory";
 import { activityRow, type ActivityRow } from "./activity_views";
 import { lineChart, type LineChartView } from "./charts";
-import { postStatusChip, type Chip } from "./chips";
+import { partStateChip, postStatusChip, type Chip } from "./chips";
 import { dateTimeLabel, exact, relativeTime } from "./format";
 import { toDateTimeInput } from "./form_values";
 import { liveUrl } from "./links";
@@ -22,7 +22,7 @@ export interface PartDetail {
   readonly text: string;
   /** The staged media ids, comma-separated, carried through an edit. */
   readonly media: string;
-  readonly state: string;
+  readonly state: Chip;
   readonly xUrl: string | null;
 }
 
@@ -137,7 +137,7 @@ export function postDetail(
       number: index + 1,
       text: part.text,
       media: part.media.join(","),
-      state: part.state,
+      state: partStateChip(part.state),
       xUrl: liveUrl(handle, part),
     })),
     actions: postActions(post),

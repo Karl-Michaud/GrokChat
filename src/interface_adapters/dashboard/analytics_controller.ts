@@ -23,7 +23,7 @@ import {
   topPostRows,
   type AccountRow,
   type ChartMetric,
-  type Kpi,
+  type KpiGroups,
   type TopPostRow,
 } from "./analytics_views";
 import { barRows, type BarRow, type LineChartView } from "./charts";
@@ -62,7 +62,7 @@ export interface AnalyticsView {
   readonly accounts: readonly AccountOption[];
   /** The account the page is scoped to; null for every account. */
   readonly account: AccountBadge | null;
-  readonly kpis: readonly Kpi[];
+  readonly kpis: KpiGroups;
   readonly chart: LineChartView;
   readonly followers: LineChartView;
   readonly followersNow: string;
@@ -179,7 +179,7 @@ export class AnalyticsController {
       metricLabel: METRIC_LABELS[chosen.metric],
       accounts: accountOptions(accounts, chosen.account),
       account: chosen.account === null ? null : badgeOf(accounts, chosen.account),
-      kpis: kpis(current, analytics.previous),
+      kpis: kpis(current, analytics.previous, analytics.buckets),
       chart: metricChart(analytics, chosen.metric),
       followers: followersChart(analytics),
       followersNow: analytics.followers === null ? "—" : exact(analytics.followers),

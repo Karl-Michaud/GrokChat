@@ -60,6 +60,9 @@
   --shadow-1: 0 1px 2px rgba(11, 11, 11, 0.04), 0 1px 1px rgba(11, 11, 11, 0.02);
   --shadow-2: 0 8px 24px rgba(11, 11, 11, 0.12), 0 2px 6px rgba(11, 11, 11, 0.06);
   --sidebar: 236px;
+  /* The one gap between a page's cards and sections, so the rhythm is the same everywhere. */
+  --gap: var(--s-4);
+  --tabbar: 64px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -241,16 +244,22 @@ code,
   min-height: 100vh;
 }
 
+/* The aside runs the page's full height (its background and border never stop short); its inner
+   column sticks to the viewport, so the nav stays put and the theme and logout sit at the bottom. */
 .sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sidebar-inner {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   gap: var(--s-5);
   padding: var(--s-5) var(--s-4);
-  border-right: 1px solid var(--border);
-  background: var(--surface);
   overflow-y: auto;
 }
 
@@ -323,10 +332,14 @@ code,
   stroke-linejoin: round;
 }
 
-.sidebar-section {
+.switcher {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+}
+
+.switcher-top {
+  display: none;
 }
 
 .sidebar-label {
@@ -377,7 +390,7 @@ code,
 .content {
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--gap);
   width: 100%;
   max-width: 1320px;
   padding: 0 var(--s-6) var(--s-7);
@@ -407,9 +420,23 @@ code,
   padding: var(--s-4) var(--s-5) 0;
 }
 
+.card-head h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .card-head p {
   color: var(--text-3);
   font-size: 12px;
+}
+
+.card-head .stack {
+  gap: 2px;
+}
+
+/* A card's stacked columns keep the page's rhythm too. */
+.grid-2 > .stack {
+  gap: var(--gap);
 }
 
 .card-body {
@@ -423,13 +450,13 @@ code,
 .grid-2 {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  gap: var(--s-4);
+  gap: var(--gap);
 }
 
 .grid-halves {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--s-4);
+  gap: var(--gap);
 }
 
 .stack {
@@ -457,7 +484,7 @@ code,
 
 .kpis {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s-3);
 }
 
@@ -465,7 +492,7 @@ code,
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: var(--s-4);
+  padding: var(--s-4) var(--s-4) var(--s-3);
 }
 
 .kpi-label {
@@ -474,24 +501,80 @@ code,
   font-weight: 500;
 }
 
+.kpi-main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
 .kpi-value {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 650;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   line-height: 1.1;
+}
+
+.spark {
+  flex: 0 1 96px;
+  min-width: 48px;
+  height: 28px;
+  overflow: visible;
+}
+
+.spark path {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The secondary stats: one card, five compact cells divided by hairlines. */
+.kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.kpi-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--s-3) var(--s-4);
+}
+
+.kpi-stat + .kpi-stat {
+  border-left: 1px solid var(--border);
+}
+
+.kpi-stat-value {
+  font-size: 18px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .delta {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--text-3);
+  color: var(--text-2);
   font-size: 12px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .delta .arrow {
   font-size: 10px;
+}
+
+.delta.is-flat {
+  color: var(--text-3);
+  font-weight: 400;
 }
 
 .delta.is-good {
@@ -829,8 +912,18 @@ input[type="checkbox"] {
 
 /* ---------- Tables ---------- */
 
+/* A wide table scrolls inside its card, never the page; the shadows at its edges (pure CSS: the
+   covers scroll with the content, the shadows stay) show there is more to either side. */
 .table-wrap {
   overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--surface) 30%, transparent) left / 32px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right / 32px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--scroll-shadow), transparent) left / 12px 100%
+      no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--scroll-shadow), transparent) right / 12px
+      100% no-repeat scroll;
+  --scroll-shadow: color-mix(in srgb, var(--text) 16%, transparent);
 }
 
 .table {
@@ -840,7 +933,7 @@ input[type="checkbox"] {
 }
 
 .table th {
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--border);
   color: var(--text-3);
   font-size: 12px;
@@ -854,7 +947,7 @@ input[type="checkbox"] {
 }
 
 .table td {
-  padding: 10px 12px;
+  padding: 10px 10px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -886,17 +979,56 @@ input[type="checkbox"] {
 }
 
 .col-post {
-  min-width: 280px;
+  min-width: 240px;
+}
+
+.table .num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .cell-text {
   display: -webkit-box;
-  max-width: 52ch;
+  max-width: 44ch;
   overflow: hidden;
   color: var(--text);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+}
+
+.cell-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--s-3);
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.cell-meta .who {
+  color: var(--text-2);
+  font-weight: 450;
+}
+
+.cell-meta .avatar {
+  width: 18px;
+  height: 18px;
+  font-size: 8px;
+}
+
+.cell-meta a {
+  color: var(--text-3);
+}
+
+.cell-meta a:hover {
+  color: var(--accent-ink);
+}
+
+.cell-meta .icon {
+  width: 12px;
+  height: 12px;
 }
 
 a.cell-text:hover {
@@ -1078,11 +1210,6 @@ a.cell-text:hover {
   overflow: visible;
   text-align: center;
   white-space: nowrap;
-}
-
-/* The last label ends at the plot's edge instead of overhanging it. */
-.chart-x span:last-child {
-  text-align: right;
 }
 
 .chart-empty {
@@ -1584,8 +1711,14 @@ details.disclose[open] summary {
   .grid-2 {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
+/* Narrow screens: the sidebar becomes a slim top bar (the logo, then theme and logout as icons),
+   the nav a fixed tab bar at the bottom, and the account filter moves into the page's tools. */
 @media (max-width: 860px) {
   .app {
     grid-template-columns: minmax(0, 1fr);
@@ -1593,74 +1726,179 @@ details.disclose[open] summary {
 
   .sidebar {
     position: sticky;
+    top: 0;
     z-index: 5;
-    height: auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-2) var(--s-3);
-    padding: var(--s-3) var(--s-4);
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-inner {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-3) var(--s-2) var(--s-4);
     overflow: visible;
   }
 
-  .nav {
-    order: 3;
-    flex-direction: row;
-    width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .nav a {
-    flex: none;
-    padding: 6px 10px;
-  }
-
-  .sidebar-section {
-    order: 2;
-    margin-left: auto;
-  }
-
-  .sidebar-section .sidebar-label {
+  .switcher-side {
     display: none;
   }
 
   .sidebar-foot {
-    order: 2;
     flex-direction: row;
+    gap: 2px;
     margin-top: 0;
   }
 
   .sidebar-foot .btn-block {
-    width: auto;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+  }
+
+  .sidebar-foot .icon {
+    width: 18px;
+    height: 18px;
   }
 
   .sidebar-foot .btn-label {
     display: none;
   }
 
+  .nav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 10;
+    flex-direction: row;
+    gap: 2px;
+    padding: 6px var(--s-2) calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: 0 -4px 16px rgba(11, 11, 11, 0.06);
+  }
+
+  .nav a {
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    min-height: 48px;
+    padding: 4px 0;
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 550;
+  }
+
+  .nav a svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .nav a:hover {
+    background: transparent;
+  }
+
+  .nav a[aria-current="page"] {
+    background: var(--accent-wash);
+    color: var(--accent-ink);
+  }
+
   .topbar {
     padding: var(--s-4) var(--s-4) var(--s-3);
   }
 
+  .topbar-tools {
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .topbar-tools .segmented {
+    flex: none;
+  }
+
+  .switcher-top {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .switcher-top select {
+    width: 100%;
+    height: 32px;
+  }
+
+  .switcher-top .sidebar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
   .content {
-    padding: 0 var(--s-4) var(--s-6);
+    padding: 0 var(--s-4) calc(var(--tabbar) + var(--s-6) + env(safe-area-inset-bottom, 0px));
   }
 
   .grid-halves {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .kpi-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .kpi-stat:nth-child(n + 4) {
+    border-top: 1px solid var(--border);
+  }
+
+  .kpi-stat:nth-child(4) {
+    border-left: 0;
+  }
 }
 
 @media (max-width: 560px) {
-  .kpis {
+  .kpi-value {
+    font-size: 22px;
+  }
+
+  .kpi-main {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--s-2);
+  }
+
+  .spark {
+    flex: none;
+    width: 100%;
+    height: 22px;
+  }
+
+  .kpi-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .kpi-value {
-    font-size: 22px;
+  .kpi-stat:nth-child(n) {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .kpi-stat:nth-child(-n + 2) {
+    border-top: 0;
+  }
+
+  .kpi-stat:nth-child(even) {
+    border-left: 1px solid var(--border);
+  }
+
+  .kpi-stat:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
   }
 
   .account-grid {
@@ -1684,6 +1922,11 @@ details.disclose[open] summary {
     padding-left: var(--s-4);
   }
 
+  .table th:last-child,
+  .table td:last-child {
+    padding-right: var(--s-4);
+  }
+
   .hide-sm {
     display: none;
   }
@@ -1693,13 +1936,115 @@ details.disclose[open] summary {
     height: 180px;
   }
 
-  .sidebar-section {
-    width: 100%;
-    margin-left: 0;
+  .filters label {
+    flex: 1 1 140px;
+    min-width: 0;
   }
 
-  .sidebar-section select {
-    width: 100%;
+  /* Stacked tables (Posts, Activity): each row is a small card, its cells labelled. */
+  .stack-sm thead {
+    display: none;
+  }
+
+  .stack-sm,
+  .stack-sm tbody {
+    display: block;
+  }
+
+  .stack-sm tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-2) var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stack-sm tr:last-child {
+    border-bottom: 0;
+  }
+
+  .stack-sm td,
+  .stack-sm td:first-child,
+  .stack-sm td:last-child {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .stack-sm td.num {
+    text-align: left;
+  }
+
+  .stack-sm td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .stack-sm .cell-main {
+    grid-column: 1 / -1;
+  }
+
+  .stack-sm .cell-text {
+    max-width: none;
+  }
+
+  .table-posts .cell-status {
+    grid-column: span 1;
+  }
+
+  .table-posts .cell-time {
+    grid-column: span 2;
+    text-align: right;
+  }
+
+  .table-posts .time {
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: var(--s-2);
+  }
+
+  .table-posts .is-unread .cell-metric {
+    display: none;
+  }
+
+  .table-activity tr {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .table-activity .cell-main {
+    grid-column: 1;
+    order: 1;
+  }
+
+  .table-activity .cell-cost {
+    order: 2;
+    text-align: right;
+  }
+
+  .table-activity .cell-who {
+    order: 3;
+  }
+
+  .table-activity .cell-when {
+    order: 4;
+    text-align: right;
+  }
+
+  .table-activity .time {
+    align-items: flex-end;
+  }
+
+  .table-activity .cell-account {
+    order: 5;
+  }
+
+  .table-activity .cell-post {
+    order: 6;
+    text-align: right;
   }
 }
 

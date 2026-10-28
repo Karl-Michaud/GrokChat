@@ -1,7 +1,8 @@
 import { html } from "hono/html";
-import type {
-  PostListRow,
-  SortColumn,
+import {
+  SORT_LABELS,
+  type PostListRow,
+  type SortColumn,
 } from "../../../interface_adapters/dashboard/post_list_views";
 import type { PostsView } from "../../../interface_adapters/dashboard/posts_controller";
 import type { PageFrame } from "../respond";
@@ -12,10 +13,7 @@ const ARROW = { asc: " ↑", desc: " ↓" } as const;
 const ARIA = { asc: "ascending", desc: "descending" } as const;
 
 function header(column: SortColumn): Html {
-  const numeric = column.key !== "time";
-  return html`<th
-    class="${numeric ? "num" : ""} ${column.key === "replies" || column.key === "reposts" || column.key === "linkClicks" ? "hide-sm" : ""}"
-  >
+  return html`<th class="${column.key === "time" ? "" : "num"}">
     <a
       href="${column.href}"
       ${column.sorted === null ? "" : html`aria-sort="${ARIA[column.sorted]}"`}
@@ -24,27 +22,33 @@ function header(column: SortColumn): Html {
   </th>`;
 }
 
+const METRICS = [
+  "impressions",
+  "engagements",
+  "likes",
+  "reposts",
+  "replies",
+  "linkClicks",
+] as const;
+
+/**
+ * One post. The account, the thread length and the link to X sit under the text in small muted
+ * type, so the metrics fit beside it; on a phone the row is a card (the cells carry their labels).
+ */
 function row(post: PostListRow): Html {
-  return html`<tr>
-    <td>
-      <div class="stack">
-        <a class="cell-text" href="${post.href}">${post.text}</a>
-        <span class="row faint"
-          >${post.parts > 1 ? html`<span>${String(post.parts)}-part thread</span>` : ""}${post.xUrl === null ? "" : externalLink(post.xUrl, "View on X")}</span
-        >
-      </div>
+  const unread = METRICS.every((key) => post.metrics[key] === "—");
+  return html`<tr class="${unread ? "is-unread" : ""}">
+    <td class="cell-main">
+      <a class="cell-text" href="${post.href}">${post.text}</a>
+      <span class="cell-meta"
+        >${who(post.account)}${post.parts > 1 ? html`<span>${String(post.parts)}-part thread</span>` : ""}${post.xUrl === null ? "" : externalLink(post.xUrl, "On X")}</span
+      >
     </td>
-    <td class="hide-sm">${who(post.account)}</td>
-    <td>${chip(post.status)}</td>
-    <td>
+    <td class="cell-status">${chip(post.status)}</td>
+    <td class="cell-time">
       <span class="time">${post.when}<small>${post.relative}</small></span>
     </td>
-    <td class="num">${post.metrics.impressions}</td>
-    <td class="num">${post.metrics.engagements}</td>
-    <td class="num">${post.metrics.likes}</td>
-    <td class="num hide-sm">${post.metrics.reposts}</td>
-    <td class="num hide-sm">${post.metrics.replies}</td>
-    <td class="num hide-sm">${post.metrics.linkClicks}</td>
+    ${METRICS.map((key) => html`<td class="num cell-metric" data-label="${SORT_LABELS[key]}">${post.metrics[key]}</td>`)}
   </tr>`;
 }
 
@@ -84,11 +88,10 @@ function table(view: PostsView): Html {
   }
   const [time, ...metrics] = view.columns;
   return html`<div class="table-wrap">
-      <table class="table">
+      <table class="table table-posts stack-sm">
         <thead>
           <tr>
             <th class="col-post">Post</th>
-            <th class="hide-sm">Account</th>
             <th>Status</th>
             ${time === undefined ? "" : header(time)} ${metrics.map(header)}
           </tr>

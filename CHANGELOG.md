@@ -6,6 +6,15 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ### Added
 
+- **Dashboard polish** (GROKCHAT-15, after PR #14's screenshots):
+  - the sidebar's background and border run the page's full height; its column sticks to the viewport with the theme and logout at the bottom;
+  - phones get a slim top bar (logo, theme and logout icons) and a fixed bottom tab bar for the four sections (safe-area padded); the account filter moves next to the range picker;
+  - Posts fit at 1280 px and wider: the account, thread length and link to X sit under the clamped text in small muted type, the metrics are right-aligned tabular numbers; Posts and Activity become labelled cards on phones, and the other wide tables scroll inside their card with edge shadows;
+  - Analytics KPIs regrouped: four headline tiles with a sparkline each (impressions, engagements, follower growth, posts published), then a strip of secondary stats; a spend change is neutral-coloured and a 0% change reads "No change";
+  - the charts' last x label sits under its point; a post with no metrics shows one empty state, and each part's state is a chip;
+  - one spacing token between cards, the same card title size everywhere;
+  - **Why:** the owner wants the dashboard to look good on desktop and phone.
+
 - **Dashboard v2: analytics, posts, accounts and activity, with a real design; personalities removed** (GROKCHAT-15):
   - **Personalities are Grok's now** (owner, 2026-10-27): GrokChat only posts and schedules. Removed end to end: the `Personality` entity and id, `Account.personalityId`, the repository and its D1 table, the get/list/save use cases, the `get_personality` MCP tool (12 tools now), the Personalities page and the "create a personality first" gate on connecting an account. Migration `0002_drop_personalities.sql` drops the column and the table on the live database;
   - **Daily follower snapshot**: the `*/15` metrics tick reads each connected account's `public_metrics` (`GET /2/users/:id`, one User read, $0.010) at most once per UTC day, metered and audited like every read. The day is claimed in D1 before X is called (migration `0003`, `follower_snapshots`), so no reset, retry or second tick can bill a second read; only a read that never left gives the day back;

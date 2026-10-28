@@ -93,7 +93,7 @@ describe("dashboard connect → bot create_post → scheduled() → dashboard po
     expect(published.html).toContain('class="chip good">Published</span>');
     const page = (await browser.page(detail)).html;
     expect(page).toContain(`https://x.com/${x.me.username}/status/${xId}`);
-    expect(page).toContain(">SENT</span>");
+    expect(page).toContain('class="chip good">On X</span>');
     expect(await tool(bot, "get_post", { post_id: postId })).toMatchObject({
       post: { status: "PUBLISHED", parts: [{ state: "SENT", x_post_id: xId }] },
     });
