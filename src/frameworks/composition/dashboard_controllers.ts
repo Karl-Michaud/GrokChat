@@ -5,7 +5,6 @@
  */
 import { AccountsController } from "../../interface_adapters/dashboard/accounts_controller";
 import { OAuthController } from "../../interface_adapters/dashboard/oauth_controller";
-import { PersonalitiesController } from "../../interface_adapters/dashboard/personalities_controller";
 import { PostCommandsController } from "../../interface_adapters/dashboard/post_commands_controller";
 import { PostPagesController } from "../../interface_adapters/dashboard/post_pages_controller";
 import { ReportsController } from "../../interface_adapters/dashboard/reports_controller";
@@ -13,7 +12,6 @@ import { SessionController } from "../../interface_adapters/dashboard/session_co
 import type {
   AccountUseCases,
   OAuthUseCases,
-  PersonalityUseCases,
   PostCommandUseCases,
   PostPageUseCases,
   ReportUseCases,
@@ -34,12 +32,10 @@ import { GetPostMetricsInteractor } from "../../use_cases/get_post_metrics/inter
 import { GetPostInteractor } from "../../use_cases/get_post/interactor";
 import { ListAccountsInteractor } from "../../use_cases/list_accounts/interactor";
 import { ListBacklogInteractor } from "../../use_cases/list_backlog/interactor";
-import { ListPersonalitiesInteractor } from "../../use_cases/list_personalities/interactor";
 import { LoginInteractor } from "../../use_cases/login/interactor";
 import type { PasswordVerifier } from "../../use_cases/ports/password_verifier";
 import { RejectPostInteractor } from "../../use_cases/reject_post/interactor";
 import { ReschedulePostInteractor } from "../../use_cases/reschedule_post/interactor";
-import { SavePersonalityInteractor } from "../../use_cases/save_personality/interactor";
 import { SetAccountStatusInteractor } from "../../use_cases/set_account_status/interactor";
 import { SetPolicyInteractor } from "../../use_cases/set_policy/interactor";
 import type { WebControllers } from "../web/controllers";
@@ -63,12 +59,11 @@ function postUseCases(b: WorkerGraph): PostPageUseCases & PostCommandUseCases {
   };
 }
 
-function accountUseCases(b: WorkerGraph): AccountUseCases & OAuthUseCases & PersonalityUseCases {
+function accountUseCases(b: WorkerGraph): AccountUseCases & OAuthUseCases {
   const { guard, accountCommand, states, ids, clock } = b;
   const connect = { states, ids, clock, guard, audit: b.actionAudit, accounts: b.accounts };
   return {
     listAccounts: (p) => new ListAccountsInteractor(b.accounts, guard, p),
-    listPersonalities: (p) => new ListPersonalitiesInteractor(b.personalities, guard, p),
     setAccountStatus: (p) => new SetAccountStatusInteractor(accountCommand, p),
     confirmDisclosure: (p) => new ConfirmDisclosureInteractor(accountCommand, p),
     setPolicy: (p) => new SetPolicyInteractor(accountCommand, p),
@@ -79,16 +74,9 @@ function accountUseCases(b: WorkerGraph): AccountUseCases & OAuthUseCases & Pers
       ),
     connectComplete: (p) =>
       new ConnectAccountCompleteInteractor(
-        {
-          ...connect,
-          personalities: b.personalities,
-          connector: b.connector(),
-          gateway: b.objects,
-        },
+        { ...connect, connector: b.connector(), gateway: b.objects },
         p,
       ),
-    savePersonality: (p) =>
-      new SavePersonalityInteractor(b.personalities, ids, guard, b.actionAudit, p),
   };
 }
 
@@ -119,7 +107,6 @@ export function dashboardControllers(b: WorkerGraph): WebControllers {
     postCommands: new PostCommandsController(posts),
     accounts: new AccountsController(accounts),
     oauth: new OAuthController(accounts),
-    personalities: new PersonalitiesController(accounts),
     reports: new ReportsController(reportUseCases(b), b.clock),
   };
 }

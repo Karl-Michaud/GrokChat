@@ -1,13 +1,11 @@
 /** Test data for the pure layers: a default for every entity, overridable field by field. */
 import type { Account } from "../../../src/entities/accounts/account";
 import { DEFAULT_POLICY, type PostingPolicy } from "../../../src/entities/accounts/posting_policy";
-import type { Personality } from "../../../src/entities/content/personality";
 import type { StagedMedia } from "../../../src/entities/content/staged_media";
 import type { Actor } from "../../../src/entities/identity/actor";
 import {
   accountId,
   botId,
-  personalityId,
   postId,
   stagedMediaId,
   xPostId,
@@ -41,25 +39,10 @@ export function anAccount(overrides: Partial<Account> = {}): Account {
     id: ACCOUNT,
     xUserId: xUserId("x-user-1"),
     handle: "musechat_one",
-    personalityId: personalityId("pers-1"),
     status: "ACTIVE",
     disclosure: { bioConfirmed: true, automatedLabelConfirmed: true },
     policy: aPolicy(),
     isAppOwner: false,
-    ...overrides,
-  };
-}
-
-export function aPersonality(overrides: Partial<Personality> = {}): Personality {
-  return {
-    id: personalityId("pers-1"),
-    name: "Muse",
-    voiceGuide: "warm",
-    topics: ["music"],
-    dos: ["be kind"],
-    donts: ["no politics"],
-    examples: ["hello"],
-    version: 3,
     ...overrides,
   };
 }
@@ -95,7 +78,7 @@ export function aPost(overrides: Partial<Post> = {}): Post {
     idempotencyKey: null,
     requestHash: "hash-1",
     createdBy: HUMAN,
-    provenance: { botId: null, personalityVersion: 3, policySnapshot: aPolicy() },
+    provenance: { botId: null, policySnapshot: aPolicy() },
     version: 1,
     ...overrides,
   };

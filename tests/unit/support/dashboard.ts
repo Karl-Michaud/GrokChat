@@ -4,7 +4,6 @@
 import type {
   AccountUseCases,
   OAuthUseCases,
-  PersonalityUseCases,
   PostCommandUseCases,
   PostPageUseCases,
   ReportUseCases,
@@ -26,12 +25,10 @@ import { GetPostInteractor } from "../../../src/use_cases/get_post/interactor";
 import { GetPostMetricsInteractor } from "../../../src/use_cases/get_post_metrics/interactor";
 import { ListAccountsInteractor } from "../../../src/use_cases/list_accounts/interactor";
 import { ListBacklogInteractor } from "../../../src/use_cases/list_backlog/interactor";
-import { ListPersonalitiesInteractor } from "../../../src/use_cases/list_personalities/interactor";
 import { LoginInteractor } from "../../../src/use_cases/login/interactor";
 import type { PasswordVerifier } from "../../../src/use_cases/ports/password_verifier";
 import { RejectPostInteractor } from "../../../src/use_cases/reject_post/interactor";
 import { ReschedulePostInteractor } from "../../../src/use_cases/reschedule_post/interactor";
-import { SavePersonalityInteractor } from "../../../src/use_cases/save_personality/interactor";
 import { SetAccountStatusInteractor } from "../../../src/use_cases/set_account_status/interactor";
 import { SetPolicyInteractor } from "../../../src/use_cases/set_policy/interactor";
 import type { Post } from "../../../src/entities/posts/post";
@@ -45,7 +42,6 @@ export type DashboardUseCases = SessionUseCases &
   PostCommandUseCases &
   AccountUseCases &
   OAuthUseCases &
-  PersonalityUseCases &
   ReportUseCases;
 
 /** Accepts exactly this password. */
@@ -88,7 +84,6 @@ export function dashboardUseCases(
         p,
       ),
     reschedulePost: (p) => new ReschedulePostInteractor(command, clock, p),
-    listPersonalities: (p) => new ListPersonalitiesInteractor(world.personalities, guard, p),
     setAccountStatus: (p) => new SetAccountStatusInteractor(accountCommand, p),
     confirmDisclosure: (p) => new ConfirmDisclosureInteractor(accountCommand, p),
     setPolicy: (p) => new SetPolicyInteractor(accountCommand, p),
@@ -110,7 +105,6 @@ export function dashboardUseCases(
           states: world.states,
           connector: world.connector,
           accounts: world.accounts,
-          personalities: world.personalities,
           gateway: world.gateway,
           guard,
           audit: world.actionAudit,
@@ -119,8 +113,6 @@ export function dashboardUseCases(
         },
         p,
       ),
-    savePersonality: (p) =>
-      new SavePersonalityInteractor(world.personalities, world.ids, guard, world.actionAudit, p),
     accountMetrics: (p) => new GetAccountMetricsInteractor(world.metrics, guard, p),
     costTotals: (p) => new CostTotalsInteractor(world.costs, guard, p),
     mediaUsage: (p) => new GetMediaUsageInteractor(world.usage, guard, clock, p),

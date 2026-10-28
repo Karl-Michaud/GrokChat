@@ -1,7 +1,7 @@
 import type { WebControllers } from "./controllers";
 import { fields, formBody } from "./form_body";
 import { respond, NO_PAGE } from "./respond";
-import { accountsPage, personalitiesPage } from "./views/account_pages";
+import { accountsPage } from "./views/account_pages";
 import type { WebApp } from "./web_context";
 
 const POLICY_FIELDS = [
@@ -13,16 +13,6 @@ const POLICY_FIELDS = [
   "tz",
   "linkPolicy",
   "graceMinutes",
-] as const;
-
-const PERSONALITY_FIELDS = [
-  "id",
-  "name",
-  "voiceGuide",
-  "topics",
-  "dos",
-  "donts",
-  "examples",
 ] as const;
 
 /** Accounts: status (the kill switch), disclosure, policy (plan §3.4). */
@@ -45,15 +35,5 @@ export function accountRoutes(app: WebApp, { accounts }: WebControllers): void {
   app.post("/dashboard/accounts/:id/policy", async (c) => {
     const form = fields(await formBody(c), POLICY_FIELDS);
     return respond(c, await accounts.policy(c.req.param("id"), form), NO_PAGE);
-  });
-}
-
-export function personalityRoutes(app: WebApp, { personalities }: WebControllers): void {
-  app.get("/dashboard/personalities", async (c) =>
-    respond(c, await personalities.personalities(), personalitiesPage),
-  );
-  app.post("/dashboard/personalities", async (c) => {
-    const form = fields(await formBody(c), PERSONALITY_FIELDS);
-    return respond(c, await personalities.save(form), NO_PAGE);
   });
 }

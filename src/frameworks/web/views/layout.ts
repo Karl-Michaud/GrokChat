@@ -8,7 +8,6 @@ const NAV: readonly (readonly [string, string])[] = [
   ["/dashboard/backlog", "Backlog"],
   ["/dashboard/calendar", "Calendar"],
   ["/dashboard/accounts", "Accounts"],
-  ["/dashboard/personalities", "Personalities"],
   ["/dashboard/metrics", "Metrics"],
   ["/dashboard/costs", "Costs"],
   ["/dashboard/media", "Media"],

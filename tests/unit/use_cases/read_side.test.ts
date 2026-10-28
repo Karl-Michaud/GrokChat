@@ -13,8 +13,6 @@ import { GetAccountMetricsInteractor } from "../../../src/use_cases/get_account_
 import type { GetAccountMetricsOutputData } from "../../../src/use_cases/get_account_metrics/output_data";
 import { GetCalendarInteractor } from "../../../src/use_cases/get_calendar/interactor";
 import type { GetCalendarOutputData } from "../../../src/use_cases/get_calendar/output_data";
-import { GetPersonalityInteractor } from "../../../src/use_cases/get_personality/interactor";
-import type { GetPersonalityOutputData } from "../../../src/use_cases/get_personality/output_data";
 import { GetPolicyInteractor } from "../../../src/use_cases/get_policy/interactor";
 import type { GetPolicyOutputData } from "../../../src/use_cases/get_policy/output_data";
 import { GetPostInteractor } from "../../../src/use_cases/get_post/interactor";
@@ -27,7 +25,6 @@ import type { ListBacklogOutputData } from "../../../src/use_cases/list_backlog/
 import { toPostView } from "../../../src/use_cases/views/post_view";
 import {
   ACCOUNT,
-  aPersonality,
   aPost,
   botActor,
   HUMAN,
@@ -255,26 +252,9 @@ describe("metrics reads", () => {
   });
 });
 
-describe("personality, policy, costs and audit", () => {
-  it("getPersonality and getPolicy for an account in scope", async () => {
+describe("policy, costs and audit", () => {
+  it("getPolicy for an account in scope", async () => {
     const world = await populated();
-    const personality = new Capture<GetPersonalityOutputData>();
-    const getPersonality = new GetPersonalityInteractor(
-      world.accounts,
-      world.personalities,
-      world.guard,
-      personality,
-    );
-    await getPersonality.execute({ actor: botActor(), accountId: ACCOUNT });
-    expect(personality.last).toStrictEqual({ ok: true, personality: aPersonality() });
-    await getPersonality.execute({ actor: botActor(), accountId: OTHER_ACCOUNT });
-    expect(personality.last).toStrictEqual({ ok: false, code: "scope" });
-    await getPersonality.execute({ actor: HUMAN, accountId: accountId("zz") });
-    expect(personality.last).toStrictEqual({ ok: false, code: "not_found" });
-    world.personalities.rows.clear();
-    await getPersonality.execute({ actor: HUMAN, accountId: ACCOUNT });
-    expect(personality.last).toStrictEqual({ ok: false, code: "personality_not_found" });
-
     const policy = new Capture<GetPolicyOutputData>();
     const getPolicy = new GetPolicyInteractor(world.accounts, world.guard, policy);
     await getPolicy.execute({ actor: botActor(), accountId: ACCOUNT });

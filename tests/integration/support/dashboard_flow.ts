@@ -11,16 +11,10 @@ import { d1Stores } from "../../../src/frameworks/d1/d1_stores";
 import type { Browser } from "../web/browser";
 import type { XWire } from "./x_wire";
 
-/** The owner logs in, adds a personality and connects the X user `x.me` through X's OAuth. */
+/** The owner logs in and connects the X user `x.me` through X's OAuth. */
 export async function connectThroughDashboard(browser: Browser, x: XWire): Promise<Account> {
   expect((await browser.login()).status).toBe(303);
-  const saved = await browser.post("/dashboard/personalities", {
-    ...{ id: "", name: "E2E Muse", voiceGuide: "", topics: "", dos: "", donts: "", examples: "" },
-  });
-  expect(saved.status).toBe(303);
-  const page = await browser.page("/dashboard/personalities");
-  const personality = /name="id" value="([0-9a-f-]{36})"/.exec(page.html)?.[1] ?? "";
-  const started = await browser.post("/oauth/x/start", { personality });
+  const started = await browser.post("/oauth/x/start", {});
   const state = new URL(started.headers.get("location") ?? "").searchParams.get("state") ?? "";
   const finished = await browser.get(`/oauth/x/finish?code=code-e2e&state=${state}`);
   expect([finished.status, finished.headers.get("location")]).toStrictEqual([

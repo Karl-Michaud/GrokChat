@@ -12,7 +12,6 @@ import {
 import {
   ComparePostsController,
   GetAccountMetricsController,
-  GetPersonalityController,
   GetPolicyController,
   GetPostController,
   GetPostMetricsController,
@@ -198,12 +197,9 @@ describe("reading controllers", () => {
     expect(compare.inputs).toStrictEqual([{ ...expected, sortBy: "likes" }]);
   });
 
-  it("get_personality and get_policy take the account id", async () => {
-    const personality = new Spy();
+  it("get_policy takes the account id", async () => {
     const policy = new Spy();
-    await new GetPersonalityController(personality).handle(ACTOR, { account_id: "a1" });
     await new GetPolicyController(policy).handle(ACTOR, { account_id: "a2" });
-    expect(personality.inputs).toStrictEqual([{ actor: ACTOR, accountId: "a1" }]);
     expect(policy.inputs).toStrictEqual([{ actor: ACTOR, accountId: "a2" }]);
   });
 });

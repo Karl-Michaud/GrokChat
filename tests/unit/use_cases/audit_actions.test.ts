@@ -1,13 +1,11 @@
 /** Every refusal is audited under the use case's own action name (I2, rev 4 B1). */
 import { describe, expect, it } from "vitest";
-import { personalityId } from "../../../src/entities/identity/ids";
 import { DAY } from "../../../src/entities/time/instant";
 import type { AccountCommandResult } from "../../../src/use_cases/admin/account_command";
 import { ConfirmDisclosureInteractor } from "../../../src/use_cases/confirm_disclosure/interactor";
 import { ConnectAccountBeginInteractor } from "../../../src/use_cases/connect_account_begin/interactor";
 import { CostTotalsInteractor } from "../../../src/use_cases/cost_totals/interactor";
 import { GetCalendarInteractor } from "../../../src/use_cases/get_calendar/interactor";
-import { SavePersonalityInteractor } from "../../../src/use_cases/save_personality/interactor";
 import { SetPolicyInteractor } from "../../../src/use_cases/set_policy/interactor";
 import { StageMediaUploadInteractor } from "../../../src/use_cases/stage_media_upload/interactor";
 import { ACCOUNT, aPolicy, botActor, HUMAN, T0 } from "../support/builders";
@@ -33,26 +31,6 @@ const HUMAN_ONLY: readonly [string, (world: World) => Promise<void>][] = [
         actor: BOT,
         window: WINDOW,
         accountId: null,
-      }),
-  ],
-  [
-    "personality.save",
-    (w) =>
-      new SavePersonalityInteractor(
-        w.personalities,
-        w.ids,
-        w.guard,
-        w.actionAudit,
-        new Capture(),
-      ).execute({
-        actor: BOT,
-        id: personalityId("p"),
-        name: "n",
-        voiceGuide: "",
-        topics: [],
-        dos: [],
-        donts: [],
-        examples: [],
       }),
   ],
   [

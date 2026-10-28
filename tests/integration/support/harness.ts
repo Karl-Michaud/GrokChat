@@ -24,7 +24,7 @@ import {
   accountRuntime,
   type AccountRuntime,
 } from "../../../src/frameworks/composition/account_graph";
-import { aPersonality, anAccount, T0 } from "../../unit/support/builders";
+import { anAccount, T0 } from "../../unit/support/builders";
 import { metered, type Meter } from "./metered_d1";
 
 export interface Harness {
@@ -97,12 +97,11 @@ export function objectFor(account: AccountId) {
   return env.TEST_ACCOUNT.get(env.TEST_ACCOUNT.idFromName(account));
 }
 
-/** An active, disclosed account in D1 with its personality, and tokens in its object. */
+/** An active, disclosed account in D1, and tokens in its object. */
 export async function seedAccount(overrides: Partial<Account> = {}): Promise<Account> {
   const account = anAccount({ id: freshAccountId(), ...overrides });
   const stores = d1Stores(env.DB);
   await stores.accounts.save(account);
-  await stores.personalities.save(aPersonality({ id: account.personalityId }));
   const stored = await objectFor(account.id).storeConnectedTokens(
     account.id,
     harness().endpoint.issue(),

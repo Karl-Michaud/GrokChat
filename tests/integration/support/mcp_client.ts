@@ -9,18 +9,13 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { createExecutionContext } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import type { Account } from "../../../src/entities/accounts/account";
-import {
-  accountId,
-  personalityId,
-  xUserId,
-  type AccountId,
-} from "../../../src/entities/identity/ids";
+import { accountId, xUserId, type AccountId } from "../../../src/entities/identity/ids";
 import type { Env } from "../../../src/frameworks/env";
 import { d1Stores } from "../../../src/frameworks/d1/d1_stores";
 import { AccountObjects } from "../../../src/frameworks/durable_objects/account_client";
 import worker from "../../../src/main";
 import { HOUR } from "../../../src/entities/time/instant";
-import { aPersonality, anAccount } from "../../unit/support/builders";
+import { anAccount } from "../../unit/support/builders";
 
 /** 32 random bytes as hex, as a deployment would mint them (plan §3.5). */
 export const BOT_TOKEN = "5f0c3a9e8d7b6a5f4e3d2c1b0a99887766554433221100ffeeddccbbaa998877";
@@ -72,7 +67,7 @@ let accounts = 0;
 const RUN = crypto.randomUUID().slice(0, 8);
 
 /**
- * A fresh, active, disclosed account in D1 with a personality, and tokens sealed in its production
+ * A fresh, active, disclosed account in D1, and tokens sealed in its production
  * Durable Object, as the dashboard's connect leaves it.
  */
 export async function seedAccount(overrides: Partial<Account> = {}): Promise<Account> {
@@ -81,12 +76,10 @@ export async function seedAccount(overrides: Partial<Account> = {}): Promise<Acc
   const account = anAccount({
     id,
     xUserId: xUserId(`it-x-${RUN}-${String(accounts)}`),
-    personalityId: personalityId(`it-pers-${RUN}-${String(accounts)}`),
     ...overrides,
   });
   const stores = d1Stores(env.DB);
   await stores.accounts.save(account);
-  await stores.personalities.save(aPersonality({ id: account.personalityId }));
   await new AccountObjects(env.ACCOUNT).storeConnectedTokens(account.id, {
     accessToken: "access-1",
     refreshToken: "refresh-1",

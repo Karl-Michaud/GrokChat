@@ -3,7 +3,7 @@ import { postId, xPostId } from "../../../src/entities/identity/ids";
 import { HOUR } from "../../../src/entities/time/instant";
 import { buildWebApp } from "../../../src/frameworks/web/web_app";
 import { HTMX } from "../../../src/frameworks/web/static_assets";
-import { ACCOUNT, aPersonality, aPost, part, sentState, T0 } from "../../unit/support/builders";
+import { ACCOUNT, aPost, part, sentState, T0 } from "../../unit/support/builders";
 import { Browser, controllersFor, dashboard, ORIGIN, PASSWORD } from "./browser";
 
 async function loggedIn() {
@@ -27,8 +27,7 @@ describe("the dashboard pages (plan §3.4)", () => {
       ["/dashboard/calendar", "Week of 2026-10-27 (UTC)"],
       ["/dashboard/calendar?start=2026-11-02", "Mon 2026-11-02"],
       ["/dashboard/posts/post-1", "<h1>Post post-1</h1>"],
-      ["/dashboard/accounts", "@musechat_one (Muse)"],
-      ["/dashboard/personalities", "Muse (version 3)"],
+      ["/dashboard/accounts", "<h2>@musechat_one</h2>"],
       ["/dashboard/metrics", "@musechat_one: 0 posts read in the last 7 days"],
       ["/dashboard/costs", "All accounts"],
       ["/dashboard/media", "Stored bytes"],
@@ -172,7 +171,7 @@ describe("the dashboard's commands, through forms", () => {
     expect((await browser.page("/dashboard/posts/post-5")).html).toContain("DELETED");
   });
 
-  it("the kill switch, the disclosure, the policy and a personality", async () => {
+  it("the kill switch, the disclosure and the policy", async () => {
     const { browser, world } = await loggedIn();
     const accounts = await browser.page("/dashboard/accounts");
     expect(accounts.html).toContain('action="/dashboard/accounts/acc-1/status?to=PAUSED"');
@@ -204,38 +203,23 @@ describe("the dashboard's commands, through forms", () => {
       (await browser.post("/dashboard/accounts/acc-1/policy", { ...policy, tz: "Mars/Base" }))
         .status,
     ).toBe(400);
-    const saved = await browser.post("/dashboard/personalities", {
-      id: "",
-      name: "Second",
-      voiceGuide: "dry",
-      topics: "a\nb",
-      dos: "",
-      donts: "",
-      examples: "",
-    });
-    expect(saved.status).toBe(303);
-    expect((await world.personalities.list()).map((p) => p.name)).toStrictEqual(["Second", "Muse"]);
   });
 
-  it("shows NEEDS_RECONNECT and a connect form per personality", async () => {
+  it("shows NEEDS_RECONNECT, and connects a new account with no personality", async () => {
     const { browser, world } = await dashboard();
     await world.seedAccount({ status: "NEEDS_RECONNECT" });
-    await world.personalities.save(aPersonality({ name: "Muse & Co" }));
     await browser.login();
     const page = await browser.page("/dashboard/accounts");
     expect(page.html).toContain("<strong>NEEDS_RECONNECT</strong>");
     expect(page.html).toContain("Publishing is refused until this account is reconnected on X.");
-    expect(page.html).toContain("Muse &amp; Co");
-    expect(page.html).toContain('name="personality"');
+    expect(page.html).not.toContain('name="personality"');
+    expect(page.html).toContain("Connect on X");
   });
 
   it("an empty dashboard says so", async () => {
     const { browser } = await dashboard();
     await browser.login();
     expect((await browser.page("/dashboard/accounts")).html).toContain("No accounts yet.");
-    expect((await browser.page("/dashboard/accounts")).html).toContain(
-      "Create a personality first.",
-    );
     expect((await browser.page("/dashboard/backlog")).html).toContain("No posts.");
     expect((await browser.page("/dashboard/metrics")).html).toContain("No accounts yet.");
   });
@@ -250,11 +234,10 @@ describe("logs (m3, I6)", () => {
       });
     }
     const { browser, world } = await dashboard();
-    await world.personalities.save(aPersonality());
     await browser.login();
     const session = browser.cookies.get("__Host-grokchat_session") ?? "";
     await browser.get("/dashboard/backlog", { authorization: "Bearer sekrit-bearer-token" });
-    await browser.post("/oauth/x/start", { personality: "pers-1" });
+    await browser.post("/oauth/x/start", {});
     const state = [...world.states.records.keys()][0] ?? "";
     await browser.get(`/oauth/x/callback?code=code-SEKRIT&state=${state}`);
     await browser.get(`/oauth/x/finish?code=code-SEKRIT&state=${state}`);

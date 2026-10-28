@@ -3,7 +3,6 @@ import type {
   AccountRowView,
   AccountsView,
 } from "../../../interface_adapters/dashboard/accounts_controller";
-import type { PersonalitiesView } from "../../../interface_adapters/dashboard/personalities_controller";
 import type { PolicyForm } from "../../../interface_adapters/dashboard/policy_form";
 import { button, csrfField, layout, select, type Html } from "./layout";
 
@@ -39,7 +38,7 @@ function connectForm(csrf: string, fields: Html, label: string): Html {
 function account(row: AccountRowView, csrf: string): Html {
   const base = `/dashboard/accounts/${encodeURIComponent(row.id)}`;
   return html`<section>
-    <h2>${row.handle} (${row.personality})</h2>
+    <h2>${row.handle}</h2>
     <p>Status: <strong>${row.status}</strong></p>
     <p>Account id (for <code>npm run add-bot</code>): <code>${row.id}</code></p>
     ${
@@ -74,67 +73,13 @@ function account(row: AccountRowView, csrf: string): Html {
 }
 
 export function accountsPage(view: AccountsView, csrf: string): Html {
-  const personalities = view.personalities.map((p) => ({
-    value: p.id,
-    label: p.name,
-    selected: false,
-  }));
   return layout(
     "Accounts",
     csrf,
     html`${view.notice === null ? "" : html`<p role="status">${view.notice}</p>`}
       ${view.accounts.length === 0 ? html`<p>No accounts yet.</p>` : view.accounts.map((row) => account(row, csrf))}
       <h2>Connect a new account</h2>
-      ${
-        view.personalities.length === 0
-          ? html`<p>Create a personality first.</p>`
-          : connectForm(
-              csrf,
-              html`<label>Personality ${select("personality", personalities, null)}</label>`,
-              "Connect on X",
-            )
-      }`,
-  );
-}
-
-function personalityForm(
-  csrf: string,
-  row: PersonalitiesView["personalities"][number] | null,
-): Html {
-  const field = (name: string, label: string, value: string) =>
-    html`<p>
-      <label>${label}<br /><textarea name="${name}" rows="3" cols="60">${value}</textarea></label>
-    </p>`;
-  return html`<form method="post" action="/dashboard/personalities">
-    ${csrfField(csrf)}
-    <input type="hidden" name="id" value="${row?.id ?? ""}" />
-    <p>
-      <label>Name <input name="name" value="${row?.name ?? ""}" required /></label>
-    </p>
-    ${field("voiceGuide", "Voice guide", row?.voiceGuide ?? "")}
-    ${field("topics", "Topics (one per line)", row?.topics ?? "")}
-    ${field("dos", "Dos (one per line)", row?.dos ?? "")}
-    ${field("donts", "Don'ts (one per line)", row?.donts ?? "")}
-    ${field("examples", "Examples (one per line)", row?.examples ?? "")}
-    <button>${row === null ? "Create" : "Save"}</button>
-  </form>`;
-}
-
-export function personalitiesPage(view: PersonalitiesView, csrf: string): Html {
-  return layout(
-    "Personalities",
-    csrf,
-    html`${view.personalities.map(
-        (row) =>
-          html`<section>
-            <h2>${row.name} (version ${row.version})</h2>
-            ${personalityForm(csrf, row)}
-          </section>`,
-      )}
-      <section>
-        <h2>New personality</h2>
-        ${personalityForm(csrf, null)}
-      </section>`,
+      ${connectForm(csrf, html``, "Connect on X")}`,
   );
 }
 

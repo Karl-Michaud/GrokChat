@@ -7,7 +7,7 @@ type IncomingRequest = Parameters<typeof worker.fetch>[0];
 
 /** The dashboard through the deployed entry point, on D1 and the real X OAuth connector. */
 describe("the dashboard through main.ts", () => {
-  it("logs in, creates a personality, starts an X connect, and keeps /health", async () => {
+  it("logs in, starts an X connect with no personality, and keeps /health", async () => {
     const env = await webEnv();
     const browser = new Browser(
       (request, e) => worker.fetch(request as IncomingRequest, e, createExecutionContext()),
@@ -16,20 +16,7 @@ describe("the dashboard through main.ts", () => {
     expect((await browser.get("/dashboard/backlog")).status).toBe(303);
     expect((await browser.login()).status).toBe(303);
     expect((await browser.page("/dashboard/backlog")).html).toContain("No posts.");
-    const saved = await browser.post("/dashboard/personalities", {
-      id: "",
-      name: "Main Muse",
-      voiceGuide: "",
-      topics: "",
-      dos: "",
-      donts: "",
-      examples: "",
-    });
-    expect(saved.status).toBe(303);
-    const personalities = await browser.page("/dashboard/personalities");
-    expect(personalities.html).toContain("Main Muse (version 1)");
-    const id = /name="id" value="([0-9a-f-]{36})"/.exec(personalities.html)?.[1] ?? "";
-    const started = await browser.post("/oauth/x/start", { personality: id });
+    const started = await browser.post("/oauth/x/start", {});
     expect(started.status).toBe(303);
     const location = new URL(started.headers.get("location") ?? "");
     expect(location.origin).toBe("https://x.com");
@@ -44,30 +31,23 @@ describe("the dashboard through main.ts", () => {
     expect((await browser.get("/health")).status).toBe(200);
   });
 
-  it("keeps the personality in D1, and refuses to start a connect without the X app's secrets", async () => {
+  it("has no personalities table, and refuses to start a connect without the X app's secrets", async () => {
     const env = await webEnv({ X_CLIENT_ID: "" });
     const browser = new Browser(
       (request, e) => worker.fetch(request as IncomingRequest, e, createExecutionContext()),
       env,
     );
     expect((await browser.login()).status).toBe(303);
-    const saved = await browser.post("/dashboard/personalities", {
-      id: "",
-      name: "Stored Muse",
-      voiceGuide: "",
-      topics: "",
-      dos: "",
-      donts: "",
-      examples: "",
-    });
-    expect(saved.status).toBe(303);
-    const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM personalities WHERE name = ?")
-      .bind("Stored Muse")
-      .first<{ n: number }>();
-    expect(row?.n).toBe(1);
-    const personalities = await browser.page("/dashboard/personalities");
-    const id = /name="id" value="([0-9a-f-]{36})"/.exec(personalities.html)?.[1] ?? "";
-    expect((await browser.post("/oauth/x/start", { personality: id })).status).toBe(500);
+    const tables = await env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'personalities'",
+    ).all();
+    expect(tables.results).toStrictEqual([]);
+    const columns = await env.DB.prepare("SELECT name FROM pragma_table_info('accounts')").all<{
+      name: string;
+    }>();
+    expect(columns.results.map((column) => column.name)).not.toContain("personality_id");
+    expect((await browser.get("/dashboard/personalities")).status).toBe(404);
+    expect((await browser.post("/oauth/x/start", {})).status).toBe(500);
   });
 
   it("answers 503 on the dashboard while unconfigured, and 404 elsewhere", async () => {

@@ -26,7 +26,6 @@ function creator(world: World) {
   const interactor = new CreatePostInteractor(
     {
       accounts: world.accounts,
-      personalities: world.personalities,
       reader: world.reader,
       writer: world.writer,
       attachments: world.attachments,

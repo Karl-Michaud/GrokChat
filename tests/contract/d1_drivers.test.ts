@@ -16,7 +16,6 @@ import {
   accountRepositoryContract,
   mediaRepositoryContract,
   mediaUsageContract,
-  personalityRepositoryContract,
 } from "./repositories.contract";
 
 beforeEach(freshStorage);
@@ -39,7 +38,6 @@ describe("D1 cleanup candidates", () => {
 
 describe("D1 repositories", () => {
   accountRepositoryContract(() => stores().accounts);
-  personalityRepositoryContract(() => stores().personalities);
   mediaRepositoryContract(() => stores().media);
   mediaUsageContract(() => stores().usage);
 });

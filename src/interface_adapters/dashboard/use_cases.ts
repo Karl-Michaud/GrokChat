@@ -28,8 +28,6 @@ import type { ListAccountsInputData } from "../../use_cases/list_accounts/input_
 import type { ListAccountsOutputData } from "../../use_cases/list_accounts/output_data";
 import type { ListBacklogInputData } from "../../use_cases/list_backlog/input_data";
 import type { ListBacklogOutputData } from "../../use_cases/list_backlog/output_data";
-import type { ListPersonalitiesInputData } from "../../use_cases/list_personalities/input_data";
-import type { ListPersonalitiesOutputData } from "../../use_cases/list_personalities/output_data";
 import type { LoginInputData } from "../../use_cases/login/input_data";
 import type { LoginOutputData } from "../../use_cases/login/output_data";
 import type { ApprovePostInputData } from "../../use_cases/approve_post/input_data";
@@ -38,8 +36,6 @@ import type { RejectPostInputData } from "../../use_cases/reject_post/input_data
 import type { RejectPostOutputData } from "../../use_cases/reject_post/output_data";
 import type { ReschedulePostInputData } from "../../use_cases/reschedule_post/input_data";
 import type { ReschedulePostOutputData } from "../../use_cases/reschedule_post/output_data";
-import type { SavePersonalityInputData } from "../../use_cases/save_personality/input_data";
-import type { SavePersonalityOutputData } from "../../use_cases/save_personality/output_data";
 import type { SetAccountStatusInputData } from "../../use_cases/set_account_status/input_data";
 import type { SetAccountStatusOutputData } from "../../use_cases/set_account_status/output_data";
 import type { SetPolicyInputData } from "../../use_cases/set_policy/input_data";
@@ -77,10 +73,6 @@ export interface PostCommandUseCases {
 }
 
 export interface AccountUseCases extends AccountDirectory {
-  readonly listPersonalities: UseCaseFactory<
-    ListPersonalitiesInputData,
-    ListPersonalitiesOutputData
-  >;
   readonly setAccountStatus: UseCaseFactory<SetAccountStatusInputData, SetAccountStatusOutputData>;
   readonly confirmDisclosure: UseCaseFactory<
     ConfirmDisclosureInputData,
@@ -98,14 +90,6 @@ export interface OAuthUseCases {
     ConnectAccountCompleteInputData,
     ConnectAccountCompleteOutputData
   >;
-}
-
-export interface PersonalityUseCases {
-  readonly listPersonalities: UseCaseFactory<
-    ListPersonalitiesInputData,
-    ListPersonalitiesOutputData
-  >;
-  readonly savePersonality: UseCaseFactory<SavePersonalityInputData, SavePersonalityOutputData>;
 }
 
 export interface ReportUseCases extends AccountDirectory {

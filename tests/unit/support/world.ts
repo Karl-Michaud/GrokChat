@@ -49,7 +49,6 @@ import {
 import {
   MemoryAccountRepository,
   MemoryMediaRepository,
-  MemoryPersonalityRepository,
 } from "../../../src/frameworks/memory/memory_repositories";
 import { FakeXTokenEndpoint, MemoryTokenStore } from "../../../src/frameworks/memory/memory_tokens";
 import { AccessGuard } from "../../../src/use_cases/access/access_guard";
@@ -73,7 +72,7 @@ import { ReconcileAccount } from "../../../src/use_cases/run_services/reconcile_
 import { RefreshingTokenProvider } from "../../../src/use_cases/run_services/refreshing_token_provider";
 import { TokenStep } from "../../../src/use_cases/run_services/token_step";
 import { XCallRecorder } from "../../../src/use_cases/run_services/x_call_recorder";
-import { aPersonality, anAccount, T0 } from "./builders";
+import { anAccount, T0 } from "./builders";
 
 /** A presenter that keeps what it was given. */
 export class Capture<T> {
@@ -105,7 +104,6 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const reader = new MemoryPostReader(table, metrics);
   const writer = new MemoryPostWriter(table, audit, costs);
   const accounts = new MemoryAccountRepository();
-  const personalities = new MemoryPersonalityRepository();
   const media = new MemoryMediaRepository();
   const blobs = new MemoryMediaBlobStore();
   const usage = new MemoryMediaUsage();
@@ -189,11 +187,10 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const accountCommand = new AccountCommand(accounts, guard, actionAudit);
   const intake = new MediaIntake({ media, blobs, usage, hasher, audit: actionAudit, ids, clock });
 
-  /** An active, disclosed account with a personality and tokens valid for two hours. */
+  /** An active, disclosed account with tokens valid for two hours. */
   async function seedAccount(overrides: Partial<Account> = {}): Promise<Account> {
     const account = anAccount(overrides);
     await accounts.save(account);
-    await personalities.save(aPersonality({ id: account.personalityId }));
     await tokenStore.commitRotated(account.id, tokenEndpoint.issue());
     return account;
   }
@@ -230,7 +227,6 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     reader,
     writer,
     accounts,
-    personalities,
     media,
     blobs,
     usage,

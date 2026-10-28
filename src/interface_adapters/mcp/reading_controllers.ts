@@ -3,7 +3,6 @@ import type { Actor } from "../../entities/identity/actor";
 import { accountId, postId } from "../../entities/identity/ids";
 import type { ComparePostsInputBoundary } from "../../use_cases/compare_posts/input_boundary";
 import type { GetAccountMetricsInputBoundary } from "../../use_cases/get_account_metrics/input_boundary";
-import type { GetPersonalityInputBoundary } from "../../use_cases/get_personality/input_boundary";
 import type { GetPolicyInputBoundary } from "../../use_cases/get_policy/input_boundary";
 import type { GetPostMetricsInputBoundary } from "../../use_cases/get_post_metrics/input_boundary";
 import type { GetPostInputBoundary } from "../../use_cases/get_post/input_boundary";
@@ -68,14 +67,6 @@ export class ComparePostsController {
       window: windowArg(args.from, args.to),
       sortBy: args.sort_by,
     });
-  }
-}
-
-export class GetPersonalityController {
-  constructor(private readonly useCase: GetPersonalityInputBoundary) {}
-
-  handle(actor: Actor, args: AccountArgs): Promise<void> {
-    return this.useCase.execute({ actor, accountId: accountId(args.account_id) });
   }
 }
 

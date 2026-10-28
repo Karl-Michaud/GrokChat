@@ -34,7 +34,6 @@ describe("ids and decisions", () => {
   it("brand constructors keep the string", () => {
     const makers = [
       ids.accountId,
-      ids.personalityId,
       ids.postId,
       ids.botId,
       ids.xUserId,
@@ -43,7 +42,7 @@ describe("ids and decisions", () => {
       ids.stagedMediaId,
       ids.idempotencyKey,
     ];
-    expect(makers.map((make) => make("v"))).toStrictEqual(Array.from({ length: 9 }, () => "v"));
+    expect(makers.map((make) => make("v"))).toStrictEqual(Array.from({ length: 8 }, () => "v"));
   });
 
   it("ALLOWED and refuse", () => {

@@ -45,7 +45,6 @@ const TOOLS = [
   "delete_post",
   "edit_post",
   "get_account_metrics",
-  "get_personality",
   "get_policy",
   "get_post",
   "get_post_metrics",
@@ -54,10 +53,11 @@ const TOOLS = [
 ];
 
 describe("the MCP server's surface", () => {
-  it("lists exactly the 13 tools, each described and with an input schema, and no resources", async () => {
+  it("lists exactly the 12 tools (no get_personality: Grok owns personalities), each described and with an input schema, and no resources", async () => {
     const client = await connect(await botEnv([]));
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toStrictEqual(TOOLS);
+    expect(tools.map((tool) => tool.name)).not.toContain("get_personality");
     for (const tool of tools) {
       expect(tool.description?.length).toBeGreaterThan(40);
       expect(tool.inputSchema.type).toBe("object");
@@ -81,7 +81,7 @@ describe("the MCP server's surface", () => {
 
   it("works for a client connected at /mcp/", async () => {
     const client = await connect(await botEnv([]), BOT_TOKEN, "/mcp/");
-    expect((await client.listTools()).tools).toHaveLength(13);
+    expect((await client.listTools()).tools).toHaveLength(12);
   });
 });
 

@@ -1,4 +1,4 @@
-import type { AccountId, PersonalityId, XUserId } from "../identity/ids";
+import type { AccountId, XUserId } from "../identity/ids";
 import type { PostingPolicy } from "./posting_policy";
 
 /**
@@ -17,7 +17,6 @@ export interface Account {
   readonly id: AccountId;
   readonly xUserId: XUserId;
   readonly handle: string;
-  readonly personalityId: PersonalityId;
   readonly status: AccountStatus;
   readonly disclosure: Disclosure;
   readonly policy: PostingPolicy;

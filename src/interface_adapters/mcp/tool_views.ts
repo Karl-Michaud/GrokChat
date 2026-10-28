@@ -7,13 +7,12 @@ import type { ComparePostsOutputData } from "../../use_cases/compare_posts/outpu
 import type { CreatePostOutputData } from "../../use_cases/create_post/output_data";
 import type { DeletePostOutputData } from "../../use_cases/delete_post/output_data";
 import type { GetAccountMetricsOutputData } from "../../use_cases/get_account_metrics/output_data";
-import type { GetPersonalityOutputData } from "../../use_cases/get_personality/output_data";
 import type { GetPolicyOutputData } from "../../use_cases/get_policy/output_data";
 import type { GetPostMetricsOutputData } from "../../use_cases/get_post_metrics/output_data";
 import type { GetPostOutputData } from "../../use_cases/get_post/output_data";
 import type { ListBacklogOutputData } from "../../use_cases/list_backlog/output_data";
 import type { StageMediaFromUrlOutputData } from "../../use_cases/stage_media_from_url/output_data";
-import { disclosureJson, personalityJson, policyJson, postJson, snapshotJson } from "./json_views";
+import { disclosureJson, policyJson, postJson, snapshotJson } from "./json_views";
 import type { ToolOutcome, ToolView } from "./tool_presenter";
 import type { JsonObject } from "./tool_result";
 
@@ -81,10 +80,6 @@ export const accountMetricsView: ToolView<GetAccountMetricsOutputData> = either(
 
 export const comparePostsView: ToolView<ComparePostsOutputData> = either((found) => ({
   ranked: found.ranked.map(snapshotJson),
-}));
-
-export const personalityView: ToolView<GetPersonalityOutputData> = either((found) => ({
-  personality: personalityJson(found.personality),
 }));
 
 export const policyView: ToolView<GetPolicyOutputData> = either((found) => ({

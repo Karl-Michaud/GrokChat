@@ -96,8 +96,8 @@ Vars live in `wrangler.jsonc`, and changing one needs a deploy:
      → Automation. Name the managing account that runs the bot.
 3. **On the dashboard.**
    - Sign in at `/dashboard/login`.
-   - Under **Personalities**, create the account's personality.
-   - Under **Accounts**, choose it and **Connect on X**. Sign in on X as the account and
+   - Under **Accounts**, press **Connect X account** (no personality is needed: Grok holds
+     the bot's voice). Sign in on X as the account and
      authorise the app. You return to Accounts with "connected @handle".
    - The new account is **PAUSED**. Tick both disclosure boxes and **Save disclosure**.
      Publishing stays refused until both are confirmed.

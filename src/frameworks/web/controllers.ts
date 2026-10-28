@@ -1,6 +1,5 @@
 import type { AccountsController } from "../../interface_adapters/dashboard/accounts_controller";
 import type { OAuthController } from "../../interface_adapters/dashboard/oauth_controller";
-import type { PersonalitiesController } from "../../interface_adapters/dashboard/personalities_controller";
 import type { PostCommandsController } from "../../interface_adapters/dashboard/post_commands_controller";
 import type { PostPagesController } from "../../interface_adapters/dashboard/post_pages_controller";
 import type { ReportsController } from "../../interface_adapters/dashboard/reports_controller";
@@ -15,6 +14,5 @@ export interface WebControllers {
   readonly postCommands: PostCommandsController;
   readonly accounts: AccountsController;
   readonly oauth: OAuthController;
-  readonly personalities: PersonalitiesController;
   readonly reports: ReportsController;
 }

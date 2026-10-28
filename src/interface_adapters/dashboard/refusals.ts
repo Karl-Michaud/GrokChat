@@ -9,7 +9,6 @@ const REFUSALS: ReadonlyMap<string, RefusalView> = new Map(
   Object.entries({
     not_found: { status: 404, message: "Not found." },
     account_not_found: { status: 404, message: "The account does not exist." },
-    personality_not_found: { status: 404, message: "The personality does not exist." },
     scope: { status: 403, message: "Outside your scope." },
     human_only: { status: 403, message: "Only the dashboard's owner may do this." },
     invalid_transition: { status: 409, message: "The post cannot do that in its current state." },
@@ -30,8 +29,6 @@ const REFUSALS: ReadonlyMap<string, RefusalView> = new Map(
       message: "The connect link expired, was already used, or belongs to another session.",
     },
     oauth_failed: { status: 502, message: "X did not complete the connection." },
-    personality_required: { status: 400, message: "Choose a personality for the new account." },
-    name_required: { status: 400, message: "A personality needs a name." },
     throttled: { status: 429, message: "Too many failed logins; wait fifteen minutes." },
     wrong_password: { status: 401, message: "Wrong password." },
     daily_cap: { status: 400, message: "The daily cap must be a whole number of at least 1." },

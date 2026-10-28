@@ -65,10 +65,6 @@ export const TOOL_CATALOG: Readonly<Record<ToolName, ToolInfo>> = {
     ...READ,
     description: `An account's posts in [from, to), best first by sort_by, to see what works. ${REFUSALS}`,
   },
-  get_personality: {
-    ...READ,
-    description: `The voice to write in for an account: voice guide, topics, dos, don'ts and examples. Read it before writing. ${REFUSALS}`,
-  },
   get_policy: {
     ...READ,
     description: `An account's status, disclosure and posting policy: auto or review, daily cap, minimum gap, quiet hours, time zone and link policy (REFUSE: no https:// links). ${REFUSALS}`,

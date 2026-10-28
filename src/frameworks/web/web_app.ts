@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { accountRoutes, personalityRoutes } from "./account_routes";
+import { accountRoutes } from "./account_routes";
 import type { WebControllers } from "./controllers";
 import {
   checkUnsafe,
@@ -31,7 +31,6 @@ export function buildWebApp(controllers: WebControllers): WebApp {
   sessionRoutes(app, controllers);
   postRoutes(app, controllers);
   accountRoutes(app, controllers);
-  personalityRoutes(app, controllers);
   oauthRoutes(app, controllers);
   reportRoutes(app, controllers);
   app.onError((error, c) => {

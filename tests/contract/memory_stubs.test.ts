@@ -30,7 +30,6 @@ import {
 import {
   MemoryAccountRepository,
   MemoryMediaRepository,
-  MemoryPersonalityRepository,
 } from "../../src/frameworks/memory/memory_repositories";
 import { ManualClock, SequentialIds } from "../../src/frameworks/memory/manual_clock";
 import { MemoryTokenStore } from "../../src/frameworks/memory/memory_tokens";
@@ -59,7 +58,6 @@ import {
   blobStoreContract,
   mediaRepositoryContract,
   mediaUsageContract,
-  personalityRepositoryContract,
 } from "./repositories.contract";
 
 describe("memory post store", () => {
@@ -91,7 +89,6 @@ describe("memory cleanup candidates", () => {
 
 describe("memory repositories", () => {
   accountRepositoryContract(() => new MemoryAccountRepository());
-  personalityRepositoryContract(() => new MemoryPersonalityRepository());
   mediaRepositoryContract(() => new MemoryMediaRepository());
   blobStoreContract(() => new MemoryMediaBlobStore());
   mediaUsageContract(() => new MemoryMediaUsage());

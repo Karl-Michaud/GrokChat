@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Account } from "../../src/entities/accounts/account";
 import {
   accountId,
-  personalityId,
   postId,
   stagedMediaId,
   xUserId,
@@ -28,15 +27,7 @@ import { d1Stores } from "../../src/frameworks/d1/d1_stores";
 import { AccountObjects } from "../../src/frameworks/durable_objects/account_client";
 import { basicAuth } from "../../src/frameworks/x_auth/token_endpoint";
 import worker from "../../src/main";
-import {
-  aMedia,
-  aPersonality,
-  aPolicy,
-  anAccount,
-  aPost,
-  part,
-  sentState,
-} from "../unit/support/builders";
+import { aMedia, aPolicy, anAccount, aPost, part, sentState } from "../unit/support/builders";
 import { freshStorage } from "./support/fresh_d1";
 import { sleep } from "./support/harness";
 import { stubX, type XWire } from "./support/x_wire";
@@ -67,11 +58,9 @@ async function seedAccount(accessExpiresAt = Date.now() + 2 * HOUR): Promise<Acc
   const account = anAccount({
     id: accountId(`cron-acc-${n}`),
     xUserId: xUserId(`cron-x-${n}`),
-    personalityId: personalityId(`cron-pers-${n}`),
     policy: aPolicy({ minGap: 0 }),
   });
   await stores().accounts.save(account);
-  await stores().personalities.save(aPersonality({ id: account.personalityId }));
   await objects().storeConnectedTokens(account.id, {
     accessToken: "access-1",
     refreshToken: "refresh-1",

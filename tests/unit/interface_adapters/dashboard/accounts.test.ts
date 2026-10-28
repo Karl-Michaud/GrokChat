@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountId, personalityId, xUserId } from "../../../../src/entities/identity/ids";
+import { accountId, xUserId } from "../../../../src/entities/identity/ids";
 import { MINUTE } from "../../../../src/entities/time/instant";
 import { AccountsController } from "../../../../src/interface_adapters/dashboard/accounts_controller";
 import { OAuthController } from "../../../../src/interface_adapters/dashboard/oauth_controller";
@@ -20,7 +20,6 @@ async function setup() {
       id: accountId("acc-2"),
       xUserId: xUserId("x-user-2"),
       handle: "two",
-      personalityId: personalityId("gone"),
       status: "NEEDS_RECONNECT",
       disclosure: { bioConfirmed: false, automatedLabelConfirmed: true },
       policy: aPolicy({
@@ -48,7 +47,7 @@ const FORM: PolicyForm = {
 const REDIRECT = { kind: "redirect", location: "/dashboard/accounts" };
 
 describe("the accounts page", () => {
-  it("shows each account's status, disclosure, policy and personality", async () => {
+  it("shows each account's status, disclosure and policy", async () => {
     const { controller } = await setup();
     expect(await controller.accounts({ connected: null })).toStrictEqual({
       kind: "page",
@@ -59,7 +58,6 @@ describe("the accounts page", () => {
             handle: "@musechat_one",
             status: "ACTIVE",
             needsReconnect: false,
-            personality: "Muse",
             bioConfirmed: true,
             automatedLabelConfirmed: true,
             canActivate: false,
@@ -71,7 +69,6 @@ describe("the accounts page", () => {
             handle: "@two",
             status: "NEEDS_RECONNECT",
             needsReconnect: true,
-            personality: "gone",
             bioConfirmed: false,
             automatedLabelConfirmed: true,
             canActivate: false,
@@ -85,7 +82,6 @@ describe("the accounts page", () => {
             },
           },
         ],
-        personalities: [{ id: "pers-1", name: "Muse" }],
         notice: null,
       },
     });
@@ -113,11 +109,10 @@ describe("the accounts page", () => {
     const refusing = new AccountsController({
       ...useCases,
       listAccounts: presenting({ ok: false, code: "human_only" }),
-      listPersonalities: presenting({ ok: false, code: "human_only" }),
     });
     expect(await refusing.accounts({ connected: null })).toStrictEqual({
       kind: "page",
-      view: { accounts: [], personalities: [], notice: null },
+      view: { accounts: [], notice: null },
     });
   });
 
@@ -234,7 +229,7 @@ describe("the OAuth connect flow (R11)", () => {
     code: "code-1",
     state,
     error: null,
-    intent: { reconnect: null, personalityId: "pers-1" },
+    intent: { reconnect: null },
     ...overrides,
   });
 
@@ -286,7 +281,7 @@ describe("the OAuth connect flow (R11)", () => {
     const { world } = await setup();
     const { controller, state } = await begun(world);
     world.connector.codes.set("code-1", { verifier: "verifier-1", user: user("x-user-7") });
-    const reconnect = { reconnect: "acc-2", personalityId: null };
+    const reconnect = { reconnect: "acc-2" };
     expect(await controller.complete(callback(state, { intent: reconnect }))).toStrictEqual({
       kind: "refused",
       status: 409,
@@ -295,14 +290,12 @@ describe("the OAuth connect flow (R11)", () => {
     const again = await begun(world);
     world.connector.codes.set("code-1", { verifier: "verifier-2", user: user("x-user-2", "two") });
     expect(
-      await again.controller.complete(
-        callback(again.state, { intent: { reconnect: " acc-2 ", personalityId: " " } }),
-      ),
+      await again.controller.complete(callback(again.state, { intent: { reconnect: " acc-2 " } })),
     ).toStrictEqual({ kind: "redirect", location: "/dashboard/accounts?connected=%40two" });
     expect((await world.accounts.get(accountId("acc-2")))?.status).toBe("PAUSED");
   });
 
-  it("refuses an error from X, a missing code or state, and a missing personality", async () => {
+  it("refuses an error from X and a missing code or state; a new account needs no personality", async () => {
     const { world } = await setup();
     const { controller, state } = await begun(world);
     expect(await controller.complete(callback(state, { error: "access_denied" }))).toStrictEqual({
@@ -319,11 +312,10 @@ describe("the OAuth connect flow (R11)", () => {
     expect(await controller.complete(callback(" "))).toStrictEqual(missing);
     expect(world.states.records.has(state)).toBe(true);
     world.connector.codes.set("code-1", { verifier: "verifier-1", user: user() });
-    const none = { reconnect: null, personalityId: null };
+    const none = { reconnect: null };
     expect(await controller.complete(callback(state, { intent: none }))).toStrictEqual({
-      kind: "refused",
-      status: 400,
-      message: "Choose a personality for the new account.",
+      kind: "redirect",
+      location: "/dashboard/accounts?connected=%40newbie",
     });
   });
 

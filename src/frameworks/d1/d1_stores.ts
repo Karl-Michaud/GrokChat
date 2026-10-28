@@ -7,7 +7,6 @@ import { D1MediaRepository } from "./d1_media_repository";
 import { D1MediaUsage } from "./d1_media_usage";
 import { D1MetricsRepository } from "./d1_metrics_repository";
 import { D1OAuthStateStore } from "./d1_oauth_state_store";
-import { D1PersonalityRepository } from "./d1_personality_repository";
 import { D1PostReader } from "./d1_post_reader";
 import { D1PostWriter } from "./d1_post_writer";
 
@@ -22,7 +21,6 @@ export function d1Stores(db: D1Database) {
     reader,
     writer: new D1PostWriter(db, reader),
     accounts: new D1AccountRepository(db),
-    personalities: new D1PersonalityRepository(db),
     media: new D1MediaRepository(db),
     cleanupCandidates: new D1MediaCleanupCandidates(db),
     usage: new D1MediaUsage(db),

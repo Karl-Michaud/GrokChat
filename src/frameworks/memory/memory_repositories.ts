@@ -1,10 +1,8 @@
 import type { Account } from "../../entities/accounts/account";
-import type { Personality } from "../../entities/content/personality";
 import type { StagedMedia } from "../../entities/content/staged_media";
-import type { AccountId, PersonalityId, StagedMediaId, XUserId } from "../../entities/identity/ids";
+import type { AccountId, StagedMediaId, XUserId } from "../../entities/identity/ids";
 import type { AccountRepository } from "../../use_cases/ports/account_repository";
 import type { MediaRepository } from "../../use_cases/ports/media_repository";
-import type { PersonalityRepository } from "../../use_cases/ports/personality_repository";
 
 export class MemoryAccountRepository implements AccountRepository {
   readonly rows = new Map<AccountId, Account>();
@@ -25,23 +23,6 @@ export class MemoryAccountRepository implements AccountRepository {
 
   save(account: Account): Promise<void> {
     this.rows.set(account.id, account);
-    return Promise.resolve();
-  }
-}
-
-export class MemoryPersonalityRepository implements PersonalityRepository {
-  readonly rows = new Map<PersonalityId, Personality>();
-
-  get(id: PersonalityId): Promise<Personality | null> {
-    return Promise.resolve(this.rows.get(id) ?? null);
-  }
-
-  list(): Promise<readonly Personality[]> {
-    return Promise.resolve([...this.rows.values()].sort((a, b) => a.id.localeCompare(b.id)));
-  }
-
-  save(personality: Personality): Promise<void> {
-    this.rows.set(personality.id, personality);
     return Promise.resolve();
   }
 }

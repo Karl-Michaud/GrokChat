@@ -1,8 +1,6 @@
 import type { Account, AccountStatus } from "../../entities/accounts/account";
-import type { Personality } from "../../entities/content/personality";
 import { accountId } from "../../entities/identity/ids";
 import type { AccountCommandResult } from "../../use_cases/admin/account_command";
-import type { ListPersonalitiesOutputData } from "../../use_cases/list_personalities/output_data";
 import { loadAccounts } from "./account_directory";
 import { ADMIN } from "./admin_actor";
 import { filled } from "./form_values";
@@ -17,7 +15,6 @@ export interface AccountRowView {
   readonly status: AccountStatus;
   /** Refresh lost (A2) or revoked: shown first, cleared only by reconnecting. */
   readonly needsReconnect: boolean;
-  readonly personality: string;
   readonly bioConfirmed: boolean;
   readonly automatedLabelConfirmed: boolean;
   readonly canActivate: boolean;
@@ -25,14 +22,8 @@ export interface AccountRowView {
   readonly policy: PolicyForm;
 }
 
-export interface PersonalityOption {
-  readonly id: string;
-  readonly name: string;
-}
-
 export interface AccountsView {
   readonly accounts: readonly AccountRowView[];
-  readonly personalities: readonly PersonalityOption[];
   readonly notice: string | null;
 }
 
@@ -41,14 +32,12 @@ export const ACCOUNTS_PAGE = "/dashboard/accounts";
 /** The kill switch sets only these; reconnecting clears the others. */
 const SWITCHABLE = ["ACTIVE", "PAUSED"] as const;
 
-function accountRow(account: Account, personalities: readonly Personality[]): AccountRowView {
-  const personality = personalities.find((candidate) => candidate.id === account.personalityId);
+function accountRow(account: Account): AccountRowView {
   return {
     id: account.id,
     handle: `@${account.handle}`,
     status: account.status,
     needsReconnect: account.status === "NEEDS_RECONNECT" || account.status === "DISCONNECTED",
-    personality: personality?.name ?? account.personalityId,
     bioConfirmed: account.disclosure.bioConfirmed,
     automatedLabelConfirmed: account.disclosure.automatedLabelConfirmed,
     canActivate: account.status === "PAUSED",
@@ -66,15 +55,9 @@ export class AccountsController {
 
   async accounts(query: { readonly connected: string | null }): Promise<Outcome<AccountsView>> {
     const accounts = await loadAccounts(this.useCases);
-    const personalities = await runUseCase(
-      this.useCases.listPersonalities,
-      { actor: ADMIN },
-      (output: ListPersonalitiesOutputData) => (output.ok ? output.personalities : []),
-    );
     const connected = filled(query.connected);
     return page({
-      accounts: accounts.map((account) => accountRow(account, personalities)),
-      personalities: personalities.map((item) => ({ id: item.id, name: item.name })),
+      accounts: accounts.map(accountRow),
       notice: connected === null ? null : `Connected ${connected}. It starts paused.`,
     });
   }

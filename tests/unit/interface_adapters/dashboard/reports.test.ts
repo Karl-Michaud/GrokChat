@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { accountId, personalityId, postId, xPostId } from "../../../../src/entities/identity/ids";
+import { accountId, postId, xPostId } from "../../../../src/entities/identity/ids";
 import type { MetricsSnapshot } from "../../../../src/entities/metrics/metrics_snapshot";
 import { DAY, HOUR } from "../../../../src/entities/time/instant";
-import { PersonalitiesController } from "../../../../src/interface_adapters/dashboard/personalities_controller";
 import { ReportsController } from "../../../../src/interface_adapters/dashboard/reports_controller";
 import { costRow, usd } from "../../../../src/interface_adapters/dashboard/report_views";
 import { SessionController } from "../../../../src/interface_adapters/dashboard/session_controller";
-import { ACCOUNT, anAccount, aPersonality, T0 } from "../../support/builders";
+import { ACCOUNT, anAccount, T0 } from "../../support/builders";
 import { dashboardUseCases, presenting } from "../../support/dashboard";
 import { makeWorld } from "../../support/world";
 
@@ -291,67 +290,6 @@ describe("the audit page", () => {
       world.clock,
     );
     expect(await refusing.audit({ account: null, limit: null })).toMatchObject({ status: 403 });
-  });
-});
-
-describe("the personalities page", () => {
-  const form = {
-    id: "",
-    name: " Muse ",
-    voiceGuide: " warm ",
-    topics: "music\n\n art ",
-    dos: "be kind\nbe brief",
-    donts: "no politics\nno slang",
-    examples: "hello\nhi",
-  };
-
-  it("creates, lists and edits a personality", async () => {
-    const world = makeWorld();
-    const controller = new PersonalitiesController(dashboardUseCases(world));
-    expect(await controller.save(form)).toStrictEqual({
-      kind: "redirect",
-      location: "/dashboard/personalities",
-    });
-    expect(await controller.personalities()).toStrictEqual({
-      kind: "page",
-      view: {
-        personalities: [
-          {
-            id: "id-1",
-            name: "Muse",
-            voiceGuide: "warm",
-            topics: "music\nart",
-            dos: "be kind\nbe brief",
-            donts: "no politics\nno slang",
-            examples: "hello\nhi",
-            version: 1,
-          },
-        ],
-      },
-    });
-    await controller.save({ ...form, id: " id-1 ", name: "Muse 2" });
-    expect(await world.personalities.get(personalityId("id-1"))).toMatchObject({
-      name: "Muse 2",
-      version: 2,
-    });
-  });
-
-  it("refuses a missing name, an unknown id, and shows a listing refusal", async () => {
-    const world = makeWorld();
-    await world.personalities.save(aPersonality());
-    const useCases = dashboardUseCases(world);
-    const controller = new PersonalitiesController(useCases);
-    expect(await controller.save({ ...form, name: " " })).toStrictEqual({
-      kind: "refused",
-      status: 400,
-      message: "A personality needs a name.",
-    });
-    expect(await controller.save({ ...form, id: "nope" })).toMatchObject({ status: 404 });
-    const refusing = new PersonalitiesController({
-      ...useCases,
-      listPersonalities: presenting({ ok: false, code: "human_only" }),
-    });
-    expect(await refusing.personalities()).toMatchObject({ kind: "refused", status: 403 });
   });
 });
 

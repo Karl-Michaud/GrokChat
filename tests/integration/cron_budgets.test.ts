@@ -38,15 +38,7 @@ import { buildAccountServices } from "../../src/frameworks/composition/account_g
 import { cronJobs } from "../../src/frameworks/composition/cron_jobs";
 import { XEmulator } from "../contract/support/x_emulator";
 import { FixtureTransport } from "../contract/support/x_fixtures";
-import {
-  aMedia,
-  aPersonality,
-  aPolicy,
-  anAccount,
-  aPost,
-  part,
-  T0,
-} from "../unit/support/builders";
+import { aMedia, aPolicy, anAccount, aPost, part, T0 } from "../unit/support/builders";
 import { freshStorage } from "./support/fresh_d1";
 import { metered } from "./support/metered_d1";
 import { newHarness, seedAccount } from "./support/harness";
@@ -165,7 +157,6 @@ describe("R16: each part's worst case on the production graph and the fetch driv
     const transport = new FixtureTransport(new XEmulator(() => clock.now()).handle);
     const account = anAccount({ id: accountId("budget-acc"), policy: aPolicy({ minGap: 0 }) });
     await stores().accounts.save(account);
-    await stores().personalities.save(aPersonality({ id: account.personalityId }));
     const tokens = new MemoryTokenStore();
     await tokens.commitRotated(account.id, {
       accessToken: "access-1",

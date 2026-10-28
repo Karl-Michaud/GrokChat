@@ -1,6 +1,6 @@
 import type { Account } from "../../entities/accounts/account";
 import { DEFAULT_POLICY } from "../../entities/accounts/posting_policy";
-import { accountId, type AccountId, type PersonalityId } from "../../entities/identity/ids";
+import { accountId, type AccountId } from "../../entities/identity/ids";
 import type { AccessGuard } from "../access/access_guard";
 import type { ActionAudit } from "../access/action_audit";
 import { refusal, type Refusal } from "../access/refusal";
@@ -9,7 +9,6 @@ import type { AccountXGateway } from "../ports/account_x_gateway";
 import type { Clock } from "../ports/clock";
 import type { IdGenerator } from "../ports/id_generator";
 import type { OAuthStateStore } from "../ports/oauth_state_store";
-import type { PersonalityRepository } from "../ports/personality_repository";
 import type { ConnectedXUser, XAccountConnector } from "../ports/x_account_connector";
 import type { ConnectAccountCompleteInputBoundary } from "./input_boundary";
 import type { ConnectAccountCompleteInputData } from "./input_data";
@@ -23,7 +22,6 @@ export interface ConnectAccountCompletePorts {
   readonly states: OAuthStateStore;
   readonly connector: XAccountConnector;
   readonly accounts: AccountRepository;
-  readonly personalities: PersonalityRepository;
   readonly gateway: AccountXGateway;
   readonly guard: AccessGuard;
   readonly audit: ActionAudit;
@@ -74,7 +72,7 @@ export class ConnectAccountCompleteInteractor implements ConnectAccountCompleteI
     }
     const account =
       input.reconnect === null
-        ? await this.newAccount(user, input.personalityId)
+        ? await this.newAccount(user)
         : await this.reconnected(user, input.reconnect);
     if ("ok" in account) {
       return account;
@@ -97,25 +95,15 @@ export class ConnectAccountCompleteInteractor implements ConnectAccountCompleteI
     return { ...account, handle: user.handle, status };
   }
 
-  private async newAccount(
-    user: ConnectedXUser,
-    personality: PersonalityId | null,
-  ): Promise<Planned> {
+  /** Grok owns the personalities and the scripts (owner, 2026-10-27): an account needs none. */
+  private async newAccount(user: ConnectedXUser): Promise<Planned> {
     if ((await this.ports.accounts.findByXUserId(user.xUserId)) !== null) {
       return refusal("already_connected");
-    }
-    if (personality === null) {
-      return refusal("personality_required");
-    }
-    const found = await this.ports.personalities.get(personality);
-    if (found === null) {
-      return refusal("personality_not_found");
     }
     return {
       id: accountId(this.ports.ids.newId()),
       xUserId: user.xUserId,
       handle: user.handle,
-      personalityId: found.id,
       status: "PAUSED",
       disclosure: { bioConfirmed: false, automatedLabelConfirmed: false },
       policy: DEFAULT_POLICY,
