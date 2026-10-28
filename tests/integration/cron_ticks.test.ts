@@ -49,6 +49,30 @@ async function tick(cron: string): Promise<void> {
   await worker.scheduled(createScheduledController({ cron, scheduledTime: Date.now() }), env);
 }
 
+/**
+ * A gate on X's answers. Plain flags, each side polling in its own request context: workerd
+ * never wakes a Durable Object awaiting a promise that the test's context resolves.
+ */
+function hold() {
+  const gate = { entered: false, released: false };
+  const until = async (open: () => boolean): Promise<void> => {
+    const giveUp = Date.now() + 4_000;
+    while (!open() && Date.now() < giveUp) {
+      await sleep(2);
+    }
+  };
+  return {
+    enter: async (): Promise<void> => {
+      gate.entered = true;
+      await until(() => gate.released);
+    },
+    started: () => until(() => gate.entered),
+    release: (): void => {
+      gate.released = true;
+    },
+  };
+}
+
 let seeded = 0;
 
 /** An active, disclosed account in D1, with tokens sealed in its production object. */
@@ -244,21 +268,27 @@ describe("reconcile and metrics are single-flight per account object (m2)", () =
       lifecycle: "DONE",
       parts: [part("u", { kind: "UNKNOWN", attemptAt: Date.now() - MINUTE, checks: 0 })],
     });
-    x.hook = async () => {
-      await sleep(30);
-      return "answer";
-    };
     const deadline = Date.now() + 5 * MINUTE;
-    const [first, second] = await Promise.all([
-      objects().reconcile(account.id, Date.now(), deadline),
-      objects().reconcile(account.id, Date.now(), deadline),
-    ]);
-    expect([first.ran, second.ran].sort()).toStrictEqual([false, true]);
-    const [one, two] = await Promise.all([
-      objects().collect(account.id, Date.now(), deadline),
-      objects().collect(account.id, Date.now(), deadline),
-    ]);
-    expect([one.ran, two.ran].sort()).toStrictEqual([false, true]);
+    // X is held until the second call has answered, so the first is provably still running
+    // (a fixed sleep raced under load: the first finished before the second arrived).
+    const overlapping = async (run: () => Promise<{ ran: boolean }>) => {
+      const held = hold();
+      x.hook = async () => {
+        await held.enter();
+        return "answer";
+      };
+      const first = run();
+      await held.started();
+      const second = await run();
+      held.release();
+      return [(await first).ran, second.ran];
+    };
+    expect(
+      await overlapping(() => objects().reconcile(account.id, Date.now(), deadline)),
+    ).toStrictEqual([true, false]);
+    expect(
+      await overlapping(() => objects().collect(account.id, Date.now(), deadline)),
+    ).toStrictEqual([true, false]);
     expect(x.calls().filter((call) => call === "GET /2/tweets")).toHaveLength(1);
   });
 });
