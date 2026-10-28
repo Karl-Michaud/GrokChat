@@ -9,7 +9,16 @@ import {
 import type { CreatePostInputData } from "../../../src/use_cases/create_post/input_data";
 import type { CreatePostOutputData } from "../../../src/use_cases/create_post/output_data";
 import type { PostReader } from "../../../src/use_cases/ports/post_reader";
-import { ACCOUNT, aPolicy, BOT, botActor, HUMAN, OTHER_ACCOUNT, T0 } from "../support/builders";
+import {
+  ACCOUNT,
+  anOwnPublishedPost,
+  aPolicy,
+  BOT,
+  botActor,
+  HUMAN,
+  OTHER_ACCOUNT,
+  T0,
+} from "../support/builders";
 import { Capture, makeWorld, type World } from "../support/world";
 
 function creator(world: World, reader: PostReader = world.reader) {
@@ -18,6 +27,7 @@ function creator(world: World, reader: PostReader = world.reader) {
     {
       accounts: world.accounts,
       reader,
+      ownPosts: world.reader,
       writer: world.writer,
       attachments: world.attachments,
       validator: world.validator,
@@ -44,6 +54,12 @@ function creator(world: World, reader: PostReader = world.reader) {
 }
 
 const KEY = idempotencyKey("key-1");
+
+/** Puts a post the account (or `owner`) published earlier, X id `xId`, in the table. */
+function published(world: World, xId: string, owner = ACCOUNT): void {
+  const post = anOwnPublishedPost(xId, { accountId: owner });
+  world.table.rows.set(post.id, post);
+}
 
 describe("createPost: refusals before anything is written", () => {
   it("unknown account", async () => {
@@ -164,6 +180,7 @@ describe("createPost: publish now", () => {
     ]) {
       const world = makeWorld();
       await world.seedAccount();
+      published(world, "1850000000000000001");
       expect(await creator(world)({ replyTo })).toMatchObject({ ok: true, status: "PUBLISHED" });
       expect([...world.x.posts.values()].map((post) => post.inReplyTo)).toStrictEqual([
         xPostId("1850000000000000001"),
@@ -175,6 +192,7 @@ describe("createPost: publish now", () => {
   it("a reply thread hangs under the target: part 1 replies to it, the rest chain", async () => {
     const world = makeWorld();
     await world.seedAccount();
+    published(world, "42");
     const parts = ["one", "two"].map((text) => ({ text, media: [] }));
     await creator(world)({ parts, replyTo: "42" });
     expect([...world.x.posts.values()].map((post) => [post.text, post.inReplyTo])).toStrictEqual([
@@ -196,9 +214,57 @@ describe("createPost: publish now", () => {
     expect(world.table.rows.size).toBe(0);
   });
 
+  it("refuses a reply to a post the account did not publish, and stores nothing (GROKCHAT-17)", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    published(world, "7", OTHER_ACCOUNT);
+    const before = world.table.rows.size;
+    const refused = { ok: false, code: "reply_target_not_own", part: null };
+    for (const replyTo of ["7", "8", "https://x.com/XDevelopers/status/1850000000000000009"]) {
+      expect(await creator(world)({ replyTo })).toStrictEqual(refused);
+      expect(
+        await creator(world)({ replyTo, actor: botActor(), idempotencyKey: KEY }),
+      ).toStrictEqual(refused);
+    }
+    expect(world.table.rows.size).toBe(before);
+    expect(world.x.posts.size).toBe(0);
+    expect(world.audit.events).toStrictEqual([]);
+  });
+
+  it("a post of the account's that was deleted from X is no longer a reply target", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    const deleted = anOwnPublishedPost("5", {
+      id: postId("own-deleted"),
+      parts: [{ text: "t", media: [], state: { kind: "DELETED", xPostId: xPostId("5") } }],
+    });
+    world.table.rows.set(deleted.id, deleted);
+    expect(await creator(world)({ replyTo: "5" })).toMatchObject({ code: "reply_target_not_own" });
+  });
+
+  it("a same-key retry of a reply whose target is not own is refused, not returned as a duplicate", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    const earlier = anOwnPublishedPost("9", {
+      id: postId("foreign-reply"),
+      replyTo: xPostId("1850000000000000009"),
+      idempotencyKey: KEY,
+      provenance: { botId: BOT, policySnapshot: aPolicy() },
+    });
+    world.table.rows.set(earlier.id, earlier);
+    const out = await creator(world)({
+      actor: botActor(),
+      idempotencyKey: KEY,
+      replyTo: "1850000000000000009",
+    });
+    expect(out).toMatchObject({ ok: false, code: "reply_target_not_own" });
+  });
+
   it("the reply target is part of the request: the same key with another target is refused", async () => {
     const world = makeWorld();
     await world.seedAccount();
+    published(world, "1");
+    published(world, "2");
     const create = creator(world);
     const first = { actor: botActor(), idempotencyKey: KEY, publishAt: T0 + MINUTE };
     await create({ ...first, replyTo: "1" });

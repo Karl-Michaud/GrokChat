@@ -4,10 +4,12 @@ import {
   type BotId,
   type IdempotencyKey,
   type PostId,
+  type XPostId,
 } from "../../entities/identity/ids";
 import { activityOf, type RecentActivity } from "../../entities/policy/recent_activity";
 import type { Post } from "../../entities/posts/post";
 import { DAY, type Instant } from "../../entities/time/instant";
+import type { OwnXPosts } from "../../use_cases/ports/own_x_posts";
 import type { AccountWork, PostFilter, PostReader } from "../../use_cases/ports/post_reader";
 import type { PublishingCount } from "../../use_cases/ports/publishing_count";
 import { postFilterSql } from "./post_filter_sql";
@@ -49,7 +51,7 @@ interface WorkRow {
   readonly metrics: number;
 }
 
-export class D1PostReader implements PostReader, PublishingCount {
+export class D1PostReader implements PostReader, PublishingCount, OwnXPosts {
   constructor(private readonly db: D1Database) {}
 
   async get(id: PostId): Promise<Post | null> {
@@ -83,6 +85,15 @@ export class D1PostReader implements PostReader, PublishingCount {
       .bind(...where.params)
       .all<PostRow>();
     return result.results.map(postFromRow);
+  }
+
+  /** On the `x_post_id` index: only a SENT part's row carries an X id (post_rows.ts). */
+  async isOwnPublishedXPost(account: AccountId, id: XPostId): Promise<boolean> {
+    const row = await this.db
+      .prepare("SELECT 1 AS own FROM post_parts WHERE x_post_id = ?1 AND account_id = ?2 LIMIT 1")
+      .bind(id, account)
+      .first<{ own: number }>();
+    return row !== null;
   }
 
   async recentActivity(account: AccountId, now: Instant): Promise<RecentActivity> {

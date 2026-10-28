@@ -145,6 +145,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const stager = new MediaStager({ media, blobs, usage, uploader, recorder });
   const sender = new PartSender({
     reader,
+    ownPosts: reader,
     accounts,
     tokens,
     publisher: xPublisher,

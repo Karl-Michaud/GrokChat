@@ -6,10 +6,16 @@ import { eventForOutcome } from "../../entities/posts/outcome_event";
 import { currentPartIndex, type Post, type PostPart } from "../../entities/posts/post";
 import type { PostEvent } from "../../entities/posts/post_event";
 import { stateAt } from "../../entities/posts/post_parts";
-import { DEFAULT_RETRY, mapXOutcome, type XOutcome } from "../../entities/x/x_outcome";
+import {
+  createFailureDetail,
+  DEFAULT_RETRY,
+  mapCreateOutcome,
+  type XOutcome,
+} from "../../entities/x/x_outcome";
 import type { AccountRepository } from "../ports/account_repository";
 import type { BudgetMeter } from "../ports/budget_meter";
 import type { Clock } from "../ports/clock";
+import type { OwnXPosts } from "../ports/own_x_posts";
 import type { PostReader } from "../ports/post_reader";
 import type { AccessTokenResult, TokenProvider } from "../ports/token_provider";
 import type { XPublisher } from "../ports/x_publisher";
@@ -29,6 +35,7 @@ export interface PartStep {
 
 export interface PartSenderPorts {
   readonly reader: PostReader;
+  readonly ownPosts: OwnXPosts;
   readonly accounts: AccountRepository;
   readonly tokens: TokenProvider;
   readonly publisher: XPublisher;
@@ -63,6 +70,12 @@ function replyTarget(post: Post, index: number): XPostId | null {
   const previous = stateAt(post, index - 1);
   return previous?.kind === "SENT" ? previous.xPostId : post.replyTo;
 }
+
+/**
+ * A reply whose target is not one of the account's own published posts is never sent: create_post
+ * refuses it up front, and this catches one stored before that rule (GROKCHAT-17).
+ */
+const NOT_OWN_TARGET: XOutcome = { kind: "rejected", reason: "reply_target_not_own" };
 
 const isAppLimit = (outcome: XOutcome): boolean => outcome.kind === "app_rate_limited";
 
@@ -141,6 +154,10 @@ export class PartSender {
     if (account === null) {
       return this.defer(post, index, now + STANDING_RETRY);
     }
+    if (!(await this.replyAllowed(post, index))) {
+      // Stryker disable next-line BooleanLiteral: a rejection is the same event SENDING or PENDING.
+      return this.failed(post, index, account, NOT_OWN_TARGET, false);
+    }
     const recent = await this.ports.reader.recentActivity(account.id, now);
     if (!checkPublishable(account, post, now, recent).allowed) {
       return this.defer(post, index, nextAllowedAt(account, post, now, recent));
@@ -154,6 +171,14 @@ export class PartSender {
       return conflictStep(post);
     }
     return this.create(reserved.post, index, part, account, staged.ids);
+  }
+
+  /** Only part 1 answers the post's own target; later parts answer the part before them. */
+  private async replyAllowed(post: Post, index: number): Promise<boolean> {
+    if (index !== 0 || post.replyTo === null) {
+      return true;
+    }
+    return this.ports.ownPosts.isOwnPublishedXPost(post.accountId, post.replyTo);
   }
 
   /** A failed X call: the account is marked on a 401/403, then the part goes per §3.1.1. */
@@ -188,7 +213,7 @@ export class PartSender {
       const event: PostEvent = { kind: "sent", part: index, xPostId: result.value, now };
       return this.commit(post, account, part, event, `sent ${result.value}`, true);
     }
-    const outcome = mapXOutcome(result.failure, now);
+    const outcome = mapCreateOutcome(result.failure, now, inReplyTo !== null);
     if (outcome.kind === "needs_reconnect") {
       await this.ports.accounts.save({ ...account, status: "NEEDS_RECONNECT" });
     }
@@ -198,7 +223,7 @@ export class PartSender {
       account,
       part,
       event,
-      outcome.kind,
+      createFailureDetail(outcome, result.failure),
       outcome.kind === "unknown",
     );
     return { ...step, appRateLimited: isAppLimit(outcome) };

@@ -353,6 +353,7 @@ describe("PartSender on a malformed PUBLISHING post", () => {
     const post = put(world, aPost({ lifecycle: "PUBLISHING", parts: [part("a")] }));
     const sender = new PartSender({
       reader: world.reader,
+      ownPosts: world.reader,
       accounts: world.accounts,
       tokens: { accessToken: () => Promise.resolve({ kind: "refresh_does_not_fit" }) },
       publisher: world.xPublisher,
