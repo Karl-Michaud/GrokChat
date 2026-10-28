@@ -124,6 +124,8 @@ describe("decodeBase64: strict standard base64 (GROKCHAT-20)", () => {
     ["a non-zero bit after the last byte (two padding)", "/x=="],
     ["a non-zero bit after the last byte (one padding)", "//9="],
     ["a non-ASCII letter", "aGVsbGé="],
+    ["a non-ASCII letter inside a full group", "AéAA"],
+    ["a character past the table", "AA\u{1F600}A"],
   ])("refuses %s", (_, text) => {
     expect(decodeBase64(text)).toBeNull();
   });

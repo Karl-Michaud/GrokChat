@@ -52,10 +52,9 @@ export function joinParts(parts: readonly Uint8Array[]): Uint8Array {
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 /** Each character code's sextet, or -1: a table, since a part is up to 350,000 characters. */
-const SEXTETS = new Int8Array(128).fill(-1);
-for (let index = 0; index < ALPHABET.length; index += 1) {
-  SEXTETS[ALPHABET.charCodeAt(index)] = index;
-}
+const SEXTETS = Int8Array.from({ length: 128 }, (_, code) =>
+  ALPHABET.indexOf(String.fromCharCode(code)),
+);
 /** Line breaks (a wrapped `base64` output) are the only thing tolerated besides the alphabet. */
 const LINE_BREAKS = /[\r\n]/g;
 
