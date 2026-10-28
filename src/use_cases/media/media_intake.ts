@@ -1,5 +1,10 @@
 import type { Account } from "../../entities/accounts/account";
-import { MAX_MEDIA_BYTES, sniffMedia, type MediaKind } from "../../entities/content/staged_media";
+import {
+  MAX_MEDIA_BYTES,
+  sniffMedia,
+  type MediaKind,
+  type MediaSource,
+} from "../../entities/content/staged_media";
 import { stagedMediaId, type StagedMediaId } from "../../entities/identity/ids";
 import { canStore } from "../../entities/media/r2_quota";
 import type { Actor } from "../../entities/identity/actor";
@@ -22,6 +27,16 @@ export type IntakeResult =
     }
   | { readonly ok: false; readonly code: IntakeRefusalCode };
 
+/** What the stored row records about where the bytes came from (GROKCHAT-18). */
+export interface MediaOrigin {
+  readonly label: string | null;
+  readonly source: MediaSource;
+}
+
+/** A dashboard upload is audited as the human's `media.upload`; a URL as `media.stage`. */
+export const intakeAction = (source: MediaSource): string =>
+  source.kind === "dashboard" ? "media.upload" : "media.stage";
+
 export interface MediaIntakePorts {
   readonly media: MediaRepository;
   readonly blobs: MediaBlobStore;
@@ -39,7 +54,12 @@ export interface MediaIntakePorts {
 export class MediaIntake {
   constructor(private readonly ports: MediaIntakePorts) {}
 
-  async store(actor: Actor, account: Account, bytes: Uint8Array): Promise<IntakeResult> {
+  async store(
+    actor: Actor,
+    account: Account,
+    bytes: Uint8Array,
+    origin: MediaOrigin,
+  ): Promise<IntakeResult> {
     const sniffed = sniffMedia(bytes);
     if (sniffed === null) {
       return { ok: false, code: "not_media" };
@@ -64,9 +84,11 @@ export class MediaIntake {
       sha256: await this.ports.hasher.sha256Hex(bytes),
       stagedAt: now,
       attachedTo: null,
+      label: origin.label,
+      source: origin.source,
     });
     await this.ports.audit.done(
-      { actor, action: "media.stage", accountId: account.id, postId: null },
+      { actor, action: intakeAction(origin.source), accountId: account.id, postId: null },
       id,
     );
     return { ok: true, mediaId: id, kind: sniffed.kind, size: bytes.length };

@@ -74,6 +74,7 @@ import { CollectAccountMetrics } from "../../../src/use_cases/run_services/colle
 import { GuardedTransition } from "../../../src/use_cases/run_services/guarded_transition";
 import { MediaCleanup } from "../../../src/use_cases/run_services/media_cleanup";
 import { MemoryMediaCleanupCandidates } from "../../../src/frameworks/memory/memory_media_cleanup";
+import { MemoryMediaCatalog } from "../../../src/frameworks/memory/memory_media_catalog";
 import { MediaStager } from "../../../src/use_cases/run_services/media_stager";
 import { PartSender } from "../../../src/use_cases/run_services/part_sender";
 import { PublishPost } from "../../../src/use_cases/run_services/publish_post";
@@ -116,6 +117,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const writer = new MemoryPostWriter(table, audit, costs);
   const accounts = new MemoryAccountRepository();
   const media = new MemoryMediaRepository();
+  const catalog = new MemoryMediaCatalog(media);
   const blobs = new MemoryMediaBlobStore();
   const usage = new MemoryMediaUsage();
   const fetcher = new ScriptedMediaFetcher();
@@ -239,6 +241,8 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
       sha256: "s",
       stagedAt: clock.now(),
       attachedTo: null,
+      label: null,
+      source: { kind: "dashboard" },
     };
     await media.save(item);
     return item;
@@ -259,6 +263,7 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     writer,
     accounts,
     media,
+    catalog,
     blobs,
     usage,
     fetcher,

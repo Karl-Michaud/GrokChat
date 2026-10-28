@@ -28,9 +28,9 @@
     // Exactly as browsers send Origin: the dashboard's Origin check and the OAuth callback
     // (<origin>/oauth/x/callback, registered on the X app). `.dev.vars` overrides it for `wrangler dev`.
     "GROKCHAT_PUBLIC_ORIGIN": "https://grokchat.grokchat.workers.dev",
-    // Comma-separated hosts `stage_media_from_url` may fetch from (plan §3.5, U18). Empty: every
-    // media-by-URL request is refused (`host_not_allowed`) until hosts are listed here.
-    "GROKCHAT_MEDIA_HOSTS": "",
+    // Comma-separated hosts `stage_media_from_url` may fetch from (plan §3.5, U18), each matched
+    // exactly. imgen.x.ai is Grok's image host (GROKCHAT-18): public JPEG links, valid ~4 h.
+    "GROKCHAT_MEDIA_HOSTS": "imgen.x.ai",
   },
   // scheduled() dispatches by controller.cron (src/frameworks/cron/dispatch.ts, CRONS): publish
   // every minute, reconcile every 10, metrics and the staged-media cleanup every 15. 3 of 5 allowed.

@@ -228,7 +228,8 @@ function newPersonForm(csrf: string): Html {
 function tokenControl(person: PersonGroup, csrf: string, base: string): Html {
   const form = (label: string, className: string) =>
     html`<form method="post" action="${base}/token" hx-boost="false" class="inline-form">
-      ${csrfField(csrf)}<button class="${className}">${icon("key")}<span>${label}</span></button>
+      ${csrfField(csrf)}<input type="hidden" name="issued" value="${person.issued}" />
+      <button class="${className}">${icon("key")}<span>${label}</span></button>
     </form>`;
   if (!person.hasToken) {
     return form("Generate token", "btn btn-primary btn-sm");

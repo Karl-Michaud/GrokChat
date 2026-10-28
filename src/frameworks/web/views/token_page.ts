@@ -1,7 +1,11 @@
 import { html } from "hono/html";
-import type { TokenView } from "../../../interface_adapters/dashboard/people_controller";
+import type {
+  StaleTokenView,
+  TokenPanel,
+  TokenView,
+} from "../../../interface_adapters/dashboard/people_controller";
 import type { PageFrame } from "../respond";
-import { copyField } from "./components";
+import { copyField, csrfField } from "./components";
 import { icon } from "./icons";
 import { shell, type Html } from "./layout";
 
@@ -91,7 +95,45 @@ function prompt(view: TokenView): Html {
  * token: no URL, redirect, log or audit line ever holds it, the response is `no-store`, and
  * `hx-history="false"` keeps htmx from snapshotting the page.
  */
-export function tokenPage(view: TokenView, frame: PageFrame): Html {
+export function tokenPage(panel: TokenPanel, frame: PageFrame): Html {
+  return panel.kind === "issued" ? issuedPage(panel.view, frame) : stalePage(panel.view, frame);
+}
+
+/**
+ * A re-sent token form (a reload, GROKCHAT-18): nothing was rotated. Rotating again is a fresh,
+ * deliberate press, whose form names the token the person has now.
+ */
+function stalePage(view: StaleTokenView, frame: PageFrame): Html {
+  const action = `/dashboard/people/${encodeURIComponent(view.personId)}/token`;
+  return shell(
+    {
+      title: `Token already issued for ${view.personName}`,
+      subtitle: "Nothing was changed",
+      tools: html`<a class="btn" href="/dashboard/accounts">${icon("back")}<span>Back</span></a>`,
+      body: html`<section class="card token-page" hx-history="false">
+        <div class="card-body stack">
+          <p class="callout warning" role="alert">
+            ${icon("warning")}
+            <span>
+              <strong>This token was already issued.</strong> The page was reloaded or the form
+              sent twice, so the token was not rotated again. ${view.personName}: ${view.current}.
+              If you missed copying it, rotate again: the current token then stops working.
+            </span>
+          </p>
+          <form method="post" action="${action}" hx-boost="false" class="inline-form">
+            ${csrfField(frame.csrf)}<input type="hidden" name="issued" value="${view.issued}" />
+            <button class="btn btn-primary btn-sm">
+              ${icon("key")}<span>Rotate again</span>
+            </button>
+          </form>
+        </div>
+      </section>`,
+    },
+    frame,
+  );
+}
+
+function issuedPage(view: TokenView, frame: PageFrame): Html {
   const title = `${view.rotated ? "New token" : "Token"} for ${view.personName}`;
   return shell(
     {

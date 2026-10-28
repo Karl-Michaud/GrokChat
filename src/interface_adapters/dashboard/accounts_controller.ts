@@ -15,6 +15,7 @@ import { filled, formatClock } from "./form_values";
 import { invalid, page, redirect, refused, type Outcome } from "./outcome";
 import { parsePolicyForm, policyForm, type PolicyForm } from "./policy_form";
 import { runUseCase } from "./presenter";
+import { issuedField } from "./token_form";
 import type { AccountUseCases } from "./use_cases";
 
 /** One choice of a select (the Owner select). */
@@ -57,6 +58,8 @@ export interface PersonGroup {
   /** "Token set Oct 27, 2026" or "No token". */
   readonly token: string;
   readonly hasToken: boolean;
+  /** The token form's `issued` field, so a re-sent form never rotates twice (GROKCHAT-18). */
+  readonly issued: string;
   readonly accounts: readonly AccountCard[];
 }
 
@@ -158,6 +161,7 @@ function group(listing: PersonListing, index: number, context: CardContext): Per
     count: plural(accounts.length, "account", "accounts"),
     token: person.token === null ? "No token" : `Token set ${tokenDate(person.token.createdAt)}`,
     hasToken: person.token !== null,
+    issued: issuedField(person.token?.createdAt ?? null),
     accounts: accounts.map((account) => card(account, context)),
   };
 }

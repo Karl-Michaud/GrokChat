@@ -7,6 +7,7 @@ import { AccountsController } from "../../interface_adapters/dashboard/accounts_
 import { ActivityController } from "../../interface_adapters/dashboard/activity_controller";
 import { AnalyticsController } from "../../interface_adapters/dashboard/analytics_controller";
 import { OAuthController } from "../../interface_adapters/dashboard/oauth_controller";
+import { MediaController } from "../../interface_adapters/dashboard/media_controller";
 import { PeopleController } from "../../interface_adapters/dashboard/people_controller";
 import { PostCommandsController } from "../../interface_adapters/dashboard/post_commands_controller";
 import { PostsController } from "../../interface_adapters/dashboard/posts_controller";
@@ -15,6 +16,7 @@ import type {
   AccountDirectory,
   AccountUseCases,
   AnalyticsSource,
+  MediaUseCases,
   OAuthUseCases,
   PeopleDirectory,
   PeopleUseCases,
@@ -22,6 +24,10 @@ import type {
   PostPageUseCases,
 } from "../../interface_adapters/dashboard/use_cases";
 import { AssignAccountInteractor } from "../../use_cases/assign_account/interactor";
+import { DeleteMediaInteractor } from "../../use_cases/delete_media/interactor";
+import { GetMediaFileInteractor } from "../../use_cases/get_media_file/interactor";
+import { ListMediaInteractor } from "../../use_cases/list_media/interactor";
+import { StageMediaUploadInteractor } from "../../use_cases/stage_media_upload/interactor";
 import { CreatePersonInteractor } from "../../use_cases/create_person/interactor";
 import { DeletePersonInteractor } from "../../use_cases/delete_person/interactor";
 import { IssuePersonTokenInteractor } from "../../use_cases/issue_person_token/interactor";
@@ -115,6 +121,19 @@ function accountUseCases(b: WorkerGraph): AccountUseCases & OAuthUseCases {
   };
 }
 
+/** GROKCHAT-18: the Media page, human only; uploads go through the same intake as URLs. */
+function mediaUseCases(b: WorkerGraph): MediaUseCases {
+  const deleting = { ...b, audit: b.actionAudit };
+  return {
+    ...directory(b),
+    ...peopleDirectory(b),
+    listMedia: (p) => new ListMediaInteractor(b, p),
+    upload: (p) => new StageMediaUploadInteractor(b.accounts, b.intake, b.guard, p),
+    deleteMedia: (p) => new DeleteMediaInteractor(deleting, p),
+    mediaFile: (p) => new GetMediaFileInteractor(b, p),
+  };
+}
+
 function session(b: WorkerGraph) {
   return (verifier: PasswordVerifier) =>
     new SessionController({
@@ -140,6 +159,7 @@ export function dashboardControllers(b: WorkerGraph): WebControllers {
     postCommands: new PostCommandsController(posts),
     accounts: new AccountsController(accounts),
     people: new PeopleController(peopleUseCases(b)),
+    media: new MediaController(mediaUseCases(b)),
     oauth: new OAuthController(accounts),
     activity: new ActivityController(
       { ...directory(b), activity: (p) => new ListActivityInteractor(b.activity, b.guard, p) },

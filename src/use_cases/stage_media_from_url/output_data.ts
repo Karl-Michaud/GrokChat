@@ -11,4 +11,10 @@ export type StageMediaFromUrlOutputData =
       readonly kind: MediaKind;
       readonly size: number;
     }
-  | Refusal<"not_found" | "scope" | FetchRefusal | IntakeRefusalCode>;
+  | Refusal<"not_found" | "scope" | Exclude<FetchRefusal, "host_not_allowed"> | IntakeRefusalCode>
+  | HostRefusal;
+
+/** A host refusal names the allowed hosts (config, not a secret), so a bot can say what to do. */
+export interface HostRefusal extends Refusal<"host_not_allowed"> {
+  readonly allowedHosts: readonly string[];
+}

@@ -1,4 +1,5 @@
-import { MAX_UPLOAD_BYTES } from "../../entities/content/staged_media";
+import { DASHBOARD_SOURCE, MAX_UPLOAD_BYTES } from "../../entities/content/staged_media";
+import { parseMediaLabel } from "../../entities/media/media_label";
 import type { AccessGuard } from "../access/access_guard";
 import { refusal } from "../access/refusal";
 import type { MediaIntake } from "../media/media_intake";
@@ -8,7 +9,11 @@ import type { StageMediaUploadInputData } from "./input_data";
 import type { StageMediaUploadOutputBoundary } from "./output_boundary";
 import type { StageMediaUploadOutputData } from "./output_data";
 
-/** The dashboard uploads media directly: one request body, at most 4 MB (plan §3.3 #3). */
+/**
+ * The dashboard's Media page uploads a file for one account (plan §3.3 #3, GROKCHAT-18): human
+ * only, with a label, the kind from the magic bytes and the same limits as `stage_media_from_url`,
+ * stored like staged media (R2 and its D1 row, under the quota guard and the same cleanup).
+ */
 export class StageMediaUploadInteractor implements StageMediaUploadInputBoundary {
   constructor(
     private readonly accounts: AccountRepository,
@@ -35,10 +40,15 @@ export class StageMediaUploadInteractor implements StageMediaUploadInputBoundary
     if (!(await this.guard.humanOnly(action))) {
       return refusal("human_only");
     }
+    const label = parseMediaLabel(input.label);
+    if (!label.ok) {
+      return refusal("invalid_label");
+    }
     if (input.bytes.length > MAX_UPLOAD_BYTES) {
       return refusal("too_large");
     }
-    const stored = await this.intake.store(input.actor, account, input.bytes);
+    const origin = { label: label.label, source: DASHBOARD_SOURCE };
+    const stored = await this.intake.store(input.actor, account, input.bytes, origin);
     return stored.ok ? stored : refusal(stored.code);
   }
 }

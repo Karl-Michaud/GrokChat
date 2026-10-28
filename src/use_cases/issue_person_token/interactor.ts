@@ -42,6 +42,12 @@ export class IssuePersonTokenInteractor implements IssuePersonTokenInputBoundary
       this.presenter.present(refusal("not_found"));
       return;
     }
+    const current = person.token?.createdAt ?? null;
+    if (input.expected?.createdAt !== current) {
+      await this.ports.audit.refused(action, "token_already_issued");
+      this.presenter.present({ ...refusal("token_already_issued"), person });
+      return;
+    }
     const issued = await this.ports.issuer.issue();
     const rotated = person.token !== null;
     const updated = {

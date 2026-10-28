@@ -3,6 +3,12 @@ import type { Instant } from "../time/instant";
 
 export type MediaKind = "PHOTO" | "GIF";
 
+/** Where staged media came from: the dashboard's upload form, or a bot's URL and its host. */
+export type MediaSource =
+  { readonly kind: "dashboard" } | { readonly kind: "url"; readonly host: string };
+
+export const DASHBOARD_SOURCE: MediaSource = { kind: "dashboard" };
+
 /** Media fetched or uploaded into GrokChat's store, waiting to be attached to a post. */
 export interface StagedMedia {
   readonly id: StagedMediaId;
@@ -15,6 +21,9 @@ export interface StagedMedia {
   readonly stagedAt: Instant;
   /** The post it was attached to, if any (decides when it is cleaned up). */
   readonly attachedTo: PostId | null;
+  /** What the owner called it on the dashboard ("launch banner"); null when staged from a URL. */
+  readonly label: string | null;
+  readonly source: MediaSource;
 }
 
 const MB = 1024 * 1024;
@@ -22,8 +31,11 @@ const MB = 1024 * 1024;
 /** X's limits: images ≤ 5 MB, GIFs ≤ 15 MB (plan §1.1). */
 export const MAX_MEDIA_BYTES: Readonly<Record<MediaKind, number>> = { PHOTO: 5 * MB, GIF: 15 * MB };
 
-/** A direct dashboard upload is capped lower: one request body (plan §3.3 #3). */
-export const MAX_UPLOAD_BYTES = 4 * MB;
+/**
+ * A dashboard upload has the same limits as `stage_media_from_url` (GROKCHAT-18): one request body
+ * of at most the GIF limit, then X's limit for the kind its magic bytes show.
+ */
+export const MAX_UPLOAD_BYTES = MAX_MEDIA_BYTES.GIF;
 
 export interface SniffedMedia {
   readonly kind: MediaKind;

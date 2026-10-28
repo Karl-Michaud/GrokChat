@@ -22,7 +22,7 @@ const REFUSALS =
 export const TOOL_CATALOG: Readonly<Record<ToolName, ToolInfo>> = {
   create_post: {
     ...WRITE,
-    description: `Post one text (≤ 280 weighted characters) on your account's X profile, now or at publish_at. Attach up to 4 photos or 1 GIF by media_ids from grokchat___stage_media_from_url. idempotency_key is required: retrying with the same key and content returns the same post instead of posting twice. Check limits first with grokchat___get_policy. Returns post_id and status (PUBLISHED, SCHEDULED, PENDING_REVIEW, …). ${REFUSALS}`,
+    description: `Post one text (≤ 280 weighted characters) on your account's X profile, now or at publish_at. Attach up to 4 photos or 1 GIF by media_ids: from grokchat___stage_media_from_url for an image you made (a Grok image link), or from grokchat___list_media for a file the owner uploaded on the dashboard's Media page. idempotency_key is required: retrying with the same key and content returns the same post instead of posting twice. Check limits first with grokchat___get_policy. Returns post_id and status (PUBLISHED, SCHEDULED, PENDING_REVIEW, …). ${REFUSALS}`,
   },
   create_thread: {
     ...WRITE,
@@ -30,7 +30,11 @@ export const TOOL_CATALOG: Readonly<Record<ToolName, ToolInfo>> = {
   },
   stage_media_from_url: {
     ...WRITE,
-    description: `Fetch a PNG, JPEG, WebP or GIF from an https URL on the allowed hosts and keep it for a post. Returns media_id to pass in media_ids to grokchat___create_post or grokchat___create_thread. ${REFUSALS}`,
+    description: `Fetch a PNG, JPEG, WebP or GIF from an https URL on the allowed hosts and keep it for a post: for an image you generate with Grok, pass its imgen.x.ai link as it is (links expire after a few hours, so stage it right away). Returns media_id to pass in media_ids to grokchat___create_post or grokchat___create_thread. A host refusal (\`host_not_allowed\`) lists the allowed hosts in \`message\`. ${REFUSALS}`,
+  },
+  list_media: {
+    ...READ,
+    description: `An account's staged media, newest first: each item's media_id (pass it in media_ids to grokchat___create_post or grokchat___create_thread), label (what the owner called it on the dashboard), content_type, bytes, uploaded_at, source (\`dashboard\` for an owner's upload, else the URL's host), used (a post holds it) and expires_at (when unused media is deleted). status \`unused\` (the default) or \`all\`; limit 1 to 50 (default 20). When the owner says they uploaded a file, call it and use the matching media_id. ${REFUSALS}`,
   },
   edit_post: {
     ...WRITE,

@@ -5,6 +5,7 @@ import { D1AuditLog } from "./d1_audit_log";
 import { D1CostLedger } from "./d1_cost_ledger";
 import { D1FollowerStore } from "./d1_follower_store";
 import { D1LoginThrottle } from "./d1_login_throttle";
+import { D1MediaCatalog } from "./d1_media_catalog";
 import { D1MediaCleanupCandidates } from "./d1_media_cleanup_candidates";
 import { D1MediaRepository } from "./d1_media_repository";
 import { D1MediaUsage } from "./d1_media_usage";
@@ -28,6 +29,7 @@ export function d1Stores(db: D1Database) {
     people: new D1PersonRepository(db),
     owners: new D1AccountOwners(db),
     media: new D1MediaRepository(db),
+    catalog: new D1MediaCatalog(db),
     cleanupCandidates: new D1MediaCleanupCandidates(db),
     usage: new D1MediaUsage(db),
     metrics: new D1MetricsRepository(db),

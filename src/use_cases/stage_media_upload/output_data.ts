@@ -10,4 +10,4 @@ export type StageMediaUploadOutputData =
       readonly kind: MediaKind;
       readonly size: number;
     }
-  | Refusal<"not_found" | "human_only" | IntakeRefusalCode>;
+  | Refusal<"not_found" | "human_only" | "invalid_label" | IntakeRefusalCode>;

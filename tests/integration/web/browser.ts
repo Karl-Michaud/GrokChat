@@ -5,6 +5,7 @@ import { buildWebApp } from "../../../src/frameworks/web/web_app";
 import type { WebControllers } from "../../../src/frameworks/web/controllers";
 import { AccountsController } from "../../../src/interface_adapters/dashboard/accounts_controller";
 import { OAuthController } from "../../../src/interface_adapters/dashboard/oauth_controller";
+import { MediaController } from "../../../src/interface_adapters/dashboard/media_controller";
 import { PeopleController } from "../../../src/interface_adapters/dashboard/people_controller";
 import { PostCommandsController } from "../../../src/interface_adapters/dashboard/post_commands_controller";
 import { PostsController } from "../../../src/interface_adapters/dashboard/posts_controller";
@@ -44,6 +45,7 @@ export function controllersFor(world: World): WebControllers {
     postCommands: new PostCommandsController(useCases),
     accounts: new AccountsController(useCases),
     people: new PeopleController(useCases),
+    media: new MediaController(useCases),
     oauth: new OAuthController(useCases),
     activity: new ActivityController(useCases, world.clock),
   };
@@ -83,6 +85,28 @@ export class Browser {
     const origin = options.origin === undefined ? ORIGIN : options.origin;
     const headers = this.headers(origin === null ? {} : { origin });
     headers.set("content-type", "application/x-www-form-urlencoded");
+    return this.send(new Request(`${ORIGIN}${path}`, { method: "POST", headers, body }));
+  }
+
+  /** A multipart POST, as a browser sends a form with a file (the Media upload, GROKCHAT-18). */
+  async upload(
+    path: string,
+    fields: Record<string, string>,
+    file: { readonly name: string; readonly type: string; readonly bytes: Uint8Array } | null,
+    options: { readonly csrf?: string | null } = {},
+  ): Promise<Response> {
+    const body = new FormData();
+    const csrf = options.csrf === undefined ? this.csrf : options.csrf;
+    if (csrf !== null) {
+      body.append("_csrf", csrf);
+    }
+    for (const [name, value] of Object.entries(fields)) {
+      body.append(name, value);
+    }
+    if (file !== null) {
+      body.append("file", new File([file.bytes.slice()], file.name, { type: file.type }));
+    }
+    const headers = this.headers({ origin: ORIGIN });
     return this.send(new Request(`${ORIGIN}${path}`, { method: "POST", headers, body }));
   }
 

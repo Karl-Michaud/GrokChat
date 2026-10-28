@@ -70,6 +70,7 @@ const HUMAN_ONLY: readonly [string, (world: World) => Promise<void>][] = [
       new StageMediaUploadInteractor(w.accounts, w.intake, w.guard, new Capture()).execute({
         actor: BOT,
         accountId: ACCOUNT,
+        label: "",
         bytes: PNG,
       }),
   ],

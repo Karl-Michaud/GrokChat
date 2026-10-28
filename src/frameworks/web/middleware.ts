@@ -1,6 +1,8 @@
 import { bodyLimit } from "hono/body-limit";
 import { getCookie } from "hono/cookie";
 import type { MiddlewareHandler } from "hono";
+import { MAX_UPLOAD_BYTES } from "../../entities/content/staged_media";
+import { MEDIA_PAGE } from "../../interface_adapters/dashboard/media_controller";
 import { checkUnsafeRequest } from "../../interface_adapters/dashboard/request_guard";
 import { webConfig } from "./config";
 import { formBody } from "./form_body";
@@ -132,11 +134,25 @@ export const checkUnsafe: Middleware = async (c, next) => {
 /** Forms are small: anything larger is refused before it is parsed (the login is public). */
 export const MAX_FORM_BYTES = 64 * 1024;
 
-export const limitBody: Middleware = bodyLimit({
-  maxSize: MAX_FORM_BYTES,
-  onError: (c) =>
-    c.html(
-      errorPage("Refused: the form is too large.", { csrf: "", theme: "system", path: c.req.path }),
-      413,
-    ),
-});
+/**
+ * The Media upload (GROKCHAT-18) is the one larger body: the file, at most the GIF limit (the same
+ * as `stage_media_from_url`), plus its form fields. Only that exact path, and only for a session's
+ * POST: the session check runs after, so an anonymous upload is still refused, just not read.
+ */
+export const MAX_UPLOAD_FORM_BYTES = MAX_UPLOAD_BYTES + MAX_FORM_BYTES;
+
+const limit = (maxSize: number, message: string): Middleware =>
+  bodyLimit({
+    maxSize,
+    onError: (c) =>
+      c.html(errorPage(message, { csrf: "", theme: "system", path: c.req.path }), 413),
+  });
+
+const formLimit = limit(MAX_FORM_BYTES, "Refused: the form is too large.");
+const uploadLimit = limit(
+  MAX_UPLOAD_FORM_BYTES,
+  "Refused: the file is too large (photos up to 5 MB, GIFs up to 15 MB).",
+);
+
+export const limitBody: Middleware = (c, next) =>
+  c.req.method === "POST" && c.req.path === MEDIA_PAGE ? uploadLimit(c, next) : formLimit(c, next);

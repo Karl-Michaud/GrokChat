@@ -13,4 +13,13 @@ export type IssuePersonTokenOutputData =
       readonly rotated: boolean;
       readonly accounts: readonly Account[];
     }
-  | Refusal<"human_only" | "not_found">;
+  | Refusal<"human_only" | "not_found">
+  | TokenAlreadyIssued;
+
+/**
+ * The form was for a token the person no longer has (a reload re-sent it): nothing changed; the
+ * dashboard asks whether to rotate again, with the person's current token as the new expectation.
+ */
+export interface TokenAlreadyIssued extends Refusal<"token_already_issued"> {
+  readonly person: Person;
+}

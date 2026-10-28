@@ -5,6 +5,7 @@ import type {
   AccountUseCases,
   ActivityUseCases,
   AnalyticsUseCases,
+  MediaUseCases,
   OAuthUseCases,
   PeopleUseCases,
   PostCommandUseCases,
@@ -42,6 +43,14 @@ import { RejectPostInteractor } from "../../../src/use_cases/reject_post/interac
 import { ReschedulePostInteractor } from "../../../src/use_cases/reschedule_post/interactor";
 import { SetAccountStatusInteractor } from "../../../src/use_cases/set_account_status/interactor";
 import { SetPolicyInteractor } from "../../../src/use_cases/set_policy/interactor";
+import { DeleteMediaInteractor } from "../../../src/use_cases/delete_media/interactor";
+import type { DeleteMediaOutputBoundary } from "../../../src/use_cases/delete_media/output_boundary";
+import { GetMediaFileInteractor } from "../../../src/use_cases/get_media_file/interactor";
+import type { GetMediaFileOutputBoundary } from "../../../src/use_cases/get_media_file/output_boundary";
+import { ListMediaInteractor } from "../../../src/use_cases/list_media/interactor";
+import type { ListMediaOutputBoundary } from "../../../src/use_cases/list_media/output_boundary";
+import { StageMediaUploadInteractor } from "../../../src/use_cases/stage_media_upload/interactor";
+import type { StageMediaUploadOutputBoundary } from "../../../src/use_cases/stage_media_upload/output_boundary";
 import type { Post } from "../../../src/entities/posts/post";
 import type { UseCaseFactory } from "../../../src/interface_adapters/dashboard/presenter";
 import { PostCommandsController } from "../../../src/interface_adapters/dashboard/post_commands_controller";
@@ -55,7 +64,8 @@ export type DashboardUseCases = SessionUseCases &
   OAuthUseCases &
   AnalyticsUseCases &
   ActivityUseCases &
-  PeopleUseCases;
+  PeopleUseCases &
+  MediaUseCases;
 
 /** Accepts exactly this password. */
 export const fixedPassword = (password: string): PasswordVerifier => ({
@@ -144,6 +154,19 @@ export function dashboardUseCases(
       ),
     mediaUsage: (p) => new GetMediaUsageInteractor(world.usage, guard, clock, p),
     ...peopleUseCases(world),
+    ...mediaUseCases(world),
+  };
+}
+
+/** GROKCHAT-18: the Media page's use cases over the in-memory world, as main.ts wires them. */
+function mediaUseCases(world: World) {
+  const deleting = { ...world, audit: world.actionAudit };
+  return {
+    listMedia: (p: ListMediaOutputBoundary) => new ListMediaInteractor(world, p),
+    upload: (p: StageMediaUploadOutputBoundary) =>
+      new StageMediaUploadInteractor(world.accounts, world.intake, world.guard, p),
+    deleteMedia: (p: DeleteMediaOutputBoundary) => new DeleteMediaInteractor(deleting, p),
+    mediaFile: (p: GetMediaFileOutputBoundary) => new GetMediaFileInteractor(world, p),
   };
 }
 

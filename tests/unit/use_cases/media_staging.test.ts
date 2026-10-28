@@ -50,6 +50,8 @@ describe("stageMediaFromUrl (plan §3.3 #3, U18)", () => {
       sha256: await world.hasher.sha256Hex(PNG),
       stagedAt: T0,
       attachedTo: null,
+      label: null,
+      source: { kind: "url", host: "cdn.example.com" },
     });
     expect(await world.usage.current(T0)).toStrictEqual({
       month: "2026-10",
@@ -73,6 +75,11 @@ describe("stageMediaFromUrl (plan §3.3 #3, U18)", () => {
     expect(await stage(world, "https://127.0.0.1/a.png")).toStrictEqual({
       ok: false,
       code: "literal_ip",
+    });
+    expect(await stage(world, "https://evil.com/a.png")).toStrictEqual({
+      ok: false,
+      code: "host_not_allowed",
+      allowedHosts: ["cdn.example.com"],
     });
     expect(await stage(world)).toStrictEqual({ ok: false, code: "unreachable" });
     expect(world.fetcher.requests).toHaveLength(1);
@@ -98,12 +105,65 @@ describe("stageMediaFromUrl (plan §3.3 #3, U18)", () => {
   });
 });
 
+describe("stageMediaFromUrl: Grok's image host and the host refusal (GROKCHAT-18)", () => {
+  const IMGEN = "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-0b7c.jpeg";
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+  const stage = async (world: World, url: string, allowedHosts: readonly string[]) => {
+    const presenter = new Capture<StageMediaFromUrlOutputData>();
+    const ports = { ...world, allowedHosts };
+    await new StageMediaFromUrlInteractor(ports, presenter).execute({
+      actor: botActor(),
+      accountId: ACCOUNT,
+      url,
+    });
+    return presenter.last;
+  };
+
+  it("an imgen.x.ai link stages, recorded with its host", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    world.fetcher.files.set(IMGEN, JPEG);
+    expect(await stage(world, IMGEN, ["imgen.x.ai"])).toMatchObject({ ok: true, kind: "PHOTO" });
+    expect([...world.media.rows.values()]).toMatchObject([
+      { contentType: "image/jpeg", label: null, source: { kind: "url", host: "imgen.x.ai" } },
+    ]);
+  });
+
+  it("a host refusal carries the allowlist, empty when none is set", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    expect(await stage(world, IMGEN, [])).toStrictEqual({
+      ok: false,
+      code: "host_not_allowed",
+      allowedHosts: [],
+    });
+    expect(await stage(world, "https://other.example/a.png", ["imgen.x.ai", "cdn.x"])).toStrictEqual(
+      { ok: false, code: "host_not_allowed", allowedHosts: ["imgen.x.ai", "cdn.x"] },
+    );
+    expect(world.fetcher.requests).toStrictEqual([]);
+  });
+
+  it("a redirect refused by the fetcher for its host carries the allowlist too", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    world.fetcher.responses.set(IMGEN, { ok: false, reason: "host_not_allowed" });
+    expect(await stage(world, IMGEN, ["imgen.x.ai"])).toStrictEqual({
+      ok: false,
+      code: "host_not_allowed",
+      allowedHosts: ["imgen.x.ai"],
+    });
+    world.fetcher.responses.set(IMGEN, { ok: false, reason: "bad_type" });
+    expect(await stage(world, IMGEN, ["imgen.x.ai"])).toStrictEqual({ ok: false, code: "bad_type" });
+  });
+});
+
 describe("stageMediaUpload (dashboard)", () => {
   const upload = async (
     world: World,
     bytes: Uint8Array,
     actor = HUMAN,
     account: AccountId = ACCOUNT,
+    label = "launch banner",
   ) => {
     const presenter = new Capture<StageMediaUploadOutputData>();
     await new StageMediaUploadInteractor(
@@ -114,27 +174,77 @@ describe("stageMediaUpload (dashboard)", () => {
     ).execute({
       actor,
       accountId: account,
+      label,
       bytes,
     });
     return presenter.last;
   };
 
-  it("a human uploads up to 4 MB", async () => {
+  it("a human uploads with a label: stored like staged media, audited as media.upload", async () => {
     const world = makeWorld();
     await world.seedAccount();
-    expect(await upload(world, GIF)).toStrictEqual({
+    expect(await upload(world, GIF, HUMAN, ACCOUNT, "  launch   banner ")).toStrictEqual({
       ok: true,
       mediaId: stagedMediaId("id-1"),
       kind: "GIF",
       size: GIF.length,
     });
-    const limit = new Uint8Array(4 * 1024 * 1024);
-    limit.set(PNG);
-    expect((await upload(world, limit)).ok).toBe(true);
-    expect(await upload(world, new Uint8Array(4 * 1024 * 1024 + 1))).toStrictEqual({
-      ok: false,
-      code: "too_large",
+    expect(world.media.rows.get(stagedMediaId("id-1"))).toMatchObject({
+      ownerAccountId: ACCOUNT,
+      contentType: "image/gif",
+      label: "launch banner",
+      source: { kind: "dashboard" },
+      attachedTo: null,
     });
+    expect(await world.usage.current(T0)).toMatchObject({ storedBytes: GIF.length, classA: 1 });
+    expect(world.audit.events.map((event) => [event.actor, event.action, event.detail])).toStrictEqual(
+      [["human:owner", "media.upload", "id-1"]],
+    );
+    expect(await upload(world, PNG, HUMAN, ACCOUNT, "")).toMatchObject({ ok: true });
+    expect(world.media.rows.get(stagedMediaId("id-2"))?.label).toBeNull();
+  });
+
+  it("the same limits as stage_media_from_url: photos 5 MB, GIFs 15 MB", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    const photo = new Uint8Array(5 * 1024 * 1024);
+    photo.set(PNG);
+    expect((await upload(world, photo)).ok).toBe(true);
+    const overPhoto = new Uint8Array(5 * 1024 * 1024 + 1);
+    overPhoto.set(PNG);
+    expect(await upload(world, overPhoto)).toStrictEqual({ ok: false, code: "too_large" });
+    const gif = new Uint8Array(15 * 1024 * 1024);
+    gif.set(GIF);
+    expect((await upload(world, gif)).ok).toBe(true);
+    const overGif = new Uint8Array(15 * 1024 * 1024 + 1);
+    overGif.set(GIF);
+    expect(await upload(world, overGif)).toStrictEqual({ ok: false, code: "too_large" });
+  });
+
+  it("refuses a label over 80 characters and stores nothing", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    expect(await upload(world, PNG, HUMAN, ACCOUNT, "x".repeat(81))).toStrictEqual({
+      ok: false,
+      code: "invalid_label",
+    });
+    expect(world.media.rows.size).toBe(0);
+  });
+
+  it("the type comes from the bytes: a renamed text file is refused", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    const text = new TextEncoder().encode("not really a png, just text");
+    expect(await upload(world, text)).toStrictEqual({ ok: false, code: "not_media" });
+    expect(world.blobs.blobs.size).toBe(0);
+  });
+
+  it("goes through the R2 quota guard", async () => {
+    const world = makeWorld();
+    await world.seedAccount();
+    await world.usage.record({ storedBytes: 8_000_000_000, classA: 0, classB: 0 }, T0);
+    expect(await upload(world, PNG)).toStrictEqual({ ok: false, code: "media_quota" });
+    expect(world.media.rows.size).toBe(0);
   });
 
   it("refuses a bot, an unknown account and bytes that are not media", async () => {

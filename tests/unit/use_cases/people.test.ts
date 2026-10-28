@@ -207,7 +207,7 @@ describe("issuePersonToken", () => {
     await world.owners.assign(ACCOUNT, PERSON);
     const presenter = new Capture<IssuePersonTokenOutputData>();
     const issue = new IssuePersonTokenInteractor({ ...ports(world) }, presenter);
-    await issue.execute({ actor: HUMAN, personId: PERSON });
+    await issue.execute({ actor: HUMAN, personId: PERSON, expected: { createdAt: null } });
     const first = presenter.last;
     if (!first.ok) {
       throw new Error("refused");
@@ -224,7 +224,7 @@ describe("issuePersonToken", () => {
     });
     expect(await world.people.findByTokenHash(hash)).toStrictEqual(first.person);
     world.clock.advance(1000);
-    await issue.execute({ actor: HUMAN, personId: PERSON });
+    await issue.execute({ actor: HUMAN, personId: PERSON, expected: { createdAt: T0 } });
     const second = presenter.last;
     if (!second.ok) {
       throw new Error("refused");
@@ -253,6 +253,7 @@ describe("issuePersonToken", () => {
     await new IssuePersonTokenInteractor(ports(world), presenter).execute({
       actor: HUMAN,
       personId: PERSON,
+      expected: { createdAt: null },
     });
     expect(presenter.last).toMatchObject({ ok: true, accounts: [] });
   });
@@ -262,14 +263,64 @@ describe("issuePersonToken", () => {
     await world.people.save(aPerson());
     const presenter = new Capture<IssuePersonTokenOutputData>();
     const issue = new IssuePersonTokenInteractor(ports(world), presenter);
-    await issue.execute({ actor: botActor(), personId: PERSON });
+    const expected = { createdAt: null };
+    await issue.execute({ actor: botActor(), personId: PERSON, expected });
     expect(presenter.last).toStrictEqual(HUMAN_ONLY);
-    await issue.execute({ actor: HUMAN, personId: personId("ghost") });
+    await issue.execute({ actor: HUMAN, personId: personId("ghost"), expected });
     expect(presenter.last).toStrictEqual({ ok: false, code: "not_found" });
     expect((await world.people.get(PERSON))?.token).toBeNull();
     expect(audited(world)).toStrictEqual([
       ["bot:bot-1", "refused.person.token", null, "human_only"],
     ]);
+  });
+});
+
+describe("issuePersonToken: a re-sent form never rotates again (GROKCHAT-18)", () => {
+  it("issues only while the token is the one the form was shown with", async () => {
+    const world = makeWorld();
+    await world.people.save(aPerson());
+    const presenter = new Capture<IssuePersonTokenOutputData>();
+    const issue = new IssuePersonTokenInteractor(ports(world), presenter);
+    const form = { actor: HUMAN, personId: PERSON, expected: { createdAt: null } };
+    await issue.execute(form);
+    expect(presenter.last.ok).toBe(true);
+    const issued = await world.people.get(PERSON);
+    world.clock.advance(5000);
+    await issue.execute(form);
+    expect(presenter.last).toStrictEqual({
+      ok: false,
+      code: "token_already_issued",
+      person: issued,
+    });
+    expect(await world.people.get(PERSON)).toStrictEqual(issued);
+    await issue.execute({ ...form, expected: { createdAt: T0 + 1 } });
+    expect(presenter.last).toMatchObject({ ok: false, code: "token_already_issued" });
+    await issue.execute({ ...form, expected: null });
+    expect(presenter.last).toMatchObject({ ok: false, code: "token_already_issued" });
+    expect(await world.people.get(PERSON)).toStrictEqual(issued);
+    await issue.execute({ ...form, expected: { createdAt: T0 } });
+    expect(presenter.last).toMatchObject({ ok: true, rotated: true });
+    expect(audited(world).map((row) => row[1])).toStrictEqual([
+      "person.token",
+      "refused.person.token",
+      "refused.person.token",
+      "refused.person.token",
+      "person.token",
+    ]);
+    expect(audited(world)[1]?.[3]).toBe("token_already_issued");
+  });
+
+  it("a person with no token and no expectation sent is not issued one", async () => {
+    const world = makeWorld();
+    await world.people.save(aPerson());
+    const presenter = new Capture<IssuePersonTokenOutputData>();
+    await new IssuePersonTokenInteractor(ports(world), presenter).execute({
+      actor: HUMAN,
+      personId: PERSON,
+      expected: null,
+    });
+    expect(presenter.last).toMatchObject({ ok: false, code: "token_already_issued" });
+    expect((await world.people.get(PERSON))?.token).toBeNull();
   });
 });
 

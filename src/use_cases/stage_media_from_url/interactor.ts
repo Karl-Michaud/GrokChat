@@ -1,14 +1,14 @@
 import { MAX_MEDIA_BYTES } from "../../entities/content/staged_media";
-import { checkMediaUrl } from "../../entities/media/media_url";
+import { checkMediaUrl, urlHost } from "../../entities/media/media_url";
 import type { AccessGuard } from "../access/access_guard";
 import { refusal } from "../access/refusal";
 import type { MediaIntake } from "../media/media_intake";
 import type { AccountRepository } from "../ports/account_repository";
-import type { MediaFetcher } from "../ports/media_fetcher";
+import type { FetchRefusal, MediaFetcher } from "../ports/media_fetcher";
 import type { StageMediaFromUrlInputBoundary } from "./input_boundary";
 import type { StageMediaFromUrlInputData } from "./input_data";
 import type { StageMediaFromUrlOutputBoundary } from "./output_boundary";
-import type { StageMediaFromUrlOutputData } from "./output_data";
+import type { HostRefusal, StageMediaFromUrlOutputData } from "./output_data";
 
 export const MEDIA_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"] as const;
 
@@ -48,13 +48,23 @@ export class StageMediaFromUrlInteractor implements StageMediaFromUrlInputBounda
     }
     const url = checkMediaUrl(input.url, this.ports.allowedHosts);
     if (!url.allowed) {
-      return refusal(url.reason);
+      return this.refused(url.reason);
     }
     const fetched = await this.ports.fetcher.fetch(input.url, MAX_MEDIA_BYTES.GIF, MEDIA_TYPES);
     if (!fetched.ok) {
-      return refusal(fetched.reason);
+      return this.refused(fetched.reason);
     }
-    const stored = await this.ports.intake.store(input.actor, account, fetched.bytes);
+    const origin = { label: null, source: { kind: "url", host: urlHost(input.url) } } as const;
+    const stored = await this.ports.intake.store(input.actor, account, fetched.bytes, origin);
     return stored.ok ? stored : refusal(stored.code);
+  }
+
+  /** A host refusal (the URL's or a redirect's) carries the allowlist; others only their code. */
+  private refused(reason: FetchRefusal): StageMediaFromUrlOutputData {
+    if (reason === "host_not_allowed") {
+      const host: HostRefusal = { ...refusal(reason), allowedHosts: this.ports.allowedHosts };
+      return host;
+    }
+    return refusal(reason);
   }
 }

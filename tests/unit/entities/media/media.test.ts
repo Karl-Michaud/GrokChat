@@ -3,8 +3,11 @@ import {
   KEEP_AFTER_DONE,
   KEEP_UNUSED,
   mediaCleanupDue,
+  mediaExpiresAt,
+  mediaInUse,
 } from "../../../../src/entities/media/media_cleanup";
-import { checkMediaUrl } from "../../../../src/entities/media/media_url";
+import { MAX_LABEL_LENGTH, parseMediaLabel } from "../../../../src/entities/media/media_label";
+import { checkMediaUrl, urlHost } from "../../../../src/entities/media/media_url";
 import {
   canRead,
   canStore,
@@ -138,5 +141,97 @@ describe("checkMediaUrl (SSRF policy, U18)", () => {
     ["host_not_allowed", "https://cdn.example.com.evil.com/a.png"],
   ] as const)("refuses %s: %s", (reason, url) => {
     expect(checkMediaUrl(url, hosts)).toStrictEqual({ allowed: false, reason });
+  });
+});
+
+describe("Grok's image host (GROKCHAT-18)", () => {
+  const hosts = ["imgen.x.ai"];
+
+  it("allows an imgen.x.ai link exactly as xAI returns it", () => {
+    const url = "https://imgen.x.ai/xai-imgen/xai-tmp-imgen-8f1c2b7e-3a4d-4e5f-9a6b-1c2d3e4f5a6b.jpeg";
+    expect(checkMediaUrl(url, hosts)).toStrictEqual({ allowed: true });
+  });
+
+  it.each([
+    "https://imgen.x.ai.evil.com/a.jpeg",
+    "https://evilimgen.x.ai/a.jpeg",
+    "https://x.ai/a.jpeg",
+    "https://cdn.imgen.x.ai/a.jpeg",
+  ])("is an exact host: refuses %s", (url) => {
+    expect(checkMediaUrl(url, hosts)).toStrictEqual({
+      allowed: false,
+      reason: "host_not_allowed",
+    });
+  });
+
+  it("http and literal IPs are still refused", () => {
+    expect(checkMediaUrl("http://imgen.x.ai/a.jpeg", hosts)).toStrictEqual({
+      allowed: false,
+      reason: "not_https",
+    });
+    expect(checkMediaUrl("https://10.0.0.1/a.jpeg", ["10.0.0.1"])).toStrictEqual({
+      allowed: false,
+      reason: "literal_ip",
+    });
+  });
+});
+
+describe("urlHost", () => {
+  it.each([
+    ["https://IMGEN.x.ai/a.jpeg", "imgen.x.ai"],
+    ["https://imgen.x.ai:443/a", "imgen.x.ai"],
+    ["https://imgen.x.ai", "imgen.x.ai"],
+    ["https://imgen.x.ai?q", "imgen.x.ai"],
+    ["https://imgen.x.ai#f", "imgen.x.ai"],
+    ["HTTPS://a.b/c", "a.b"],
+  ])("%s → %s", (url, host) => {
+    expect(urlHost(url)).toBe(host);
+  });
+});
+
+describe("mediaExpiresAt and mediaInUse (GROKCHAT-18)", () => {
+  const media = aMedia({ stagedAt: T0 });
+
+  it("unused, or held by a cancelled or missed post: two days after staging, and not in use", () => {
+    for (const post of [null, aPost({ lifecycle: "CANCELLED" }), aPost({ lifecycle: "MISSED" })]) {
+      expect(mediaExpiresAt(media, post)).toBe(T0 + KEEP_UNUSED);
+      expect(mediaInUse(post)).toBe(false);
+    }
+  });
+
+  it("a waiting or publishing post holds it with no expiry", () => {
+    for (const lifecycle of ["DRAFT", "PENDING_REVIEW", "SCHEDULED", "PUBLISHING"] as const) {
+      expect(mediaExpiresAt(media, aPost({ lifecycle }))).toBeNull();
+      expect(mediaInUse(aPost({ lifecycle }))).toBe(true);
+    }
+  });
+
+  it("a done post: seven days after the later of staging and its last sent part", () => {
+    const done = aPost({
+      lifecycle: "DONE",
+      parts: [part("a", sentState("x1", T0 + 2 * DAY)), part("b", sentState("x2", T0 + DAY))],
+    });
+    expect(mediaExpiresAt(media, done)).toBe(T0 + 9 * DAY);
+    expect(mediaInUse(done)).toBe(true);
+    const early = aPost({ lifecycle: "DONE", parts: [part("a", sentState("x1", T0 - DAY))] });
+    expect(mediaExpiresAt(media, early)).toBe(T0 + KEEP_AFTER_DONE);
+  });
+});
+
+describe("parseMediaLabel", () => {
+  it("trims and folds whitespace; empty is no label", () => {
+    expect(parseMediaLabel("  launch\n\t banner  ")).toStrictEqual({
+      ok: true,
+      label: "launch banner",
+    });
+    expect(parseMediaLabel(" \n ")).toStrictEqual({ ok: true, label: null });
+    expect(parseMediaLabel("")).toStrictEqual({ ok: true, label: null });
+  });
+
+  it("at most 80 characters", () => {
+    expect(MAX_LABEL_LENGTH).toBe(80);
+    expect(parseMediaLabel("a".repeat(80))).toStrictEqual({ ok: true, label: "a".repeat(80) });
+    expect(parseMediaLabel(` ${"a".repeat(80)} `)).toStrictEqual({ ok: true, label: "a".repeat(80) });
+    expect(parseMediaLabel("a".repeat(81))).toStrictEqual({ ok: false });
   });
 });
