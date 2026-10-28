@@ -21,7 +21,7 @@ export const COLUMNS =
 
 const URL_SOURCE = "url:";
 
-/** `dashboard`, or `url:<host>` (migration 0005). */
+/** `dashboard`, or `url:<host>` (migration 0006). */
 export function sourceColumn(source: MediaSource): string {
   return source.kind === "dashboard" ? "dashboard" : `${URL_SOURCE}${source.host}`;
 }

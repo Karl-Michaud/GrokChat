@@ -196,6 +196,7 @@ function creator(account: AccountId) {
       accountId: account,
       parts: [{ text, media: [] }],
       publishAt: null,
+      replyTo: null,
       idempotencyKey: idempotencyKey("k"),
     });
     return presenter.last;

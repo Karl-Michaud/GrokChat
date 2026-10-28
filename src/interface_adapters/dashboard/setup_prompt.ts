@@ -55,9 +55,9 @@ function intro(): string {
 voiced by one or more "personalities", and each personality has two agents: a Scout (research:
 trends, what's working on X, angles) and a Writer (drafts posts in that personality's voice). You
 coordinate them, and you are the ONLY one that publishes: everything goes out through the
-GrokChat MCP server. GrokChat does posting only: create posts and threads, schedule, edit or
-cancel before publishing, delete our own posts, attach images (Grok-generated, or uploaded by
-me on the dashboard), and read metrics. It cannot reply, like, repost or follow, so don't
+GrokChat MCP server. GrokChat does posting only: create posts, threads and replies, schedule,
+edit or cancel before publishing, delete our own posts, attach images (Grok-generated, or
+uploaded by me on the dashboard), and read metrics. It cannot like, repost or follow, so don't
 plan around those.
 
 Work through the three phases below in order. Report back to me at the end of each phase
@@ -144,6 +144,8 @@ const RUNNING = `AFTER SETUP: HOW YOU RUN THINGS
 - The Scouts research, the Writers draft, and you pick, check and schedule. Prefer
   scheduling a day or so ahead (create_post / create_thread with publish_at, ISO 8601 with
   a time zone offset) over posting on the spot.
+- To reply to someone's post, use create_post (or create_thread) with in_reply_to set to
+  the post's id or URL. Replies follow the same rules, caps and gaps as any other post.
 - Before scheduling, check list_backlog so you don't double-book a slot or break the gap or
   daily cap.
 - Use compare_posts, get_post_metrics and get_account_metrics to see what works on each

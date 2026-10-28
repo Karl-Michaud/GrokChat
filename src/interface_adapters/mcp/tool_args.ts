@@ -17,6 +17,8 @@ export interface CreatePostArgs {
   readonly media_ids?: readonly string[] | undefined;
   /** ISO 8601 with an offset or `Z`; absent: publish now. */
   readonly publish_at?: string | undefined;
+  /** The X post to reply to: its id or its URL; absent: an original post. */
+  readonly in_reply_to?: string | undefined;
   readonly idempotency_key: string;
 }
 
@@ -24,6 +26,8 @@ export interface CreateThreadArgs {
   readonly account_id: string;
   readonly parts: readonly PartArgs[];
   readonly publish_at?: string | undefined;
+  /** As for `create_post`: part 1 replies to this post, the rest chain under it. */
+  readonly in_reply_to?: string | undefined;
   readonly idempotency_key: string;
 }
 

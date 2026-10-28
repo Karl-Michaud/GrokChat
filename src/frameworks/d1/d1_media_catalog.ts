@@ -3,7 +3,7 @@ import type { AccountId } from "../../entities/identity/ids";
 import type { MediaCatalog } from "../../use_cases/ports/media_catalog";
 import { COLUMNS, fromRow, type MediaRow } from "./d1_media_repository";
 
-/** An account's recent staged media, through the `staged_media_owner` index (migration 0005). */
+/** An account's recent staged media, through the `staged_media_owner` index (migration 0006). */
 export class D1MediaCatalog implements MediaCatalog {
   constructor(private readonly db: D1Database) {}
 

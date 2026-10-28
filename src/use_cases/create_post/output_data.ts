@@ -8,6 +8,7 @@ export type CreatePostRefusalCode =
   | "idempotency_key_required"
   | "idempotency_mismatch"
   | "publish_at_past"
+  | "reply_target_invalid"
   | PartsRefusalCode;
 
 export type CreatePostOutputData =

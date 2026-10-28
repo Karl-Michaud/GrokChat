@@ -13,7 +13,7 @@ import { lineChart, type LineChartView } from "./charts";
 import { partStateChip, postStatusChip, type Chip } from "./chips";
 import { dateTimeLabel, exact, relativeTime } from "./format";
 import { toDateTimeInput } from "./form_values";
-import { liveUrl } from "./links";
+import { liveUrl, xPostUrl } from "./links";
 import { metricCells, type MetricCells } from "./metric_cells";
 
 export interface PartDetail {
@@ -47,6 +47,8 @@ export interface PostDetailView {
   readonly publishRelative: string;
   readonly publishAtInput: string;
   readonly resumeAt: string | null;
+  /** The post this one replies to on X (its author's handle is unknown: an `i/web` link). */
+  readonly replyToUrl: string | null;
   readonly createdBy: string;
   readonly version: number;
   readonly parts: readonly PartDetail[];
@@ -131,6 +133,7 @@ export function postDetail(
     publishRelative: relativeTime(post.publishAt, now),
     publishAtInput: toDateTimeInput(post.publishAt),
     resumeAt: post.resumeAt === null ? null : dateTimeLabel(post.resumeAt),
+    replyToUrl: post.replyTo === null ? null : xPostUrl(null, post.replyTo),
     createdBy: post.createdBy,
     version: post.version,
     parts: post.parts.map((part, index) => ({

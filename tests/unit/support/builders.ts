@@ -79,6 +79,7 @@ export function aPost(overrides: Partial<Post> = {}): Post {
     lifecycle: "SCHEDULED",
     publishAt: T0,
     resumeAt: null,
+    replyTo: null,
     idempotencyKey: null,
     requestHash: "hash-1",
     createdBy: HUMAN,

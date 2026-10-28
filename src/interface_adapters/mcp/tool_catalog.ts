@@ -22,11 +22,11 @@ const REFUSALS =
 export const TOOL_CATALOG: Readonly<Record<ToolName, ToolInfo>> = {
   create_post: {
     ...WRITE,
-    description: `Post one text (≤ 280 weighted characters) on your account's X profile, now or at publish_at. Attach up to 4 photos or 1 GIF by media_ids: from grokchat___stage_media_from_url for an image you made (a Grok image link), or from grokchat___list_media for a file the owner uploaded on the dashboard's Media page. idempotency_key is required: retrying with the same key and content returns the same post instead of posting twice. Check limits first with grokchat___get_policy. Returns post_id and status (PUBLISHED, SCHEDULED, PENDING_REVIEW, …). ${REFUSALS}`,
+    description: `Post one text (≤ 280 weighted characters) on your account's X profile, now or at publish_at. Attach up to 4 photos or 1 GIF by media_ids: from grokchat___stage_media_from_url for an image you made (a Grok image link), or from grokchat___list_media for a file the owner uploaded on the dashboard's Media page. To reply to someone's post instead, pass in_reply_to: the post's id or its URL (https://x.com/<handle>/status/<id>); X may refuse a reply to an author who has not mentioned or engaged with your account. idempotency_key is required: retrying with the same key and content returns the same post instead of posting twice. Check limits first with grokchat___get_policy. Returns post_id and status (PUBLISHED, SCHEDULED, PENDING_REVIEW, …). ${REFUSALS}`,
   },
   create_thread: {
     ...WRITE,
-    description: `Post a thread: parts are sent in order, each a reply to the one before (each part ≤ 280 weighted characters, up to 25 parts, media as in grokchat___create_post). idempotency_key is required, as for grokchat___create_post. ${REFUSALS}`,
+    description: `Post a thread: parts are sent in order, each a reply to the one before; with in_reply_to (as in grokchat___create_post) the first part replies to that post, so the whole thread hangs under it (each part ≤ 280 weighted characters, up to 25 parts, media as in grokchat___create_post). idempotency_key is required, as for grokchat___create_post. ${REFUSALS}`,
   },
   stage_media_from_url: {
     ...WRITE,
@@ -51,7 +51,7 @@ export const TOOL_CATALOG: Readonly<Record<ToolName, ToolInfo>> = {
   },
   get_post: {
     ...READ,
-    description: `One post: status, publish time, and each part's text, state and X id. ${REFUSALS}`,
+    description: `One post: status, publish time, the X post it replies to (in_reply_to, null for an original post), and each part's text, state and X id. ${REFUSALS}`,
   },
   list_backlog: {
     ...READ,

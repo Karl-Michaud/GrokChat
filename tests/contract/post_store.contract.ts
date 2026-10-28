@@ -62,6 +62,13 @@ export function postStoreContract(make: () => PostStore): void {
     expect(await reader.get(postId("nope"))).toBeNull();
   });
 
+  it("keeps a reply's target", async () => {
+    const { reader, writer } = make();
+    const reply = aPost({ id: postId("reply-1"), replyTo: xPostId("1850000000000000001") });
+    await writer.add(reply);
+    expect(await reader.get(reply.id)).toStrictEqual(reply);
+  });
+
   it("(bot, key) is unique: the second add returns the first post; humans and other keys do not collide", async () => {
     const { reader, writer } = make();
     const provenance = { ...aPost().provenance, botId: botId("b") };

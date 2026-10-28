@@ -15,9 +15,12 @@ const AUTH_PROBLEM =
 
 /**
  * A 403 refused for the post's content: X's `about:blank` "Forbidden" problems say so in their
- * detail (duplicate content, "not allowed to create", "not permitted to perform this action").
+ * detail (duplicate content, "not allowed to create", "not permitted to perform this action", and
+ * a reply X does not allow: "Reply to this conversation is not allowed because you have not been
+ * mentioned or otherwise engaged by the author").
  */
-const CONTENT_DETAIL = /duplicate content|not allowed to (create|post)|not permitted to perform/i;
+const CONTENT_DETAIL =
+  /duplicate content|not allowed to (create|post)|not permitted to perform|reply to this conversation is not allowed/i;
 
 /** The human-readable part of an X error body: a problem's title and detail, or `errors[0]`. */
 export function errorDetail(body: unknown): string {
