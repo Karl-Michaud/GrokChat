@@ -1,5 +1,5 @@
 /** The people use cases (GROKCHAT-16): human only, audited, never a token in the audit. */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { accountId, personId, xUserId } from "../../../src/entities/identity/ids";
 import { AssignAccountInteractor } from "../../../src/use_cases/assign_account/interactor";
 import type { AssignAccountOutputData } from "../../../src/use_cases/assign_account/output_data";
@@ -308,6 +308,50 @@ describe("issuePersonToken: a re-sent form never rotates again (GROKCHAT-18)", (
       "person.token",
     ]);
     expect(audited(world)[1]?.[3]).toBe("token_already_issued");
+  });
+
+  it("of two forms sent at once for the same token, exactly one rotates; the other is shown the winner", async () => {
+    const world = makeWorld();
+    await world.people.save(aPerson({ token: { sha256: "a".repeat(64), createdAt: T0 } }));
+    const presenter = new Capture<IssuePersonTokenOutputData>();
+    const issue = new IssuePersonTokenInteractor(ports(world), presenter);
+    const form = { actor: HUMAN, personId: PERSON, expected: { createdAt: T0 } };
+    await Promise.all([issue.execute(form), issue.execute(form)]);
+    const [won, lost] = presenter.outputs;
+    const stored = await world.people.get(PERSON);
+    expect(won).toMatchObject({ ok: true, rotated: true, person: stored });
+    expect(lost).toStrictEqual({ ok: false, code: "token_already_issued", person: stored });
+    expect(audited(world).map((row) => row[1])).toStrictEqual([
+      "person.token",
+      "refused.person.token",
+    ]);
+  });
+
+  it("a rotation in the same millisecond still gets a later creation time, so the old form is spent", async () => {
+    const world = makeWorld();
+    await world.people.save(aPerson());
+    const presenter = new Capture<IssuePersonTokenOutputData>();
+    const issue = new IssuePersonTokenInteractor(ports(world), presenter);
+    await issue.execute({ actor: HUMAN, personId: PERSON, expected: { createdAt: null } });
+    await issue.execute({ actor: HUMAN, personId: PERSON, expected: { createdAt: T0 } });
+    expect((await world.people.get(PERSON))?.token?.createdAt).toBe(T0 + 1);
+    await issue.execute({ actor: HUMAN, personId: PERSON, expected: { createdAt: T0 } });
+    expect(presenter.last).toMatchObject({ ok: false, code: "token_already_issued" });
+    expect((await world.people.get(PERSON))?.token?.createdAt).toBe(T0 + 1);
+  });
+
+  it("a person deleted between the read and the write is not given a token", async () => {
+    const world = makeWorld();
+    await world.people.save(aPerson());
+    const presenter = new Capture<IssuePersonTokenOutputData>();
+    const person = await world.people.get(PERSON);
+    vi.spyOn(world.people, "replaceToken").mockImplementation(async () => {
+      await world.people.delete(PERSON);
+      return false;
+    });
+    const issue = new IssuePersonTokenInteractor(ports(world), presenter);
+    await issue.execute({ actor: HUMAN, personId: PERSON, expected: { createdAt: null } });
+    expect(presenter.last).toStrictEqual({ ok: false, code: "token_already_issued", person });
   });
 
   it("a person with no token and no expectation sent is not issued one", async () => {

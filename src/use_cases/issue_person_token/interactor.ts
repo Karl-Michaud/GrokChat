@@ -1,6 +1,7 @@
 import type { Account } from "../../entities/accounts/account";
+import type { Person } from "../../entities/people/person";
 import type { AccessGuard } from "../access/access_guard";
-import type { ActionAudit } from "../access/action_audit";
+import type { ActionAudit, AuditedAction } from "../access/action_audit";
 import { refusal } from "../access/refusal";
 import type { AccountOwners } from "../ports/account_owners";
 import type { AccountRepository } from "../ports/account_repository";
@@ -44,17 +45,19 @@ export class IssuePersonTokenInteractor implements IssuePersonTokenInputBoundary
     }
     const current = person.token?.createdAt ?? null;
     if (input.expected?.createdAt !== current) {
-      await this.ports.audit.refused(action, "token_already_issued");
-      this.presenter.present({ ...refusal("token_already_issued"), person });
+      await this.stale(action, person);
       return;
     }
     const issued = await this.ports.issuer.issue();
+    // Strictly later than the token it replaces, so the form's nonce is never reused.
+    const createdAt = Math.max(this.ports.clock.now(), (current ?? 0) + 1);
+    const token = { sha256: issued.sha256, createdAt };
+    if (!(await this.ports.people.replaceToken(person.id, current, token))) {
+      await this.stale(action, person);
+      return;
+    }
     const rotated = person.token !== null;
-    const updated = {
-      ...person,
-      token: { sha256: issued.sha256, createdAt: this.ports.clock.now() },
-    };
-    await this.ports.people.save(updated);
+    const updated = { ...person, token };
     await this.ports.audit.done(action, `person ${person.id} ${rotated ? "rotated" : "generated"}`);
     this.presenter.present({
       ok: true,
@@ -63,6 +66,16 @@ export class IssuePersonTokenInteractor implements IssuePersonTokenInputBoundary
       rotated,
       accounts: await this.accountsOf(updated.id),
     });
+  }
+
+  /**
+   * The form named a token the person no longer has (a reload re-sent it, or a concurrent request
+   * just rotated it): nothing changes, and the panel shows the person as stored now.
+   */
+  private async stale(action: AuditedAction, person: Person): Promise<void> {
+    await this.ports.audit.refused(action, "token_already_issued");
+    const latest = (await this.ports.people.get(person.id)) ?? person;
+    this.presenter.present({ ...refusal("token_already_issued"), person: latest });
   }
 
   private async accountsOf(person: IssuePersonTokenInputData["personId"]): Promise<Account[]> {

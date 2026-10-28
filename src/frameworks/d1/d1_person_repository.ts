@@ -1,5 +1,6 @@
 import { personId, type PersonId } from "../../entities/identity/ids";
-import type { Person } from "../../entities/people/person";
+import type { Person, PersonToken } from "../../entities/people/person";
+import type { Instant } from "../../entities/time/instant";
 import type { PersonRepository } from "../../use_cases/ports/person_repository";
 
 interface PersonRow {
@@ -62,6 +63,18 @@ export class D1PersonRepository implements PersonRepository {
         person.createdAt,
       )
       .run();
+  }
+
+  /** `IS ?2` matches NULL to NULL, so "no token yet" is a comparison like any other. */
+  async replaceToken(id: PersonId, expected: Instant | null, token: PersonToken): Promise<boolean> {
+    const result = await this.db
+      .prepare(
+        "UPDATE people SET token_sha256 = ?3, token_created_at = ?4 " +
+          "WHERE id = ?1 AND token_created_at IS ?2",
+      )
+      .bind(id, expected, token.sha256, token.createdAt)
+      .run();
+    return result.meta.changes === 1;
   }
 
   /** One batch, so an account is never left assigned to a person who is gone. */
