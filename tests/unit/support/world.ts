@@ -66,6 +66,8 @@ import { MediaAttachments } from "../../../src/use_cases/authoring/media_attachm
 import { PartsValidator } from "../../../src/use_cases/authoring/parts_validator";
 import { PostCommand } from "../../../src/use_cases/authoring/post_command";
 import { MediaIntake } from "../../../src/use_cases/media/media_intake";
+import { PartUpload } from "../../../src/use_cases/media/part_upload";
+import { MemoryPendingUploads } from "../../../src/frameworks/memory/memory_pending_uploads";
 import type { Locks } from "../../../src/use_cases/ports/locks";
 import { AccountRecovery } from "../../../src/use_cases/run_services/account_recovery";
 import { AccountXGatewayService } from "../../../src/use_cases/run_services/account_x_gateway_service";
@@ -213,6 +215,8 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
   const command = new PostCommand(reader, steps, guard, actionAudit);
   const accountCommand = new AccountCommand(accounts, guard, actionAudit);
   const intake = new MediaIntake({ media, blobs, usage, hasher, audit: actionAudit, ids, clock });
+  const uploads = new MemoryPendingUploads();
+  const parts = new PartUpload({ uploads, media, usage, hasher, intake, ids, clock });
   const owners = new MemoryAccountOwners(accounts);
   const people = new MemoryPersonRepository(owners);
   const issuer = new SequentialTokenIssuer();
@@ -308,6 +312,8 @@ export function makeWorld(options: { readonly locks?: "mutex" | "none" } = {}) {
     command,
     accountCommand,
     intake,
+    uploads,
+    parts,
     seedAccount,
     stage,
   };
