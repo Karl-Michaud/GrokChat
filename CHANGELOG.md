@@ -15,6 +15,8 @@ This file records every notable change to GrokChat: what changed, and why. It fo
 
 ### Added
 
+- **README** (2026-11-04): what GrokChat is, architecture diagrams (system context, layers, publish sequence, post lifecycle, data model), local quick start, deploying to Cloudflare, running the dashboard, creating bot tokens and connecting a Grok bot, with quick links to each section. **Why:** the repo had no entry point for a new reader; the runbook and plan are long and written for the owner.
+
 - **Bots upload their own images** (GROKCHAT-20):
   - MCP tool **`upload_media`** (15 tools): a bot sends a PNG, JPEG, WebP or GIF it made in its own workspace as base64, in one call or in parts of at most 256 KiB decoded, each with its own SHA-256 and the whole file's SHA-256. A garbled part is refused at once with `part_hash_mismatch` naming the part, so only that part is resent; resending a part is idempotent. When every part is in, the file is assembled, its hash checked (`file_hash_mismatch`) and stored through `MediaIntake` with the new source `bot_upload` (magic bytes, X's limits, the R2 quota guard, the same cleanup), audited as `media.bot_upload`; it returns `media_id` for `create_post` / `create_thread`;
   - scoped to the token's person's accounts; other refusals: `bad_base64`, `part_out_of_range`, `part_too_large`, `upload_not_found`, `upload_expired`, `upload_mismatch`, `not_media`, `too_large`, `media_quota`, `invalid_label`, `scope`, `not_found`;
