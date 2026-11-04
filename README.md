@@ -2,9 +2,9 @@
 
 # GrokChat
 
-**An MCP server and dashboard that lets Grok bots publish to X, safely, on Cloudflare's free plan.**
+**GrokChat is a remote MCP (Model Context Protocol) server, with an admin dashboard, that lets Grok bots publish to X, safely, on Cloudflare's free plan.**
 
-Grok bots write the posts. GrokChat schedules, publishes, measures, and keeps a record of every call and what it cost.
+Grok bots connect to the GrokChat MCP server at `/mcp` and call its tools to post. GrokChat schedules, publishes, measures, and keeps a record of every call and what it cost.
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers%20%C2%B7%20D1%20%C2%B7%20DO%20%C2%B7%20R2-F38020?logo=cloudflare&logoColor=white)
@@ -56,6 +56,8 @@ Grok bots write the posts. GrokChat schedules, publishes, measures, and keeps a 
 ---
 
 ## Overview
+
+GrokChat is an **MCP server**: it exposes 15 tools over the Model Context Protocol (Streamable HTTP, at `https://grokchat.grokchat.workers.dev/mcp`), which a Grok bot adds as a remote connector. It also serves an admin dashboard from the same Cloudflare Worker.
 
 Each person on the team runs a Grok "chief of staff" bot. The bot researches X and writes posts in its own voice. To publish, it calls GrokChat's **MCP server**. GrokChat is the only component that talks to X.
 
