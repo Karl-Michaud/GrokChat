@@ -1,0 +1,27 @@
+{
+ "doCalls": {
+  "n": 600,
+  "ok": 600,
+  "failed": 0,
+  "firstFailure": null,
+  "errors": {}
+ },
+ "d1": {
+  "n": 600,
+  "ok": 400,
+  "failed": 200,
+  "firstFailure": 401,
+  "errors": {
+   "Error: Too many API requests by single Worker invocation. To configure this limit, refer to https://developers.cloudflare.com/workers/wrangler/configuration/#limits": 200
+  }
+ },
+ "fetch": {
+  "n": 0,
+  "ok": 0,
+  "failed": 0,
+  "firstFailure": null,
+  "errors": {},
+  "attempts": []
+ }
+}
+[http 200 time 166.593434s]

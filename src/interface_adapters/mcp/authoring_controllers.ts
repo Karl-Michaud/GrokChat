@@ -1,0 +1,115 @@
+/**
+ * The MCP controllers that change posts and media, one per tool (plan §3.4). Framework-free: the
+ * shim passes the entity Actor and the checked arguments as plain values; the controller builds the
+ * use case's input data and runs it.
+ */
+import type { Actor } from "../../entities/identity/actor";
+import { accountId, idempotencyKey, postId, stagedMediaId } from "../../entities/identity/ids";
+import type { PartInput } from "../../use_cases/authoring/parts_validator";
+import type { CancelPostInputBoundary } from "../../use_cases/cancel_post/input_boundary";
+import type { CreatePostInputBoundary } from "../../use_cases/create_post/input_boundary";
+import type { DeletePostInputBoundary } from "../../use_cases/delete_post/input_boundary";
+import type { EditPostInputBoundary } from "../../use_cases/edit_post/input_boundary";
+import type { StageMediaFromUrlInputBoundary } from "../../use_cases/stage_media_from_url/input_boundary";
+import type { UploadMediaInputBoundary } from "../../use_cases/upload_media/input_boundary";
+import { instantArg } from "./time_args";
+import type {
+  CreatePostArgs,
+  CreateThreadArgs,
+  EditPostArgs,
+  PartArgs,
+  PostArgs,
+  StageMediaArgs,
+  UploadMediaArgs,
+} from "./tool_args";
+
+function partInput(part: PartArgs): PartInput {
+  return { text: part.text, media: (part.media_ids ?? []).map(stagedMediaId) };
+}
+
+/** `create_post`: a single post is a thread of one, and a reply is a post with `in_reply_to`. */
+export class CreatePostController {
+  constructor(private readonly useCase: CreatePostInputBoundary) {}
+
+  handle(actor: Actor, args: CreatePostArgs): Promise<void> {
+    return this.useCase.execute({
+      actor,
+      accountId: accountId(args.account_id),
+      parts: [partInput(args)],
+      publishAt: instantArg(args.publish_at),
+      replyTo: args.in_reply_to ?? null,
+      idempotencyKey: idempotencyKey(args.idempotency_key),
+    });
+  }
+}
+
+export class CreateThreadController {
+  constructor(private readonly useCase: CreatePostInputBoundary) {}
+
+  handle(actor: Actor, args: CreateThreadArgs): Promise<void> {
+    return this.useCase.execute({
+      actor,
+      accountId: accountId(args.account_id),
+      parts: args.parts.map(partInput),
+      publishAt: instantArg(args.publish_at),
+      replyTo: args.in_reply_to ?? null,
+      idempotencyKey: idempotencyKey(args.idempotency_key),
+    });
+  }
+}
+
+export class StageMediaFromUrlController {
+  constructor(private readonly useCase: StageMediaFromUrlInputBoundary) {}
+
+  handle(actor: Actor, args: StageMediaArgs): Promise<void> {
+    return this.useCase.execute({ actor, accountId: accountId(args.account_id), url: args.url });
+  }
+}
+
+/** `upload_media` (GROKCHAT-20): a single-part upload is part 0 of 1; hashes are lowercased. */
+export class UploadMediaController {
+  constructor(private readonly useCase: UploadMediaInputBoundary) {}
+
+  handle(actor: Actor, args: UploadMediaArgs): Promise<void> {
+    return this.useCase.execute({
+      actor,
+      accountId: accountId(args.account_id),
+      label: args.label ?? "",
+      fileSha256: args.sha256.toLowerCase(),
+      data: args.data_base64,
+      partSha256: args.part_sha256.toLowerCase(),
+      uploadId: args.upload_id ?? null,
+      partIndex: args.part_index ?? 0,
+      partCount: args.part_count ?? 1,
+    });
+  }
+}
+
+export class EditPostController {
+  constructor(private readonly useCase: EditPostInputBoundary) {}
+
+  handle(actor: Actor, args: EditPostArgs): Promise<void> {
+    return this.useCase.execute({
+      actor,
+      postId: postId(args.post_id),
+      parts: args.parts === undefined ? null : args.parts.map(partInput),
+      publishAt: instantArg(args.publish_at),
+    });
+  }
+}
+
+export class CancelPostController {
+  constructor(private readonly useCase: CancelPostInputBoundary) {}
+
+  handle(actor: Actor, args: PostArgs): Promise<void> {
+    return this.useCase.execute({ actor, postId: postId(args.post_id) });
+  }
+}
+
+export class DeletePostController {
+  constructor(private readonly useCase: DeletePostInputBoundary) {}
+
+  handle(actor: Actor, args: PostArgs): Promise<void> {
+    return this.useCase.execute({ actor, postId: postId(args.post_id) });
+  }
+}

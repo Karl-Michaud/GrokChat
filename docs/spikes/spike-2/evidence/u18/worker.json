@@ -1,0 +1,9 @@
+{
+ "http://127.0.0.1/": "status 403 server=cloudflare cf-ray=yes body=\"error code: 1003 \" (1 ms)",
+ "http://localhost/": "status 403 server=cloudflare cf-ray=yes body=\"error code: 1003 \" (1 ms)",
+ "http://10.0.0.1/": "status 403 server=cloudflare cf-ray=yes body=\"error code: 1003 \" (1 ms)",
+ "http://192.168.1.1/": "status 403 server=cloudflare cf-ray=yes body=\"error code: 1003 \" (1 ms)",
+ "http://169.254.169.254/": "status 403 server=cloudflare cf-ray=yes body=\"error code: 1003 \" (1 ms)",
+ "http://[::1]/": "status 403 server=cloudflare cf-ray=yes body=\"error code: 1003 \" (2 ms)"
+}
+[http 200 time 0.149661s]

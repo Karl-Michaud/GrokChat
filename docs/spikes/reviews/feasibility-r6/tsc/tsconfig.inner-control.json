@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.base.json", "include": ["src/entities/**/*.ts", "src/use_cases/**/*.ts"], "compilerOptions": { "lib": ["ES2023"] } }

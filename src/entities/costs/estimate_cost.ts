@@ -1,0 +1,56 @@
+import { hasSchemeUrl } from "../text/post_text";
+
+/** The X calls GrokChat makes, as priced (plan §1.1, §2). */
+export type XOperation =
+  | { readonly kind: "create"; readonly text: string }
+  | { readonly kind: "delete" }
+  | { readonly kind: "read"; readonly resources: number }
+  | { readonly kind: "user_read" }
+  | { readonly kind: "media_upload" }
+  | { readonly kind: "oauth" };
+
+export type XOperationKind = XOperation["kind"];
+
+/** Money in millionths of a US dollar, so sums are exact. */
+export type CostEstimate =
+  { readonly kind: "usd"; readonly micros: number } | { readonly kind: "unknown" };
+
+/** X's pay-per-use prices, 2026-10-27, in micro-dollars (plan §1.1). */
+export const PRICES = {
+  create: 15_000,
+  createWithUrl: 200_000,
+  delete: 10_000,
+  read: 5_000,
+  ownedRead: 1_000,
+  /** User: Read, one user's `public_metrics` (the daily follower snapshot, GROKCHAT-15). */
+  userRead: 10_000,
+} as const;
+
+const usd = (micros: number): CostEstimate => ({ kind: "usd", micros });
+
+/** A create's price: $0.20 with a scheme URL, else $0.015, for every account (U4). */
+export function createMicros(text: string): number {
+  return hasSchemeUrl(text) ? PRICES.createWithUrl : PRICES.create;
+}
+
+/**
+ * A post with a scheme URL (`https://…`) is billed "with URL" at $0.20; a bare domain is billed as
+ * a plain post at $0.015 (U4). Reads are owned reads at $0.001 only for the app owner's account.
+ * Media upload has no price row; OAuth calls are free (U1).
+ */
+export function estimateCost(operation: XOperation, isAppOwner: boolean): CostEstimate {
+  switch (operation.kind) {
+    case "create":
+      return usd(createMicros(operation.text));
+    case "delete":
+      return usd(PRICES.delete);
+    case "read":
+      return usd(operation.resources * (isAppOwner ? PRICES.ownedRead : PRICES.read));
+    case "user_read":
+      return usd(PRICES.userRead);
+    case "media_upload":
+      return { kind: "unknown" };
+    case "oauth":
+      return usd(0);
+  }
+}

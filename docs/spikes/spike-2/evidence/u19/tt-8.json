@@ -1,0 +1,12 @@
+{
+ "run": "tt8",
+ "len": 280,
+ "weightedLength": 239,
+ "valid": true,
+ "urls": [
+  "https://example.com/releases/spring-2026",
+  "https://docs.example.org/guides/migrate?from=v1"
+ ],
+ "ms": 0
+}
+[http 200 time 0.115853s]

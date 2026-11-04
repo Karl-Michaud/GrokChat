@@ -1,0 +1,38 @@
+// GrokChat Worker (plan §3.6): https://grokchat.grokchat.workers.dev. Bindings, vars and the three
+// Cron Triggers are declared here; secrets are set with `wrangler secret put` (docs/runbook.md).
+// Deployed by hand (`wrangler deploy`) from a release on main.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "grokchat",
+  "main": "src/main.ts",
+  // Pinned to the date of the workerd bundled with @cloudflare/vitest-plugin 1.4.8 (workerd 2026-10-23),
+  // so tests and production run the same compatibility behaviour.
+  "compatibility_date": "2026-10-23",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "grokchat",
+      // The production database (GROKCHAT-13). Tests and `wrangler dev` use a local D1.
+      "database_id": "833a92d1-8773-431f-b1d7-48218e731d93",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "ACCOUNT", "class_name": "AccountPublisher" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AccountPublisher"] }],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "grokchat-media" }],
+  "vars": {
+    // Exactly as browsers send Origin: the dashboard's Origin check and the OAuth callback
+    // (<origin>/oauth/x/callback, registered on the X app). `.dev.vars` overrides it for `wrangler dev`.
+    "GROKCHAT_PUBLIC_ORIGIN": "https://grokchat.grokchat.workers.dev",
+    // Comma-separated hosts `stage_media_from_url` may fetch from (plan §3.5, U18), each matched
+    // exactly. imgen.x.ai is Grok's image host (GROKCHAT-18): public JPEG links, valid ~4 h.
+    "GROKCHAT_MEDIA_HOSTS": "imgen.x.ai",
+  },
+  // scheduled() dispatches by controller.cron (src/frameworks/cron/dispatch.ts, CRONS): publish
+  // every minute, reconcile every 10, metrics and the staged-media cleanup every 15. 3 of 5 allowed.
+  "triggers": { "crons": ["* * * * *", "*/10 * * * *", "*/15 * * * *"] },
+}

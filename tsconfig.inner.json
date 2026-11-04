@@ -1,0 +1,9 @@
+{
+  "$comment": "The inner layers (plan §6, A5): no ambient types at all, so a Workers, DOM or Node global used in entities, use_cases or interface_adapters fails to compile. tests/architecture/ambient_types.test.ts proves it with a fixture.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "lib": ["ES2023"]
+  },
+  "include": ["src/entities/**/*.ts", "src/use_cases/**/*.ts", "src/interface_adapters/**/*.ts"]
+}

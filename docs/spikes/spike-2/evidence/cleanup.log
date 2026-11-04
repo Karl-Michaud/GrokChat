@@ -1,0 +1,14 @@
+
+ ⛅️ wrangler 4.153.0
+────────────────────
+Successfully deleted grokchat-spike2
+
+ ⛅️ wrangler 4.153.0
+────────────────────
+Resource location: remote 
+
+About to delete remote database DB 'grokchat-spike2' (c7f62732-a221-4c2c-b9d3-0f4a87f095bd).
+This action is irreversible and will permanently delete all data in the database.
+
+Deleting...
+Deleted 'grokchat-spike2' successfully.

@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.inner.json", "exclude": ["src/use_cases/bad_fixture.ts"] }

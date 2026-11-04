@@ -1,0 +1,11 @@
+{
+  "name": "grokchat-spike-ts",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "d1_databases": [{ "binding": "DB", "database_name": "grokchat-spike-ts" }],
+  "durable_objects": { "bindings": [{ "name": "ACCOUNT", "class_name": "AccountPublisher" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AccountPublisher"] }],
+  "triggers": { "crons": ["* * * * *"] }
+}

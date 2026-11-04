@@ -1,0 +1,47 @@
+{
+ "before": {
+  "v": 7,
+  "l": "PUBLISHING",
+  "p1": "SENDING:-",
+  "a": 0,
+  "c": 0,
+  "g": 0
+ },
+ "stale": {
+  "label": "stale version 6",
+  "result": "error Error: D1_ERROR: NOT NULL constraint failed: version_guard.ok: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_NOTNULL)",
+  "after": {
+   "v": 7,
+   "l": "PUBLISHING",
+   "p1": "SENDING:-",
+   "a": 0,
+   "c": 0,
+   "g": 0
+  }
+ },
+ "wrongLifecycle": {
+  "label": "current version 7, wrong lifecycle DONE",
+  "result": "error Error: D1_ERROR: NOT NULL constraint failed: version_guard.ok: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_NOTNULL)",
+  "after": {
+   "v": 7,
+   "l": "PUBLISHING",
+   "p1": "SENDING:-",
+   "a": 0,
+   "c": 0,
+   "g": 0
+  }
+ },
+ "current": {
+  "label": "current version 7, lifecycle PUBLISHING",
+  "result": "committed",
+  "after": {
+   "v": 8,
+   "l": "PUBLISHING",
+   "p1": "SENT:x-111",
+   "a": 1,
+   "c": 1,
+   "g": 0
+  }
+ }
+}
+[http 200 time 0.735486s]

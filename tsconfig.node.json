@@ -1,0 +1,20 @@
+{
+  "$comment": "The plain-Node project: the tests of the pure layers, the architecture tests, the tool configs, and the scripts (checked from their JSDoc).",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": [
+    "tests/unit/**/*.ts",
+    "tests/invariants/**/*.ts",
+    "tests/architecture/**/*.ts",
+    "tests/live/**/*.ts",
+    "src/**/*.d.ts",
+    "*.config.ts",
+    "scripts/**/*.mjs"
+  ],
+  "exclude": ["tests/architecture/fixtures/**"]
+}
